@@ -20,6 +20,7 @@ import { EmptyHistoryState } from './components/EmptyHistoryState';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthModal } from './components/auth/AuthModal';
+import { ScrapedBlog } from './utils/blogScraper';
 
 function App() {
   const [documents, setDocuments] = useState<ProcessedDocument[]>([]);
@@ -227,9 +228,52 @@ function App() {
         type: doc.type
       }));
       
+      // Process blog links using OpenAI web search
+      let processedBlogs: ScrapedBlog[] = [];
+      if (blogLinks.length > 0) {
+        try {
+          // Import the blog scraper function
+          const { scrapeBlogContent } = await import('./utils/blogScraper');
+          
+          // Process each blog link
+          console.log(`Processing ${blogLinks.length} blog links with OpenAI web search...`);
+          
+          // Process blogs sequentially to avoid rate limits
+          for (const url of blogLinks) {
+            try {
+              const scrapedBlog = await scrapeBlogContent(url);
+              processedBlogs.push(scrapedBlog);
+              console.log(`Successfully processed blog: ${url}`);
+            } catch (error) {
+              const blogError = error as Error;
+              console.error(`Error processing blog ${url}:`, blogError);
+              // Add the URL with error information
+              processedBlogs.push({
+                url,
+                title: url,
+                content: `Error processing blog content: ${blogError.message || 'Unknown error'}`,
+                status: 'error' as const,
+                error: blogError.message || 'Unknown error'
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Error importing or using blog scraper:", error);
+          // Fall back to sending just the URLs if scraping fails
+          processedBlogs = blogLinks.map(url => ({
+            url,
+            title: url,
+            content: "URL submitted without processing due to scraper error",
+            status: 'error' as const,
+            error: "Blog scraping module failed to load"
+          }));
+        }
+      }
+      
       const requestPayload = {
         documents: processedDocuments,
-        blogLinks,
+        blogs: processedBlogs, // Send processed blog content
+        blogLinks, // Also send original links as fallback
         productLines,
         timestamp: new Date().toISOString()
       };

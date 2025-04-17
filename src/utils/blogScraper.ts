@@ -34,7 +34,7 @@ export async function scrapeBlogContent(url: string): Promise<ScrapedBlog> {
 
     // Use OpenAI's web search to extract the content
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-search-preview",
+      model: "gpt-4o-search-preview", // Using the appropriate model for web search
       web_search_options: {
         search_context_size: "high", // Using high to ensure we get full content
       },
@@ -67,26 +67,33 @@ If you cannot access the specific URL, please indicate that clearly in your resp
       ],
     });
 
+    // Check if there was a response
+    if (!response.choices || response.choices.length === 0) {
+      throw new Error('No response from OpenAI API');
+    }
+
     // Extract the content from the API response
     const content = response.choices[0].message.content || '';
     
     // Extract citations if available
-    const citations = response.choices[0].message.annotations?.filter(
-      annotation => annotation.type === 'url_citation'
-    ).map(annotation => {
-      if ('url_citation' in annotation) {
-        return {
-          url: annotation.url_citation.url,
-          title: annotation.url_citation.title
-        };
-      }
-      return null;
-    }).filter((citation): citation is {url: string; title: string} => citation !== null) || [];
+    const citations = response.choices[0].message.annotations
+      ?.filter(annotation => annotation.type === 'url_citation')
+      .map(annotation => {
+        if ('url_citation' in annotation) {
+          return {
+            url: annotation.url_citation.url,
+            title: annotation.url_citation.title
+          };
+        }
+        return null;
+      })
+      .filter((citation): citation is {url: string; title: string} => citation !== null) || [];
 
     // If the content indicates inability to access the URL
     if (content.toLowerCase().includes("unable to access") || 
         content.toLowerCase().includes("cannot access") ||
-        content.toLowerCase().includes("isn't available")) {
+        content.toLowerCase().includes("isn't available") ||
+        content.toLowerCase().includes("could not access")) {
       return {
         url,
         title: url,
@@ -127,6 +134,19 @@ If you cannot access the specific URL, please indicate that clearly in your resp
         title: url,
         content: `[OpenAI API key is missing or invalid]\n\nTo extract blog content, you need to set your OpenAI API key in the environment variables (VITE_OPENAI_API_KEY).\n\nFor now, we've submitted the URL for reference.`,
         error: "OpenAI API key is missing or invalid",
+        status: 'error'
+      };
+    }
+    
+    // Handle specific API errors
+    if (error instanceof Error && 
+        (error.message.includes('model') || 
+         error.message.includes('API version'))) {
+      return {
+        url,
+        title: url,
+        content: `[OpenAI API model error]\n\nThere was an issue with the OpenAI API model used for web search. The model 'gpt-4o-search-preview' might not be available or there's an incompatibility with the API version.\n\nPlease check your API access and model availability.`,
+        error: "OpenAI API model error: " + error.message,
         status: 'error'
       };
     }
