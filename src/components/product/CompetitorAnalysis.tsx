@@ -139,63 +139,35 @@ export function CompetitorAnalysis({ product, onUpdate, onUpdateCompetitors }: C
   };
 
   const handleUpdateCompetitors = (competitors: any) => {
-    console.log("CompetitorAnalysis.handleUpdateCompetitors called with:", JSON.stringify(competitors, null, 2));
+    console.log("CompetitorAnalysis.handleUpdateCompetitors called with:", competitors);
     
-    // Check if competitors object is valid
-    if (!competitors) {
-      console.warn("Received null or undefined competitors data");
-      return;
-    }
+    // Ensure we have valid competitorTypes within the competitors object
+    const updatedCompetitors = {
+      direct_competitors: Array.isArray(competitors.direct_competitors) 
+        ? competitors.direct_competitors : [],
+      niche_competitors: Array.isArray(competitors.niche_competitors)
+        ? competitors.niche_competitors : [],
+      broader_competitors: Array.isArray(competitors.broader_competitors)
+        ? competitors.broader_competitors : []
+    };
     
-    // Validate direct_competitors
-    if (!Array.isArray(competitors.direct_competitors)) {
-      console.warn("direct_competitors is not an array:", competitors.direct_competitors);
-      competitors.direct_competitors = [];
-    }
-    
-    // Validate niche_competitors
-    if (!Array.isArray(competitors.niche_competitors)) {
-      console.warn("niche_competitors is not an array:", competitors.niche_competitors);
-      competitors.niche_competitors = [];
-    }
-    
-    // Validate broader_competitors
-    if (!Array.isArray(competitors.broader_competitors)) {
-      console.warn("broader_competitors is not an array:", competitors.broader_competitors);
-      competitors.broader_competitors = [];
-    }
-    
-    if (competitors) {
-      // Ensure the structure is as expected and create a completely new object
-      // Limit each category to 3 competitors
-      const processedCompetitors = {
-        direct_competitors: Array.isArray(competitors.direct_competitors) 
-          ? [...competitors.direct_competitors].slice(0, 3) : [],
-        niche_competitors: Array.isArray(competitors.niche_competitors)
-          ? [...competitors.niche_competitors].slice(0, 3) : [],
-        broader_competitors: Array.isArray(competitors.broader_competitors)
-          ? [...competitors.broader_competitors].slice(0, 3) : []
-      };
+    // Call the parent's onUpdateCompetitors function with the updated competitors
+    if (onUpdateCompetitors) {
+      console.log("Calling parent's onUpdateCompetitors with:", updatedCompetitors);
       
-      console.log("Processed competitors for update:", JSON.stringify(processedCompetitors, null, 2));
-      console.log("Calling onUpdateCompetitors with processed data");
+      // Make sure to preserve the competitorAnalysisUrl if it exists
+      const preservedUrl = product.competitorAnalysisUrl;
+      console.log("Preserving competitorAnalysisUrl:", preservedUrl);
       
-      // Check if we have any competitors after processing
-      const hasCompetitors = 
-        processedCompetitors.direct_competitors.length > 0 || 
-        processedCompetitors.niche_competitors.length > 0 || 
-        processedCompetitors.broader_competitors.length > 0;
-        
-      if (!hasCompetitors) {
-        console.warn("No competitors found after processing");
+      onUpdateCompetitors(updatedCompetitors);
+      
+      // If we have a URL but it's about to be lost, reapply it
+      if (preservedUrl && !product.competitorAnalysisUrl) {
+        console.log("Reapplying preserved URL:", preservedUrl);
+        onUpdate(preservedUrl);
       }
-      
-      // Update the parent state with the processed competitors
-      if (onUpdateCompetitors) {
-        onUpdateCompetitors(processedCompetitors);
-      } else {
-        console.error("onUpdateCompetitors callback is not defined");
-      }
+    } else {
+      console.warn("onUpdateCompetitors is not defined");
     }
   };
 
@@ -333,6 +305,38 @@ export function CompetitorAnalysis({ product, onUpdate, onUpdateCompetitors }: C
         throw new Error('Invalid response format: not a Google Doc URL or parseable JSON');
       }
     } else if (typeof response === 'object') {
+      // Check for the expected structure: {company, product, competitors}
+      if (response.company && response.product && response.competitors) {
+        console.log("Found expected competitor data structure:", JSON.stringify(response, null, 2));
+        
+        // Ensure competitors has the right structure
+        const validCompetitors = {
+          direct_competitors: Array.isArray(response.competitors.direct_competitors) 
+            ? response.competitors.direct_competitors : [],
+          niche_competitors: Array.isArray(response.competitors.niche_competitors) 
+            ? response.competitors.niche_competitors : [],
+          broader_competitors: Array.isArray(response.competitors.broader_competitors) 
+            ? response.competitors.broader_competitors : []
+        };
+        
+        if (onUpdateCompetitors) {
+          console.log("Updating competitors with direct format:", JSON.stringify(validCompetitors, null, 2));
+          onUpdateCompetitors(validCompetitors);
+        } else {
+          console.warn("onCompetitorsReceived callback is not defined");
+        }
+        
+        // Also check for URL fields in the response
+        const url = response.analysisUrl || response.documentUrl || response.url || response.google_doc || response.competitorAnalysisUrl;
+        if (url && typeof url === 'string' && url.includes('docs.google.com')) {
+          console.log("Found Google Docs URL in response object:", url);
+          processUrl(url.trim());
+        }
+        
+        return;
+      }
+      
+      // If not in expected format, process with handleParsedObject
       handleParsedObject(response);
     } else {
       throw new Error('Invalid response format: neither string nor object');
@@ -343,24 +347,26 @@ export function CompetitorAnalysis({ product, onUpdate, onUpdateCompetitors }: C
   const handleParsedObject = (obj: any) => {
     // Check for Google Doc URL in common fields
     const url = obj.analysisUrl || obj.documentUrl || obj.url || obj.google_doc || obj.competitorAnalysisUrl;
+    let foundUrl = false;
     
-    if (url && typeof url === 'string') {
-      if (url.includes('docs.google.com')) {
-        console.log("Found Google Docs URL in object response:", url);
-        processUrl(url.trim());
-        return;
-      }
+    if (url && typeof url === 'string' && url.includes('docs.google.com')) {
+      console.log("Found Google Docs URL in object response:", url);
+      processUrl(url.trim());
+      foundUrl = true;
     }
     
     // Check for competitors data in different possible formats
+    let foundCompetitors = false;
     if (obj.competitors && onUpdateCompetitors) {
       console.log("Found competitors data in response object:", obj.competitors);
       onUpdateCompetitors(obj.competitors);
+      foundCompetitors = true;
     } else if (obj.result) {
       // Check if result is an object with competitors
       if (typeof obj.result === 'object' && obj.result.competitors && onUpdateCompetitors) {
         console.log("Found competitors data in result object:", obj.result.competitors);
         onUpdateCompetitors(obj.result.competitors);
+        foundCompetitors = true;
       } 
       // Check if result is a string that might be JSON
       else if (typeof obj.result === 'string') {
@@ -369,6 +375,7 @@ export function CompetitorAnalysis({ product, onUpdate, onUpdateCompetitors }: C
           if (resultObj.competitors && onUpdateCompetitors) {
             console.log("Found competitors data in parsed result string:", resultObj.competitors);
             onUpdateCompetitors(resultObj.competitors);
+            foundCompetitors = true;
           }
           
           // Also check for URL in the parsed result
@@ -376,7 +383,7 @@ export function CompetitorAnalysis({ product, onUpdate, onUpdateCompetitors }: C
           if (resultUrl && typeof resultUrl === 'string' && resultUrl.includes('docs.google.com')) {
             console.log("Found Google Docs URL in parsed result string:", resultUrl);
             processUrl(resultUrl.trim());
-            return;
+            foundUrl = true;
           }
         } catch (e) {
           console.warn("Could not parse result string as JSON");
@@ -384,9 +391,9 @@ export function CompetitorAnalysis({ product, onUpdate, onUpdateCompetitors }: C
       }
     }
     
-    // If we got this far but haven't returned, we didn't find a valid URL
-    if (!url || typeof url !== 'string' || !url.includes('docs.google.com')) {
-      throw new Error('No valid analysis URL found in response');
+    // If we found neither a URL nor competitors data, throw an error
+    if (!foundUrl && !foundCompetitors) {
+      throw new Error('No valid analysis URL or competitors data found in response');
     }
   };
 
@@ -606,45 +613,8 @@ export function CompetitorAnalysis({ product, onUpdate, onUpdateCompetitors }: C
         </div>
       }
       
-      {product.competitorAnalysisUrl && (
-        <div className="bg-secondary-800 rounded-lg border border-primary-500/20 p-3 flex items-center justify-between mt-4">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-secondary-900 border border-primary-500/20 flex items-center justify-center">
-              <FileText size={16} className="text-primary-400" />
-            </div>
-            <div className="truncate">
-              <p className="text-sm font-medium text-primary-400 truncate">
-                Competitor Analysis Report
-              </p>
-              <a
-                href={product.competitorAnalysisUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (!product.competitorAnalysisUrl) {
-                    toast.error('Document URL is missing. Please try generating the report again.');
-                    return;
-                  }
-                  // Check if it's a valid URL
-                  try {
-                    const url = new URL(product.competitorAnalysisUrl);
-                    window.open(url.toString(), '_blank');
-                  } catch (err) {
-                    console.error('Invalid URL:', err);
-                    toast.error('Invalid document URL. Please try generating the report again.');
-                  }
-                }}
-                className="text-xs text-primary-300 hover:text-primary-200 flex items-center w-fit"
-              >
-                View Report <ExternalLink size={10} className="ml-1" />
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {!product.competitors && !product.competitorAnalysisUrl && (
+      {/* Remove the competitorAnalysisUrl section and only keep the 'no competitors' message */}
+      {!product.competitors && (
         <p className="text-sm text-gray-400 italic">
           No competitor analysis available yet. Click the button above to generate one.
         </p>

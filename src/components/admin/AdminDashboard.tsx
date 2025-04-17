@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { ProductAnalysis } from '../../types/product/types';
-import { ResearchResult, getApprovedProducts, updateApprovedProductStatus, getResearchResultById } from '../../lib/research';
+import { ResearchResult, getApprovedProducts, updateApprovedProductStatus, getResearchResultById, deleteApprovedProduct } from '../../lib/research';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
 import { Eye, CheckCircle, XCircle, Loader2, RefreshCw, UserCircle, ArrowLeft } from 'lucide-react';
@@ -477,6 +477,30 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setUserProducts(updatedProducts);
   };
 
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      await deleteApprovedProduct(id);
+      
+      // Immediately update the UI by filtering out the deleted product
+      if (selectedUser) {
+        // If we're in user view, update userProducts
+        setUserProducts(prevProducts => prevProducts.filter(product => product.id !== id));
+      }
+      // Update the main products list
+      setApprovedProducts(prevProducts => prevProducts.filter(product => product.id !== id));
+      
+      // Close the modal if it's open
+      if (isDetailModalOpen) {
+        closeDetailModal();
+      }
+      
+      toast.success('Product deleted successfully');
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast.error('Failed to delete product');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-secondary-900 text-white p-6">
       <div className="max-w-7xl mx-auto">
@@ -664,6 +688,15 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               </button>
                             </>
                           )}
+                          {product.reviewed_status === 'rejected' && (
+                            <button
+                              onClick={() => handleDeleteProduct(product.id)}
+                              className="p-2 bg-red-900/40 rounded-full hover:bg-red-800/60 transition-colors"
+                              title="Delete"
+                            >
+                              <XCircle size={16} className="text-red-400" />
+                            </button>
+                          )}
                     </div>
                   </div>
                 ))}
@@ -776,6 +809,18 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         Reject
                       </button>
                     </>
+                  )}
+                  {selectedProduct!.reviewed_status === 'rejected' && (
+                    <button 
+                      onClick={() => {
+                        handleDeleteProduct(selectedProduct!.id);
+                        closeDetailModal();
+                      }}
+                      className="px-4 py-2 bg-red-600/80 text-white rounded-md hover:bg-red-500 transition-colors flex items-center gap-2"
+                    >
+                      <XCircle size={16} />
+                      Delete
+                    </button>
                   )}
                   <button 
                     onClick={closeDetailModal}

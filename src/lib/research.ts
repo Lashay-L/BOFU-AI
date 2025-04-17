@@ -215,3 +215,18 @@ export async function deleteResearchResult(id: string): Promise<void> {
     throw error;
   }
 }
+
+// Function to delete an approved product
+export async function deleteApprovedProduct(id: string): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('approved_products')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('[research] Error deleting approved product:', error);
+    throw error;
+  }
+}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ProductAnalysis, CompetitorsData } from '../../types/product/types';
 import { ProductHeader } from './ProductHeader';
@@ -7,7 +7,7 @@ import { CompetitorAnalysis } from './CompetitorAnalysis';
 import { ProductDescription } from './ProductDescription';
 import { TargetPersona } from './TargetPersona';
 import { Capabilities } from './Capabilities';
-import { Loader2, Save, CheckSquare, Send } from 'lucide-react';
+import { Loader2, Save, CheckSquare, Send, FileText, ExternalLink } from 'lucide-react';
 import { sendToAirOps } from '../../lib/airops';
 import { toast } from 'react-hot-toast';
 
@@ -40,7 +40,59 @@ function ProductCard({
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
   const [originalApprovedProduct, setOriginalApprovedProduct] = React.useState<ProductAnalysis | null>(null);
   const [isSendingToAirOps, setIsSendingToAirOps] = React.useState(false);
+  // Store the competitorAnalysisUrl in local state to ensure persistence
+  const [docUrl, setDocUrl] = React.useState<string | undefined>(product.competitorAnalysisUrl);
   
+  // Update the local URL state when the product's URL changes
+  React.useEffect(() => {
+    if (product.competitorAnalysisUrl && product.competitorAnalysisUrl !== docUrl) {
+      console.log("Updating docUrl state with new URL:", product.competitorAnalysisUrl);
+      setDocUrl(product.competitorAnalysisUrl);
+      
+      // Store in localStorage too
+      storeCompetitorAnalysisUrl(
+        product.competitorAnalysisUrl, 
+        product.productDetails?.name || `product-${index}`
+      );
+    }
+  }, [product.competitorAnalysisUrl, index, docUrl]);
+
+  // Load the URL from localStorage when component mounts
+  React.useEffect(() => {
+    try {
+      // Get the product ID to use as the key
+      const productId = product.productDetails?.name || `product-${index}`;
+      
+      // Get existing URLs from localStorage
+      const existingUrls = localStorage.getItem('competitorAnalysisUrls');
+      const urlsObject = existingUrls ? JSON.parse(existingUrls) : {};
+      
+      // If we have a URL for this product in localStorage
+      if (urlsObject[productId]) {
+        const storedUrl = urlsObject[productId];
+        console.log(`Loading stored URL for ${productId} from localStorage:`, storedUrl);
+        
+        // Only update if we don't already have a URL in the product
+        if (!product.competitorAnalysisUrl) {
+          console.log("No URL in product, setting from localStorage");
+          setDocUrl(storedUrl);
+          
+          // Update the product object with the URL from localStorage
+          const updatedProduct = {
+            ...product,
+            competitorAnalysisUrl: storedUrl,
+            google_doc: storedUrl
+          };
+          
+          // Update the product in the parent component
+          updateProduct(updatedProduct);
+        }
+      }
+    } catch (e) {
+      console.error("Error loading URL from localStorage:", e);
+    }
+  }, [product.productDetails?.name, index]);
+
   // Track the original approved state
   React.useEffect(() => {
     // If product becomes approved, save the original state
@@ -125,6 +177,17 @@ function ProductCard({
   };
 
   const handleSendToAirOps = async () => {
+    // Show initial loading toast
+    const loadingToast = toast.loading(
+      <div className="flex items-center gap-3">
+        <div className="animate-pulse">🚀</div>
+        <div>
+          <p className="font-medium">Initiating AirOps Automation</p>
+          <p className="text-sm text-gray-400">Preparing your content brief...</p>
+        </div>
+      </div>
+    );
+    
     setIsSendingToAirOps(true);
     
     try {
@@ -140,7 +203,7 @@ function ProductCard({
       // Create a product with the required google_doc field
       const productForAirOps = {
         ...product,
-        google_doc: googleDocUrl, // Add the Google Doc URL
+        google_doc: googleDocUrl,
         businessOverview: product.businessOverview || {
           mission: '',
           industry: '',
@@ -163,24 +226,183 @@ function ProductCard({
       
       console.log('Sending to AirOps:', preparedProduct);
       await sendToAirOps(preparedProduct);
-      toast.success('Successfully sent to AirOps workflow');
+
+      // Dismiss loading toast and show success message
+      toast.dismiss(loadingToast);
+      toast.custom((t) => (
+        <div className={`${
+          t.visible ? 'animate-enter' : 'animate-leave'
+        } max-w-md w-full bg-green-50 shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}>
+          <div className="flex-1 w-0 p-4">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 pt-0.5">
+                <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                  <span className="text-2xl">✨</span>
+                </div>
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium text-green-900">
+                  AirOps Automation Started
+                </p>
+                <p className="mt-1 text-sm text-green-700">
+                  Your content brief will be ready in AirOps in a few minutes. We'll notify you when it's complete.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex border-l border-gray-200">
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-green-600 hover:text-green-500 focus:outline-none"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ), {
+        duration: 6000,
+      });
+
     } catch (error: any) {
-      // Display more detailed error message
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+      
       console.error('Full error details:', error);
       
+      // Show appropriate error message with custom styling
+      const errorConfig = {
+        duration: 6000,
+        className: 'bg-red-50 text-red-900 rounded-lg shadow-lg border border-red-200',
+      };
+
       if (error.message && error.message.includes('ACCOUNT_LIMITATION')) {
-        toast.error('Your AirOps account needs to be upgraded. Please contact AirOps support.', {
-          duration: 6000,
-          icon: '⚠️',
-        });
+        toast.custom((t) => (
+          <div className={`${
+            t.visible ? 'animate-enter' : 'animate-leave'
+          } max-w-md w-full bg-red-50 shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}>
+            <div className="flex-1 w-0 p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 pt-0.5">
+                  <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                    <span className="text-2xl">⚠️</span>
+                  </div>
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-medium text-red-900">
+                    Account Limitation
+                  </p>
+                  <p className="mt-1 text-sm text-red-700">
+                    Your AirOps account needs to be upgraded. Please contact AirOps support for assistance.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex border-l border-gray-200">
+              <button
+                onClick={() => toast.dismiss(t.id)}
+                className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-red-600 hover:text-red-500 focus:outline-none"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        ), errorConfig);
       } else if (error.message && error.message.includes('NetworkError')) {
-        toast.error('Network error: Please check your internet connection');
+        toast.custom((t) => (
+          <div className={`${
+            t.visible ? 'animate-enter' : 'animate-leave'
+          } max-w-md w-full bg-red-50 shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}>
+            <div className="flex-1 w-0 p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 pt-0.5">
+                  <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                    <span className="text-2xl">🌐</span>
+                  </div>
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-medium text-red-900">
+                    Network Error
+                  </p>
+                  <p className="mt-1 text-sm text-red-700">
+                    Please check your internet connection and try again.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex border-l border-gray-200">
+              <button
+                onClick={() => toast.dismiss(t.id)}
+                className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-red-600 hover:text-red-500 focus:outline-none"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        ), errorConfig);
       } else if (error.message && error.message.includes('Failed to fetch')) {
-        toast.error('Connection to AirOps failed. This could be due to CORS restrictions.');
-      } else if (error.message && error.message.includes('Invalid Google Doc URL')) {
-        toast.error('AirOps error with Google Doc URL format. Using default URL.');
+        toast.custom((t) => (
+          <div className={`${
+            t.visible ? 'animate-enter' : 'animate-leave'
+          } max-w-md w-full bg-red-50 shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}>
+            <div className="flex-1 w-0 p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 pt-0.5">
+                  <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                    <span className="text-2xl">🔒</span>
+                  </div>
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-medium text-red-900">
+                    Connection Failed
+                  </p>
+                  <p className="mt-1 text-sm text-red-700">
+                    Unable to connect to AirOps. This might be due to CORS restrictions or server issues.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex border-l border-gray-200">
+              <button
+                onClick={() => toast.dismiss(t.id)}
+                className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-red-600 hover:text-red-500 focus:outline-none"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        ), errorConfig);
       } else {
-        toast.error(`Failed to send to AirOps: ${error.message || 'Unknown error'}`);
+        toast.custom((t) => (
+          <div className={`${
+            t.visible ? 'animate-enter' : 'animate-leave'
+          } max-w-md w-full bg-red-50 shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}>
+            <div className="flex-1 w-0 p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 pt-0.5">
+                  <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                    <span className="text-2xl">❌</span>
+                  </div>
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-medium text-red-900">
+                    Error
+                  </p>
+                  <p className="mt-1 text-sm text-red-700">
+                    {error.message || 'An unexpected error occurred. Please try again.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex border-l border-gray-200">
+              <button
+                onClick={() => toast.dismiss(t.id)}
+                className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-red-600 hover:text-red-500 focus:outline-none"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        ), errorConfig);
       }
     } finally {
       setIsSendingToAirOps(false);
@@ -190,6 +412,54 @@ function ProductCard({
   // Use the single loading prop for button states
   const isThisProductSaving = isActionLoading;
   const isThisProductApproving = isActionLoading;
+
+  const onChange = ({ target: { name, value } }: { target: { name: string; value: string } }) => {
+    // Handle form changes
+    setDocUrl(value);
+  };
+
+  // Utility function to store the competitor analysis URL in localStorage
+  const storeCompetitorAnalysisUrl = (url: string, productKey: string): void => {
+    try {
+      // Get existing URLs from localStorage
+      const existingUrls = localStorage.getItem('competitorAnalysisUrls');
+      const urlsObject = existingUrls ? JSON.parse(existingUrls) : {};
+      
+      // Update with new URL
+      urlsObject[productKey] = url;
+      
+      // Save back to localStorage
+      localStorage.setItem('competitorAnalysisUrls', JSON.stringify(urlsObject));
+      console.log(`Stored URL for ${productKey} in localStorage:`, url);
+    } catch (e) {
+      console.error("Error storing URL in localStorage:", e);
+    }
+  };
+
+  const handleSaveDocUrl = () => {
+    if (docUrl && docUrl.trim()) {
+      // Store URL in localStorage
+      storeCompetitorAnalysisUrl(docUrl, product.productDetails?.name || `product-${index}`);
+      
+      // Update the product with the URL
+      const updatedProduct = {
+        ...product,
+        competitorAnalysisUrl: docUrl,
+        google_doc: docUrl
+      };
+      
+      // Update product in parent component
+      updateProduct(updatedProduct);
+      
+      // Execute save product function if provided
+      onSave(updatedProduct, index);
+      
+      // Provide user feedback
+      toast.success('Document URL saved successfully');
+    } else {
+      toast.error('Please enter a valid document URL');
+    }
+  };
 
   return (
     <motion.article
@@ -227,6 +497,7 @@ function ProductCard({
               description
             );
             updateProduct(updatedProduct);
+            onSave(updatedProduct, index);
           }}
           isExpanded={isSectionExpanded('description')}
           toggleExpanded={() => toggleSection('description')}
@@ -280,9 +551,18 @@ function ProductCard({
           onUpdate={(url) => {
             console.log("Received competitorAnalysisUrl update:", url);
             
+            if (!url) {
+              console.log("Received empty URL, skipping update");
+              return;
+            }
+            
+            let formattedUrl;
+            
             // Check if the URL is a valid web URL
             try {
-              new URL(url);
+              // Try to format it as a proper URL
+              const urlObj = new URL(url);
+              
               // Check if it's a Google Docs URL and format it correctly
               if (url.includes('docs.google.com/document')) {
                 // Extract the document ID
@@ -291,25 +571,44 @@ function ProductCard({
                   toast.error('Invalid Google Docs URL format');
                   return;
                 }
+                
                 const docId = match[1];
                 
                 // Format the URL in the required format - without suffix
-                const formattedUrl = `https://docs.google.com/document/d/${docId}`;
-                
-                // Update the product with the formatted URL
+                formattedUrl = `https://docs.google.com/document/d/${docId}`;
+                console.log("Formatted Google Doc URL:", formattedUrl);
+              } else {
+                // Use the URL as is if it's valid but not a Google Docs URL
+                formattedUrl = urlObj.toString();
+                console.log('URL is not a Google Docs document URL:', formattedUrl);
+              }
+
+              // If we got a valid formatted URL, update the product while preserving competitors
+              if (formattedUrl) {
                 const updatedProduct = { 
                   ...product, 
                   competitorAnalysisUrl: formattedUrl,
-                  google_doc: formattedUrl
+                  google_doc: formattedUrl,
+                  // Preserve existing competitors data
+                  competitors: {
+                    direct_competitors: product.competitors?.direct_competitors || [],
+                    niche_competitors: product.competitors?.niche_competitors || [],
+                    broader_competitors: product.competitors?.broader_competitors || []
+                  }
                 };
-                console.log("Updating product with formatted Google Doc URL:", updatedProduct);
+                
+                // Update our local URL state
+                setDocUrl(formattedUrl);
+                
+                // Store in localStorage for the floating button
+                storeCompetitorAnalysisUrl(formattedUrl, product.productDetails?.name || `product-${index}`);
+                
+                console.log("Updating product with formatted URL while preserving competitors:", updatedProduct);
                 updateProduct(JSON.parse(JSON.stringify(updatedProduct)));
-                // Automatically save the product after updating
                 onSave(updatedProduct, index);
-                return;
-              } else {
-                toast.error('Please provide a valid Google Docs URL');
-                return;
+                
+                // Provide user feedback
+                toast.success('Competitor analysis report is ready!');
               }
             } catch (e) {
               // If not a valid URL, try parsing as JSON
@@ -317,67 +616,100 @@ function ProductCard({
                 const jsonData = JSON.parse(url);
                 console.log("Successfully parsed response as JSON:", jsonData);
                 
-                // If we have a documentUrl in the JSON, use that
-                if (jsonData.documentUrl || jsonData.analysisUrl) {
-                  const docUrl = jsonData.documentUrl || jsonData.analysisUrl;
-                  // Check if it's a Google Docs URL and format it correctly
-                  if (docUrl.includes('docs.google.com/document')) {
-                    // Extract the document ID
-                    const match = docUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/);
-                    if (!match) {
-                      toast.error('Invalid Google Docs URL format in response');
-                      return;
+                // Try to extract a URL from the JSON
+                const extractedUrl = jsonData.documentUrl || jsonData.analysisUrl || jsonData.url || jsonData.google_doc;
+                
+                if (extractedUrl && typeof extractedUrl === 'string') {
+                  try {
+                    // Validate the extracted URL
+                    new URL(extractedUrl);
+                    
+                    // Format if it's a Google Docs URL
+                    if (extractedUrl.includes('docs.google.com/document')) {
+                      const match = extractedUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/);
+                      if (!match) {
+                        toast.error('Invalid Google Docs URL format in response');
+                        return;
+                      }
+                      
+                      const docId = match[1];
+                      formattedUrl = `https://docs.google.com/document/d/${docId}`;
+                      console.log("Formatted Google Doc URL from JSON:", formattedUrl);
+                    } else {
+                      formattedUrl = extractedUrl;
                     }
-                    const docId = match[1];
-                    
-                    // Format the URL in the required format - without suffix
-                    const formattedUrl = `https://docs.google.com/document/d/${docId}`;
-                    
+
+                    // Update product with URL while preserving existing competitors
                     const updatedProduct = { 
                       ...product, 
                       competitorAnalysisUrl: formattedUrl,
-                      google_doc: formattedUrl
+                      google_doc: formattedUrl,
+                      // Preserve existing competitors data
+                      competitors: {
+                        direct_competitors: product.competitors?.direct_competitors || [],
+                        niche_competitors: product.competitors?.niche_competitors || [],
+                        broader_competitors: product.competitors?.broader_competitors || []
+                      }
                     };
-                    console.log("Updating product with formatted Google Doc URL from JSON:", updatedProduct);
+                    
+                    // Update our local URL state
+                    setDocUrl(formattedUrl);
+                    
+                    // Store in localStorage for the floating button
+                    storeCompetitorAnalysisUrl(formattedUrl, product.productDetails?.name || `product-${index}`);
+                    
+                    console.log("Updating product with formatted URL while preserving competitors:", updatedProduct);
                     updateProduct(JSON.parse(JSON.stringify(updatedProduct)));
-                    // Automatically save the product after updating
                     onSave(updatedProduct, index);
-                    return;
-                  } else {
-                    toast.error('Please provide a valid Google Docs URL');
+                    
+                    // Provide user feedback
+                    toast.success('Competitor analysis report is ready!');
+                  } catch (urlError) {
+                    console.error("Invalid URL extracted from JSON:", urlError);
+                    toast.error('Invalid URL in response data');
                     return;
                   }
-                }
-                
-                // Check if it contains competitor data
-                if (jsonData.competitors && typeof jsonData.competitors === 'object') {
-                  console.log("Found competitors in the JSON:", jsonData.competitors);
+                } else if (jsonData.competitors) {
+                  // Handle competitor data but no URL
+                  console.log("Found competitors in the JSON but no URL");
                   
+                  const competitors = {
+                    direct_competitors: Array.isArray(jsonData.competitors.direct_competitors) 
+                      ? [...jsonData.competitors.direct_competitors] : product.competitors?.direct_competitors || [],
+                    niche_competitors: Array.isArray(jsonData.competitors.niche_competitors)
+                      ? [...jsonData.competitors.niche_competitors] : product.competitors?.niche_competitors || [],
+                    broader_competitors: Array.isArray(jsonData.competitors.broader_competitors)
+                      ? [...jsonData.competitors.broader_competitors] : product.competitors?.broader_competitors || []
+                  };
+                  
+                  // Keep existing URL if available
+                  formattedUrl = product.competitorAnalysisUrl;
+                  
+                  // Update the product with competitors data while preserving existing data
                   const updatedProduct = { 
                     ...product, 
-                    competitorAnalysisUrl: url,
-                    competitors: {
-                      direct_competitors: Array.isArray(jsonData.competitors.direct_competitors) 
-                        ? [...jsonData.competitors.direct_competitors] : [],
-                      niche_competitors: Array.isArray(jsonData.competitors.niche_competitors)
-                        ? [...jsonData.competitors.niche_competitors] : [],
-                      broader_competitors: Array.isArray(jsonData.competitors.broader_competitors)
-                        ? [...jsonData.competitors.broader_competitors] : []
-                    }
+                    competitors: competitors,
+                    competitorAnalysisUrl: formattedUrl
                   };
                   
                   console.log("Updating product with competitors:", updatedProduct);
                   updateProduct(JSON.parse(JSON.stringify(updatedProduct)));
-                  // Automatically save the product after updating
                   onSave(updatedProduct, index);
+                  return;
                 }
-              } catch (e) {
-                console.log("Response is not a valid JSON string:", e);
+              } catch (jsonError) {
+                console.error("Response is not a valid JSON string:", jsonError);
+                toast.error('Invalid data received');
+                return;
               }
             }
           }}
           onUpdateCompetitors={(competitors) => {
             console.log("ProductCard.onUpdateCompetitors called with:", JSON.stringify(competitors, null, 2));
+            
+            // Get the existing URL if available
+            const existingUrl = product.competitorAnalysisUrl;
+            console.log("Existing competitorAnalysisUrl:", existingUrl);
             
             // Create a copy of the product with the updated competitors
             const updatedProduct = { 
@@ -392,9 +724,18 @@ function ProductCard({
               }
             };
             
+            // Make sure we never lose the URL
+            if (existingUrl) {
+              updatedProduct.competitorAnalysisUrl = existingUrl;
+              console.log("Preserving existing competitorAnalysisUrl:", updatedProduct.competitorAnalysisUrl);
+              
+              // Make sure our local state also keeps the URL
+              setDocUrl(existingUrl);
+            }
+            
             console.log("Updating product with competitors:", updatedProduct.competitors);
             
-            // Update the product in the local state
+            // Update the product in the local state with deep copy to avoid reference issues
             updateProduct(JSON.parse(JSON.stringify(updatedProduct)));
             
             // Automatically save the product after updating
@@ -405,6 +746,11 @@ function ProductCard({
 
         {/* Buttons Section */}
         <div className="flex flex-wrap gap-3 justify-end mt-6">
+          {/* Competitor Analysis Doc Button - if available */}
+          {docUrl && (
+            <CompetitorAnalysisDocButton url={docUrl} />
+          )}
+        
           {/* Only render the Send to AirOps button if user is admin */}
           {isAdmin && (
             <button
@@ -434,26 +780,29 @@ function ProductCard({
             Save Changes
           </button>
           
-          <button
-            onClick={handleApprove}
-            disabled={isThisProductApproving || (!!product.isApproved && !hasUnsavedChanges)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-white transition-colors ${
-              product.isApproved && !hasUnsavedChanges
-                ? 'bg-green-500/30 cursor-not-allowed'
-                : 'bg-green-600/80 hover:bg-green-500'
-            }`}
-          >
-            {isThisProductApproving ? (
-              <Loader2 className="animate-spin h-4 w-4" />
-            ) : (
-              <CheckSquare className="h-4 w-4" />
-            )}
-            {product.isApproved && !hasUnsavedChanges
-              ? 'Approved'
-              : product.isApproved && hasUnsavedChanges
-              ? 'Re-approve'
-              : 'Approve'}
-          </button>
+          {/* Only show approve button if not in admin mode */}
+          {!isAdmin && (
+            <button
+              onClick={handleApprove}
+              disabled={isThisProductApproving || (!!product.isApproved && !hasUnsavedChanges)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-white transition-colors ${
+                product.isApproved && !hasUnsavedChanges
+                  ? 'bg-green-500/30 cursor-not-allowed'
+                  : 'bg-green-600/80 hover:bg-green-500'
+              }`}
+            >
+              {isThisProductApproving ? (
+                <Loader2 className="animate-spin h-4 w-4" />
+              ) : (
+                <CheckSquare className="h-4 w-4" />
+              )}
+              {product.isApproved && !hasUnsavedChanges
+                ? 'Approved'
+                : product.isApproved && hasUnsavedChanges
+                ? 'Re-approve'
+                : 'Approve'}
+            </button>
+          )}
         </div>
       </div>
     </motion.article>
@@ -461,3 +810,122 @@ function ProductCard({
 }
 
 export { ProductCard };
+
+// Add this component to render a global floating button for all doc URLs
+function FloatingDocButton() {
+  // Get all the doc URLs from localStorage
+  const [urls, setUrls] = React.useState<Record<string, string>>({});
+  
+  // Add a URL to the registry
+  React.useEffect(() => {
+    // Load any saved URLs from localStorage
+    try {
+      const savedUrls = localStorage.getItem('competitorAnalysisUrls');
+      if (savedUrls) {
+        setUrls(JSON.parse(savedUrls));
+      }
+    } catch (e) {
+      console.error("Error loading URLs from localStorage:", e);
+    }
+    
+    // Set up listener for storing URLs
+    const handleStorageUrl = (event: StorageEvent) => {
+      if (event.key === 'competitorAnalysisUrls') {
+        try {
+          const newUrls = event.newValue ? JSON.parse(event.newValue) : {};
+          setUrls(newUrls);
+        } catch (e) {
+          console.error("Error parsing URLs from storage event:", e);
+        }
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageUrl);
+    return () => window.removeEventListener('storage', handleStorageUrl);
+  }, []);
+  
+  // Extract the most recent URL
+  const mostRecentUrl = Object.values(urls).length > 0 
+    ? Object.values(urls)[Object.values(urls).length - 1] 
+    : null;
+  
+  if (!mostRecentUrl) return null;
+  
+  return (
+    <a
+      href={mostRecentUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => {
+        e.preventDefault();
+        try {
+          window.open(mostRecentUrl, '_blank');
+        } catch (err) {
+          console.error('Error opening URL:', err);
+          toast.error('Could not open document URL');
+        }
+      }}
+      className="fixed bottom-8 right-8 z-[9999] flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-primary-600 to-primary-500 text-secondary-900 font-bold rounded-xl hover:from-primary-500 hover:to-primary-400 transition-all shadow-xl hover:shadow-2xl group"
+    >
+      <div className="w-10 h-10 rounded-full bg-secondary-900/40 border border-secondary-900/10 flex items-center justify-center">
+        <FileText size={20} className="text-secondary-900" />
+      </div>
+      <span className="text-lg">View Competitor Analysis</span>
+      <ExternalLink size={20} className="ml-1 group-hover:translate-x-0.5 transition-transform" />
+    </a>
+  );
+}
+
+// Helper function to store a URL in localStorage
+export function storeCompetitorAnalysisUrl(url: string, productId: string) {
+  try {
+    // Get existing URLs
+    const existingUrls = localStorage.getItem('competitorAnalysisUrls');
+    const urlsObject = existingUrls ? JSON.parse(existingUrls) : {};
+    
+    // Add this URL
+    urlsObject[productId || 'latest'] = url;
+    
+    // Save back to localStorage
+    localStorage.setItem('competitorAnalysisUrls', JSON.stringify(urlsObject));
+    
+    // Trigger the storage event manually (for the same window)
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'competitorAnalysisUrls',
+      newValue: JSON.stringify(urlsObject)
+    }));
+    
+    console.log(`Stored URL ${url} for product ${productId}`);
+  } catch (e) {
+    console.error("Error storing URL in localStorage:", e);
+  }
+}
+
+// Add this new component above the ProductCard export
+function CompetitorAnalysisDocButton({ url }: { url: string }) {
+  if (!url) return null;
+  
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => {
+        e.preventDefault();
+        try {
+          // Validate the URL
+          const validUrl = new URL(url);
+          window.open(validUrl.toString(), '_blank');
+        } catch (err) {
+          console.error('Invalid URL:', err);
+          toast.error('Invalid document URL.');
+        }
+      }}
+      className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-secondary-900 font-medium rounded-md hover:bg-yellow-400 transition-colors shadow-md"
+    >
+      <FileText size={16} className="text-secondary-900" />
+      <span>View Analysis</span>
+      <ExternalLink size={14} className="ml-1" />
+    </a>
+  );
+}
