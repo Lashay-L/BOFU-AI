@@ -84,34 +84,36 @@ export const UserPresence: React.FC<UserPresenceProps> = ({
         presenceUnsubscribe = realtimeCollaboration.onPresenceChange((presence) => {
           console.log('🔔 UserPresence received presence update:', presence);
           
-          // Handle join/leave animations
-          if (settings.animateJoinLeave) {
-            const currentUserIds = new Set(activeUsers.map(u => u.user_id));
-            const newUserIds = new Set(presence.map(u => u.user_id));
-            
-            // Find users who joined
-            const joined = presence.filter(u => !currentUserIds.has(u.user_id));
-            if (joined.length > 0) {
-              console.log('➕ Users joined:', joined);
-              setJoiningUsers(new Set(joined.map(u => u.user_id)));
-              setTimeout(() => {
-                setJoiningUsers(new Set());
-              }, 500);
+          // Handle join/leave animations using previous state instead of closure
+          setActiveUsers(prevUsers => {
+            if (settings.animateJoinLeave) {
+              const currentUserIds = new Set(prevUsers.map(u => u.user_id));
+              const newUserIds = new Set(presence.map(u => u.user_id));
+              
+              // Find users who joined
+              const joined = presence.filter(u => !currentUserIds.has(u.user_id));
+              if (joined.length > 0) {
+                console.log('➕ Users joined:', joined);
+                setJoiningUsers(new Set(joined.map(u => u.user_id)));
+                setTimeout(() => {
+                  setJoiningUsers(new Set());
+                }, 500);
+              }
+              
+              // Find users who left
+              const left = prevUsers.filter(u => !newUserIds.has(u.user_id));
+              if (left.length > 0) {
+                console.log('➖ Users left:', left);
+                setLeavingUsers(new Set(left.map(u => u.user_id)));
+                setTimeout(() => {
+                  setLeavingUsers(new Set());
+                }, 300);
+              }
             }
             
-            // Find users who left
-            const left = activeUsers.filter(u => !newUserIds.has(u.user_id));
-            if (left.length > 0) {
-              console.log('➖ Users left:', left);
-              setLeavingUsers(new Set(left.map(u => u.user_id)));
-              setTimeout(() => {
-                setLeavingUsers(new Set());
-              }, 300);
-            }
-          }
-          
-          setActiveUsers(presence);
-          console.log('👥 UserPresence activeUsers updated to:', presence.length, 'users');
+            console.log('👥 UserPresence activeUsers updated to:', presence.length, 'users');
+            return presence; // Return the new presence array
+          });
         });
 
         // Subscribe to cursor changes
@@ -144,7 +146,7 @@ export const UserPresence: React.FC<UserPresenceProps> = ({
         realtimeCollaboration.leaveArticle();
       }
     };
-  }, [articleId, settings.animateJoinLeave, activeUsers]);
+  }, [articleId]); // Removed activeUsers and settings.animateJoinLeave to prevent infinite loop
 
   // Close settings panel when clicking outside
   useEffect(() => {
@@ -279,7 +281,7 @@ export const UserPresence: React.FC<UserPresenceProps> = ({
 
   const currentUserId = realtimeCollaboration.getCurrentUserId();
   const otherUsers = activeUsers.filter(user => user.user_id !== currentUserId);
-  const totalUsers = activeUsers.length;
+  const totalUsers = otherUsers.length; // Only count other users, not including current user
 
   const renderSettingsPanel = () => (
     <div 
@@ -405,11 +407,12 @@ export const UserPresence: React.FC<UserPresenceProps> = ({
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="flex items-center space-x-2 px-3 py-1.5 text-sm bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-full hover:from-blue-500/20 hover:to-purple-500/20 transition-all"
-        title={`${totalUsers} user${totalUsers !== 1 ? 's' : ''} active`}
+        title={`${totalUsers} other user${totalUsers !== 1 ? 's' : ''} active`}
       >
         <div className="flex items-center space-x-1">
           <Users className="w-4 h-4 text-blue-500" />
           <span className="font-medium text-gray-700 dark:text-gray-300">{totalUsers}</span>
+          {totalUsers === 0 && <span className="text-xs text-gray-500">(solo)</span>}
         </div>
         
         {/* Avatar Stack */}
@@ -451,7 +454,7 @@ export const UserPresence: React.FC<UserPresenceProps> = ({
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium text-gray-900">
-            Active Users ({totalUsers})
+            Other Users ({totalUsers})
           </h3>
           <div className="flex items-center space-x-2">
             <button
@@ -473,8 +476,8 @@ export const UserPresence: React.FC<UserPresenceProps> = ({
       </div>
       
       <div className="max-h-80 overflow-y-auto">
-        {activeUsers.map((user) => {
-          const isCurrentUser = user.user_id === currentUserId;
+        {otherUsers.map((user) => {
+          const isCurrentUser = false; // Since we're only showing other users now
           return (
             <div
               key={user.user_id}
@@ -530,7 +533,7 @@ export const UserPresence: React.FC<UserPresenceProps> = ({
           );
         })}
 
-        {activeUsers.length === 0 && (
+        {otherUsers.length === 0 && (
           <div className="p-6 text-center text-gray-500">
             <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
             <p className="text-sm">No other users online</p>
