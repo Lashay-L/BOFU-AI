@@ -54,6 +54,7 @@ export class RealtimeCollaborationService {
   private userColors: Map<string, string> = new Map();
   private onPresenceChangeCallbacks: Array<(presence: PresenceUser[]) => void> = [];
   private onCursorChangeCallbacks: Array<(cursors: Array<{ userId: string; position: any; metadata: any }>) => void> = [];
+  private onContentChangeCallbacks: Array<(content: any) => void> = [];
 
   // Predefined colors for users
   private readonly USER_COLORS = [
@@ -369,8 +370,16 @@ export class RealtimeCollaborationService {
    * Handle content changes from real-time updates
    */
   private handleContentChange(payload: any): void {
-    // This will be extended in future subtasks for operational transformation
-    console.log('Content change detected:', payload);
+    console.log('🔄 Content change detected:', payload);
+    
+    // Notify all content change callbacks
+    this.onContentChangeCallbacks.forEach(callback => {
+      try {
+        callback(payload);
+      } catch (error) {
+        console.error('❌ Error in content change callback:', error);
+      }
+    });
   }
 
   /**
@@ -460,6 +469,21 @@ export class RealtimeCollaborationService {
   }
 
   /**
+   * Subscribe to content changes
+   */
+  onContentChange(callback: (payload: any) => void): () => void {
+    this.onContentChangeCallbacks.push(callback);
+    
+    // Return unsubscribe function
+    return () => {
+      const index = this.onContentChangeCallbacks.indexOf(callback);
+      if (index > -1) {
+        this.onContentChangeCallbacks.splice(index, 1);
+      }
+    };
+  }
+
+  /**
    * Get current article ID
    */
   getCurrentArticleId(): string | null {
@@ -480,6 +504,7 @@ export class RealtimeCollaborationService {
     this.leaveArticle();
     this.onPresenceChangeCallbacks = [];
     this.onCursorChangeCallbacks = [];
+    this.onContentChangeCallbacks = [];
   }
 }
 

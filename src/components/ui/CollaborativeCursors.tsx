@@ -510,10 +510,18 @@ export const CollaborativeCursors: React.FC<CollaborativeCursorsProps> = ({
           
           if (user.cursor_position && user.user_id !== currentUserId) {
             console.log('✅ Adding cursor for user:', user.user_id);
-            newCursors.set(user.user_id, {
+            // Create a full SmoothCursor object with all required properties
+            const smoothCursor: SmoothCursor = {
               ...user.cursor_position,
-              user
-            });
+              user,
+              targetPosition: { x: user.cursor_position.x || 0, y: user.cursor_position.y || 0 },
+              displayPosition: { x: user.cursor_position.x || 0, y: user.cursor_position.y || 0 },
+              isMoving: false,
+              lastUpdate: Date.now(),
+              velocity: { x: 0, y: 0 },
+              trail: []
+            };
+            newCursors.set(user.user_id, smoothCursor);
           } else {
             console.log('❌ Skipping cursor for user:', user.user_id, {
               reason: !user.cursor_position ? 'no cursor position' : 'is current user'
@@ -628,7 +636,7 @@ export const CollaborativeCursors: React.FC<CollaborativeCursorsProps> = ({
       {Array.from(cursors.entries()).map(([userId, cursor]) => (
         <div key={userId}>
           {/* Cursor Trail */}
-          {enableSmoothCursors && cursor.trail.length > 0 && cursor.trail.map((point, index) => {
+          {enableSmoothCursors && cursor.trail && cursor.trail.length > 0 && cursor.trail.map((point, index) => {
             const age = Date.now() - point.timestamp;
             const opacity = Math.max(0, 1 - (age / CURSOR_TRAIL_FADE_TIME));
             const scale = 0.5 + (0.5 * opacity);
@@ -740,7 +748,7 @@ export const CollaborativeCursors: React.FC<CollaborativeCursorsProps> = ({
             )}
 
             {/* Velocity Indicator for Fast Movement */}
-            {enableSmoothCursors && cursor.velocity && (Math.abs(cursor.velocity.x) > 100 || Math.abs(cursor.velocity.y) > 100) && (
+            {enableSmoothCursors && cursor.velocity && typeof cursor.velocity === 'object' && cursor.velocity.x !== undefined && cursor.velocity.y !== undefined && (Math.abs(cursor.velocity.x) > 100 || Math.abs(cursor.velocity.y) > 100) && (
               <div
                 className="absolute -right-2 -top-2 w-2 h-2 rounded-full animate-ping"
                 style={{ 

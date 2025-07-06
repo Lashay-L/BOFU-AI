@@ -17,7 +17,7 @@ import { makeWebhookRequest } from './utils/webhookUtils';
 import { parseProductData } from './types/product';
 import { ProductAnalysis } from './types/product/types';
 import { AdminAuthModal } from './components/admin/AdminAuthModal';
-import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, Navigate, useParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { AuthModal } from './components/auth/AuthModal';
 import { ScrapedBlog } from './utils/blogScraper';
@@ -35,6 +35,7 @@ import LandingPage from './pages/LandingPage';
 import ArticleEditorPage from './pages/ArticleEditorPage';
 import { AdminContextProvider } from './contexts/AdminContext';
 import { AdminRoute } from './components/admin/AdminRoute';
+import UnifiedArticleEditor from './components/UnifiedArticleEditor';
 
 // Lazy load admin and heavy components
 const GeneratedArticlesPage = lazy(() => import('./pages/GeneratedArticlesPage'));
@@ -52,6 +53,12 @@ const PageLoading = () => (
     <div className="text-white text-xl">Loading...</div>
   </div>
 );
+
+// Legacy redirect component for old article editor routes
+const LegacyArticleEditorRedirect = () => {
+  const { id } = useParams();
+  return <Navigate to={`/articles/${id}`} replace />;
+};
 
 function App() {
   const [documents, setDocuments] = useState<ProcessedDocument[]>([]);
@@ -1015,7 +1022,8 @@ function App() {
                 </Suspense>
               } />
 
-              <Route path="/article-editor/:id" element={
+              {/* Unified Article Editor - handles both user and admin access */}
+              <Route path="/articles/:id" element={
                 isAuthLoading ? (
                   <div className="min-h-screen bg-secondary-900 flex items-center justify-center">
                     <div className="text-center">
@@ -1024,10 +1032,16 @@ function App() {
                     </div>
                   </div>
                 ) : user ? (
-                  <ArticleEditorPage />
+                  <UnifiedArticleEditor />
                 ) : (
                   <Navigate to="/" replace />
                 )
+              } />
+
+              {/* Legacy routes - can be removed after testing */}
+              {/* Legacy route - redirect to unified article editor */}
+              <Route path="/article-editor/:id" element={
+                <LegacyArticleEditorRedirect />
               } />
 
               <Route path="/profile-test" element={

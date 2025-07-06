@@ -88,7 +88,7 @@ const GeneratedArticlesPage: React.FC = () => {
 
   const handleEditArticle = (articleId: string) => {
     // Navigate to the dedicated editor page
-    navigate(`/article-editor/${articleId}`);
+            navigate(`/articles/${articleId}`);
   };
 
   const handleDeleteClick = (article: GeneratedArticle) => {
