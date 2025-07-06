@@ -990,9 +990,7 @@ function App() {
                     </div>
                   </div>
                 ) : user ? (
-                  <Suspense fallback={<PageLoading />}>
-                    <AdminArticleEditorPage />
-                  </Suspense>
+                  <UnifiedArticleEditor forceMode="admin" />
                 ) : (
                   <Navigate to="/" replace />
                 )

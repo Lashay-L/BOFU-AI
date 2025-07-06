@@ -18,7 +18,8 @@ interface UnifiedArticleEditorProps {
 }
 
 export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forceMode }) => {
-  const { id: articleId } = useParams<{ id: string }>();
+  const params = useParams<{ id?: string; articleId?: string }>();
+  const articleId = params.id || params.articleId;
   const navigate = useNavigate();
   const { isAdmin, loading: adminCheckLoading } = useAdminCheck();
   
@@ -98,6 +99,16 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
       return { success: false, error: 'Article ID is required' };
     }
 
+    console.log('💾 [UNIFIED EDITOR] Starting save:', {
+      articleId,
+      uiMode,
+      contentLength: content?.length,
+      userEmail: userContext?.email,
+      isAdmin: userContext?.isAdmin,
+      isAutoSave: options.isAutoSave,
+      options
+    });
+
     try {
       setSaving(true);
       
@@ -110,10 +121,19 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
         ? await unifiedArticleService.autoSaveArticle(articleId, content)
         : await unifiedArticleService.saveArticle(articleId, content, saveOptions);
 
+      console.log('💾 [UNIFIED EDITOR] Save result:', {
+        success: result.success,
+        version: result.data?.article_version,
+        conflictDetected: result.conflictDetected,
+        error: result.error
+      });
+
       if (result.success) {
         setArticle(result.data!);
         setLastSaved(new Date());
         setHasUnsavedChanges(false);
+        
+        console.log('✅ [UNIFIED EDITOR] Save completed successfully, article state updated');
         
         if (options.showToast !== false) {
           if (result.conflictDetected && result.resolvedConflict) {
@@ -123,6 +143,7 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
           }
         }
       } else {
+        console.error('❌ [UNIFIED EDITOR] Save failed:', result.error);
         if (result.conflictDetected) {
           toast.error('Save conflict detected. Please refresh and try again.');
           // Optionally reload the article to get latest version
@@ -135,14 +156,14 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
       return result;
 
     } catch (error) {
-      console.error('Error saving article:', error);
+      console.error('❌ [UNIFIED EDITOR] Error saving article:', error);
       const errorMessage = 'Unexpected error saving article';
       toast.error(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
       setSaving(false);
     }
-  }, [articleId, loadArticle]);
+  }, [articleId, loadArticle, uiMode, userContext]);
 
 
 
@@ -216,22 +237,46 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
 
     // Subscribe to content changes
     const unsubscribeContentChange = realtimeCollaboration.onContentChange((payload) => {
-      console.log('🔄 Real-time content change detected:', payload);
+      console.log('🔄 [UNIFIED EDITOR] Real-time content change detected:', {
+        payload,
+        currentArticleId: articleId,
+        uiMode,
+        payloadEventType: payload?.eventType,
+        payloadTable: payload?.table,
+        payloadSchema: payload?.schema
+      });
       
-      // Debounce content updates to prevent excessive API calls
-      if (contentUpdateTimeoutRef.current) {
-        clearTimeout(contentUpdateTimeoutRef.current);
-      }
-      
-      contentUpdateTimeoutRef.current = setTimeout(async () => {
-        console.log('🔄 Refreshing article content due to real-time update...');
-        try {
-          // Reload the article to get the latest content
-          await loadArticle();
-        } catch (error) {
-          console.error('❌ Failed to reload article after real-time update:', error);
+      // Only process if this is a content_briefs table update for our article
+      if (payload?.table === 'content_briefs' && payload?.new?.id === articleId) {
+        console.log('✅ [UNIFIED EDITOR] Processing content change for our article:', {
+          oldContent: payload?.old?.article_content?.substring(0, 100) + '...',
+          newContent: payload?.new?.article_content?.substring(0, 100) + '...',
+          contentChanged: payload?.old?.article_content !== payload?.new?.article_content
+        });
+        
+        // Debounce content updates to prevent excessive API calls
+        if (contentUpdateTimeoutRef.current) {
+          clearTimeout(contentUpdateTimeoutRef.current);
+          console.log('🔄 [UNIFIED EDITOR] Clearing previous timeout');
         }
-      }, 1000); // 1 second debounce
+        
+        contentUpdateTimeoutRef.current = setTimeout(async () => {
+          console.log('🔄 [UNIFIED EDITOR] Refreshing article content due to real-time update...');
+          try {
+            // Reload the article to get the latest content
+            await loadArticle();
+            console.log('✅ [UNIFIED EDITOR] Article reloaded successfully');
+          } catch (error) {
+            console.error('❌ [UNIFIED EDITOR] Failed to reload article after real-time update:', error);
+          }
+        }, 1500); // 1.5 second debounce
+      } else {
+        console.log('⏭️ [UNIFIED EDITOR] Ignoring content change - not for our article:', {
+          payloadTable: payload?.table,
+          payloadId: payload?.new?.id,
+          ourArticleId: articleId
+        });
+      }
     });
 
     // Cleanup function
