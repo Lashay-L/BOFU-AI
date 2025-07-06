@@ -163,7 +163,6 @@ const getTextOffset = (container: HTMLElement, targetNode: Node, targetOffset: n
   return currentOffset;
 };
 
-// Removed simple UserPresence component - using full-featured component from ./ui/UserPresence
 
 // Enhanced Undo/Redo History Panel with better design
 const UndoRedoHistoryPanel = ({ editor }: { editor: any }) => {
@@ -941,53 +940,6 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
     };
   }, [articleId, adminUser]);
 
-  // Update cursor position when editor selection changes
-  useEffect(() => {
-    if (!editor || !isCollaborationReady) return;
-
-    const updateCursorPosition = () => {
-      const selection = editor.state.selection;
-      const from = selection.from;
-      const to = selection.to;
-      
-      // Get the DOM position for the cursor
-      const coords = editor.view.coordsAtPos(from);
-      const editorRect = editorRef.current?.getBoundingClientRect();
-      
-      if (editorRect) {
-        const cursorPosition = {
-          from,
-          to,
-          x: coords.left - editorRect.left,
-          y: coords.top - editorRect.top,
-          selection: from !== to ? { anchor: from, head: to } : undefined
-        };
-        
-        realtimeCollaboration.updateCursorPosition(cursorPosition);
-      }
-    };
-
-    // Listen to selection updates
-    const handleSelectionUpdate = () => {
-      updateCursorPosition();
-      // Update status to editing when user is actively selecting/typing
-      realtimeCollaboration.updatePresence(articleId, 'editing');
-    };
-
-    const handleTransaction = () => {
-      // Update status to editing on any transaction (typing, formatting, etc.)
-      realtimeCollaboration.updatePresence(articleId, 'editing');
-    };
-
-    // Add event listeners
-    editor.on('selectionUpdate', handleSelectionUpdate);
-    editor.on('transaction', handleTransaction);
-
-    return () => {
-      editor.off('selectionUpdate', handleSelectionUpdate);
-      editor.off('transaction', handleTransaction);
-    };
-  }, [editor, isCollaborationReady, articleId]);
 
   // Load article content when articleId is provided
   useEffect(() => {
@@ -1155,9 +1107,9 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       },
       handleClick: (view, pos, event) => {
         console.log('🖱️ Click event in editor:', pos);
-        // Ensure editor gets focus on click
-        if (editor && !editor.isFocused) {
-          editor.commands.focus();
+        // Ensure editor gets focus on click using view
+        if (view && !view.hasFocus()) {
+          view.focus();
         }
         return false; // Allow normal click handling
       },
@@ -1198,6 +1150,65 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       console.log('🎯 Editor lost focus');
     },
   }, [getEditorExtensions, theme]); // ✅ FIXED: Removed 'content' from dependencies to prevent editor recreation
+
+  // Update cursor position when editor selection changes
+  useEffect(() => {
+    if (!editor || !isCollaborationReady) return;
+
+    const updateCursorPosition = () => {
+      const selection = editor.state.selection;
+      const from = selection.from;
+      const to = selection.to;
+      
+      // Get the DOM position for the cursor
+      const coords = editor.view.coordsAtPos(from);
+      const editorRect = editorRef.current?.getBoundingClientRect();
+      
+      if (editorRect) {
+        const cursorPosition = {
+          from,
+          to,
+          x: coords.left - editorRect.left,
+          y: coords.top - editorRect.top,
+          selection: from !== to ? { anchor: from, head: to } : undefined
+        };
+        
+        console.log('📍 ArticleEditor cursor position calculated:', {
+          selection: { from, to },
+          coords: { x: coords.left, y: coords.top },
+          editorRect: { left: editorRect.left, top: editorRect.top },
+          finalPosition: cursorPosition
+        });
+        
+        realtimeCollaboration.updateCursorPosition(cursorPosition);
+      }
+    };
+
+    // Listen to selection updates
+    const handleSelectionUpdate = () => {
+      updateCursorPosition();
+      // Update status to editing when user is actively selecting/typing
+      realtimeCollaboration.updatePresence(articleId, 'editing');
+    };
+
+    const handleTransaction = () => {
+      // Update status to editing on any transaction (typing, formatting, etc.)
+      realtimeCollaboration.updatePresence(articleId, 'editing');
+    };
+
+    // Add event listeners only if editor exists
+    if (!editor) return;
+    
+    editor.on('selectionUpdate', handleSelectionUpdate);
+    editor.on('transaction', handleTransaction);
+
+    return () => {
+      if (editor) {
+        editor.off('selectionUpdate', handleSelectionUpdate);
+        editor.off('transaction', handleTransaction);
+      }
+    };
+  }, [editor, isCollaborationReady, articleId]);
   
   // Update ref when highlightedCommentId changes and force decoration update
   useEffect(() => {

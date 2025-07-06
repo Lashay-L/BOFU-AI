@@ -82,6 +82,8 @@ export const UserPresence: React.FC<UserPresenceProps> = ({
 
         // Subscribe to presence changes
         presenceUnsubscribe = realtimeCollaboration.onPresenceChange((presence) => {
+          console.log('🔔 UserPresence received presence update:', presence);
+          
           // Handle join/leave animations
           if (settings.animateJoinLeave) {
             const currentUserIds = new Set(activeUsers.map(u => u.user_id));
@@ -90,6 +92,7 @@ export const UserPresence: React.FC<UserPresenceProps> = ({
             // Find users who joined
             const joined = presence.filter(u => !currentUserIds.has(u.user_id));
             if (joined.length > 0) {
+              console.log('➕ Users joined:', joined);
               setJoiningUsers(new Set(joined.map(u => u.user_id)));
               setTimeout(() => {
                 setJoiningUsers(new Set());
@@ -99,6 +102,7 @@ export const UserPresence: React.FC<UserPresenceProps> = ({
             // Find users who left
             const left = activeUsers.filter(u => !newUserIds.has(u.user_id));
             if (left.length > 0) {
+              console.log('➖ Users left:', left);
               setLeavingUsers(new Set(left.map(u => u.user_id)));
               setTimeout(() => {
                 setLeavingUsers(new Set());
@@ -107,6 +111,7 @@ export const UserPresence: React.FC<UserPresenceProps> = ({
           }
           
           setActiveUsers(presence);
+          console.log('👥 UserPresence activeUsers updated to:', presence.length, 'users');
         });
 
         // Subscribe to cursor changes

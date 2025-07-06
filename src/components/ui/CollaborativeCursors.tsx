@@ -484,18 +484,44 @@ export const CollaborativeCursors: React.FC<CollaborativeCursorsProps> = ({
   // Listen for presence changes
   useEffect(() => {
     const handlePresenceChange = (users: PresenceUser[]) => {
+      console.log('🖱️ CollaborativeCursors received presence update:', {
+        totalUsers: users.length,
+        currentUserId: realtimeCollaboration.getCurrentUserId(),
+        users: users.map(u => ({ 
+          id: u.user_id, 
+          email: u.user_metadata?.email, 
+          hasCursor: !!u.cursor_position,
+          cursorPos: u.cursor_position 
+        }))
+      });
+      
       setCursors(prev => {
         const newCursors = new Map();
+        const currentUserId = realtimeCollaboration.getCurrentUserId();
         
         users.forEach(user => {
-          if (user.cursor_position && user.user_id !== realtimeCollaboration.getCurrentUserId()) {
+          console.log('👤 Processing user:', {
+            userId: user.user_id,
+            currentUserId,
+            isCurrentUser: user.user_id === currentUserId,
+            hasCursorPosition: !!user.cursor_position,
+            cursorPosition: user.cursor_position
+          });
+          
+          if (user.cursor_position && user.user_id !== currentUserId) {
+            console.log('✅ Adding cursor for user:', user.user_id);
             newCursors.set(user.user_id, {
               ...user.cursor_position,
               user
             });
+          } else {
+            console.log('❌ Skipping cursor for user:', user.user_id, {
+              reason: !user.cursor_position ? 'no cursor position' : 'is current user'
+            });
           }
         });
 
+        console.log('🎯 Final cursors map:', newCursors.size, 'cursors');
         return newCursors;
       });
     };

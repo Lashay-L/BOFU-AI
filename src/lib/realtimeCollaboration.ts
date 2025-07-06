@@ -80,6 +80,12 @@ export class RealtimeCollaborationService {
         throw new Error('User not authenticated');
       }
 
+      console.log('🚀 Joining article for collaboration:', {
+        articleId,
+        userId: user.id,
+        email: user.email
+      });
+
       this.currentArticleId = articleId;
       this.currentUserId = user.id;
 
@@ -98,18 +104,23 @@ export class RealtimeCollaborationService {
         ...userMetadata,
       };
 
+      console.log('👤 User metadata prepared:', fullUserMetadata);
+
       // Update presence in database
       await this.updatePresence(articleId, 'viewing', undefined, fullUserMetadata);
+      console.log('✅ Presence updated in database');
 
       // Subscribe to real-time channel
       await this.subscribeToChannel(articleId);
+      console.log('✅ Subscribed to real-time channel');
 
       // Start heartbeat to maintain presence
       this.startHeartbeat(articleId, fullUserMetadata);
+      console.log('✅ Heartbeat started');
 
-      console.log(`Joined article ${articleId} for real-time collaboration`);
+      console.log(`✅ Successfully joined article ${articleId} for real-time collaboration`);
     } catch (error) {
-      console.error('Failed to join article:', error);
+      console.error('❌ Failed to join article:', error);
       throw error;
     }
   }
@@ -323,8 +334,11 @@ export class RealtimeCollaborationService {
    */
   private async handlePresenceChange(payload: any): Promise<void> {
     try {
+      console.log('🔄 Presence change detected:', payload);
+      
       if (this.currentArticleId) {
         const activeUsers = await this.getActiveUsers(this.currentArticleId);
+        console.log('👥 Active users fetched:', activeUsers.length, activeUsers);
         
         // Notify callbacks about presence changes
         this.onPresenceChangeCallbacks.forEach(callback => {
@@ -340,12 +354,14 @@ export class RealtimeCollaborationService {
             metadata: user.user_metadata,
           }));
 
+        console.log('🕱️ Cursors for other users:', cursors.length, cursors);
+
         this.onCursorChangeCallbacks.forEach(callback => {
           callback(cursors);
         });
       }
     } catch (error) {
-      console.error('Failed to handle presence change:', error);
+      console.error('❌ Failed to handle presence change:', error);
     }
   }
 
@@ -391,6 +407,12 @@ export class RealtimeCollaborationService {
     if (this.currentArticleId && this.currentUserId) {
       try {
         const userMetadata = this.getUserMetadata();
+        console.log('🖱️ Updating cursor position:', {
+          articleId: this.currentArticleId,
+          userId: this.currentUserId,
+          position: cursorPosition,
+          metadata: userMetadata
+        });
         await this.updatePresence(this.currentArticleId, 'editing', cursorPosition, userMetadata);
       } catch (error) {
         console.error('Failed to update cursor position:', error);

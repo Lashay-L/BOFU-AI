@@ -9,7 +9,7 @@ import {
   ListChecks
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { fetchUSPs, fetchCompetitors } from '../../lib/contentBriefs';
+import { fetchUSPs, fetchCompetitors, fetchPainPoints } from '../../lib/contentBriefs';
 
 interface ListSectionProps {
   sectionKey: string;
@@ -145,10 +145,25 @@ export const ListSection: React.FC<ListSectionProps> = ({
     }
   }, [showDropdown]);
 
-  // Enhanced error handling and loading states - using only fallback data
+  // Enhanced error handling and loading states - fetch from database first
   useEffect(() => {
     if (isPainPointsSection && showDropdown) {
-      const getPainPoints = () => {
+      const getPainPoints = async () => {
+        console.log('Loading pain points from database...');
+        try {
+          if (researchResultId) {
+            const fetchedPainPoints = await fetchPainPoints(researchResultId);
+            if (fetchedPainPoints.length > 0) {
+              setAvailablePainPoints(fetchedPainPoints);
+              console.log('Pain points data loaded from database:', fetchedPainPoints.length);
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching pain points from database:', error);
+        }
+        
+        // Fallback to placeholder data if database fetch fails or returns no results
         console.log('Loading pain points fallback data...');
         setAvailablePainPoints([
           'High operational costs',
@@ -162,12 +177,12 @@ export const ListSection: React.FC<ListSectionProps> = ({
           'Lack of real-time visibility',
           'Integration challenges'
         ]);
-        console.log('Pain points data loaded successfully');
+        console.log('Pain points fallback data loaded successfully');
       };
 
       getPainPoints();
     }
-  }, [isPainPointsSection, showDropdown]);
+  }, [isPainPointsSection, showDropdown, researchResultId]);
 
   useEffect(() => {
     if (isCapabilitiesSection && showDropdown) {
