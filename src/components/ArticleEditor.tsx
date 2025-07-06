@@ -1188,12 +1188,16 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
     const handleSelectionUpdate = () => {
       updateCursorPosition();
       // Update status to editing when user is actively selecting/typing
-      realtimeCollaboration.updatePresence(articleId, 'editing');
+      if (articleId) {
+        realtimeCollaboration.updatePresence(articleId, 'editing');
+      }
     };
 
     const handleTransaction = () => {
       // Update status to editing on any transaction (typing, formatting, etc.)
-      realtimeCollaboration.updatePresence(articleId, 'editing');
+      if (articleId) {
+        realtimeCollaboration.updatePresence(articleId, 'editing');
+      }
     };
 
     // Add event listeners only if editor exists
@@ -1227,16 +1231,26 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       try {
         setIsAutoSaving(true);
         setSaveStatus('saving');
-        const result = await autoSaveArticleContent(articleId, content, adminMode, adminUser?.id, originalAuthor?.id);
         
-        if (result.success) {
+        // Use unified auto-save function if provided, otherwise fallback to old API
+        if (onAutoSave) {
+          console.log('🔄 Using unified auto-save function for:', { adminMode, articleId });
+          await onAutoSave(content);
           setSaveStatus('saved');
           setLastSaved(new Date());
           setHasUnsavedChanges(false);
-          if (onAutoSave) onAutoSave(content);
         } else {
-          setSaveStatus('error');
-          console.error('Auto-save failed:', result.error);
+          console.warn('⚠️ No unified auto-save function provided, falling back to old API');
+          const result = await autoSaveArticleContent(articleId, content, adminMode, adminUser?.id, originalAuthor?.id);
+          
+          if (result.success) {
+            setSaveStatus('saved');
+            setLastSaved(new Date());
+            setHasUnsavedChanges(false);
+          } else {
+            setSaveStatus('error');
+            console.error('Auto-save failed:', result.error);
+          }
         }
       } catch (error) {
         setSaveStatus('error');
@@ -1258,31 +1272,44 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       setIsAutoSaving(true);
       setSaveStatus('saving');
       
-      let result;
-      if (adminMode && adminUser?.id && originalAuthor?.id) {
-        const adminResult = await saveArticleContentAsAdmin(
-          articleId, 
-          currentContent, 
-          adminUser.id, 
-          originalAuthor.id, 
-          'editing'
-        );
-        result = {
-          success: !!adminResult,
-          error: adminResult ? undefined : 'Failed to save as admin'
-        };
-      } else {
-        result = await saveArticleContent(articleId, currentContent);
-      }
-      
-      if (result.success) {
+      // Use the unified save function passed from UnifiedArticleEditor
+      if (onSave) {
+        console.log('🔄 Using unified save function for:', { adminMode, articleId });
+        await onSave(currentContent);
+        
+        // The UnifiedArticleEditor handles the save result and status
         setSaveStatus('saved');
         setLastSaved(new Date());
         setHasUnsavedChanges(false);
-        if (onSave) onSave(currentContent);
       } else {
-        setSaveStatus('error');
-        console.error('Save failed:', result.error);
+        // Fallback to old API if no unified save function provided
+        console.warn('⚠️ No unified save function provided, falling back to old API');
+        
+        let result;
+        if (adminMode && adminUser?.id && originalAuthor?.id) {
+          const adminResult = await saveArticleContentAsAdmin(
+            articleId, 
+            currentContent, 
+            adminUser.id, 
+            originalAuthor.id, 
+            'editing'
+          );
+          result = {
+            success: !!adminResult,
+            error: adminResult ? undefined : 'Failed to save as admin'
+          };
+        } else {
+          result = await saveArticleContent(articleId, currentContent);
+        }
+        
+        if (result.success) {
+          setSaveStatus('saved');
+          setLastSaved(new Date());
+          setHasUnsavedChanges(false);
+        } else {
+          setSaveStatus('error');
+          console.error('Save failed:', result.error);
+        }
       }
     } catch (error) {
       setSaveStatus('error');
@@ -2104,11 +2131,11 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
                 setShowComments(true); // Auto-open sidebar when clicking a comment
               }
             }}
-            onCommentStatusChange={async (commentId, status: "active" | "resolved" | "archived") => {
+            onCommentStatusChange={async (commentId, status) => {
               try {
                 // Update comment status
                 const updatedComments = comments.map(c => 
-                  c.id === commentId ? { ...c, status } : c
+                  c.id === commentId ? { ...c, status: status as "active" | "resolved" | "archived" } : c
                 );
                 setComments(updatedComments);
               } catch (error) {
