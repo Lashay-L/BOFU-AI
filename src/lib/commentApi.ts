@@ -192,16 +192,65 @@ export async function updateComment(commentId: string, data: UpdateCommentData):
  */
 export async function deleteComment(commentId: string): Promise<void> {
   try {
+    // First get the comment to check if it has an image
+    const { data: comment, error: fetchError } = await supabase
+      .from('article_comments')
+      .select('image_url, content')
+      .eq('id', commentId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Delete the comment from database
     const { error } = await supabase
       .from('article_comments')
       .delete()
       .eq('id', commentId);
 
     if (error) throw error;
+
+    // If comment had an image, delete it from storage
+    if (comment?.image_url) {
+      try {
+        await deleteCommentImage(comment.image_url);
+        console.log('✅ Deleted comment image:', comment.image_url);
+      } catch (imageError) {
+        console.error('❌ Failed to delete comment image:', imageError);
+        // Log error but don't fail the comment deletion
+      }
+    }
+
+    // Also check content for embedded images (in case of rich text with images)
+    if (comment?.content) {
+      const imageUrls = extractImageUrlsFromContent(comment.content);
+      for (const imageUrl of imageUrls) {
+        if (imageUrl.includes('comment-images')) {
+          try {
+            await deleteCommentImage(imageUrl);
+            console.log('✅ Deleted embedded comment image:', imageUrl);
+          } catch (imageError) {
+            console.error('❌ Failed to delete embedded image:', imageError);
+          }
+        }
+      }
+    }
   } catch (error) {
     console.error('Error deleting comment:', error);
     throw error;
   }
+}
+
+// Helper function to extract image URLs from HTML content
+function extractImageUrlsFromContent(content: string): string[] {
+  const imageUrls: string[] = [];
+  const imgRegex = /<img[^>]+src="([^"]+)"/g;
+  let match;
+  
+  while ((match = imgRegex.exec(content)) !== null) {
+    imageUrls.push(match[1]);
+  }
+  
+  return imageUrls;
 }
 
 /**
@@ -1148,21 +1197,26 @@ async function moveImageToCommentFolder(imageUrl: string, commentId: string): Pr
  */
 export async function deleteCommentImage(imageUrl: string): Promise<void> {
   try {
+    // Import the reliable deletion helper
+    const { deleteFromStorageWithVerification } = await import('./storage');
+    
     // Extract the file path from the URL
     const url = new URL(imageUrl);
     const pathParts = url.pathname.split('/');
     const filePath = pathParts.slice(-3).join('/'); // Get user_id/comment_id/filename
 
-    const { error } = await supabase.storage
-      .from('comment-images')
-      .remove([filePath]);
+    // Use reliable deletion with verification
+    const { success, errors } = await deleteFromStorageWithVerification(
+      'comment-images',
+      [filePath]
+    );
 
-    if (error) {
-      console.error('❌ Error deleting comment image:', error);
-      throw error;
+    if (!success) {
+      console.error('❌ Failed to delete comment image:', errors);
+      throw new Error(`Failed to delete comment image: ${errors.join(', ')}`);
     }
 
-    console.log('✅ Comment image deleted:', filePath);
+    console.log('✅ Comment image deleted and verified:', filePath);
   } catch (error) {
     console.error('❌ Error deleting comment image:', error);
     throw error;

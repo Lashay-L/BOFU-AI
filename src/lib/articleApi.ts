@@ -4,6 +4,19 @@ import { toast } from 'react-hot-toast';
 import { auditLogger } from './auditLogger';
 import { deleteAllCommentsForArticle } from './commentApi';
 
+// Helper function to extract image URLs from HTML content
+function extractImageUrlsFromContent(content: string): string[] {
+  const imageUrls: string[] = [];
+  const imgRegex = /<img[^>]+src="([^"]+)"/g;
+  let match;
+  
+  while ((match = imgRegex.exec(content)) !== null) {
+    imageUrls.push(match[1]);
+  }
+  
+  return imageUrls;
+}
+
 export interface ArticleContent {
   id: string;
   title: string;
@@ -727,15 +740,23 @@ export async function deleteArticle(articleId: string): Promise<{ success: boole
       if (imagesError) {
         console.warn('Warning: Could not fetch article images for cleanup:', imagesError);
       } else if (imageData && imageData.length > 0) {
-        // Delete images from storage
+        // Import the reliable deletion helper
+        const { deleteFromStorageWithVerification } = await import('./storage');
+        
+        // Delete images from storage with verification
         const imagePaths = imageData.map(img => img.storage_path);
-        const { error: storageError } = await supabase
-          .storage
-          .from('article-images')
-          .remove(imagePaths);
+        console.log(`🖼️ Deleting ${imagePaths.length} article images...`);
+        
+        const { success: storageSuccess, errors: storageErrors } = await deleteFromStorageWithVerification(
+          'article-images',
+          imagePaths
+        );
 
-        if (storageError) {
-          console.warn('Warning: Could not delete images from storage:', storageError);
+        if (!storageSuccess) {
+          console.error('❌ Failed to delete some article images:', storageErrors);
+          // Continue with metadata deletion even if some images failed
+        } else {
+          console.log('✅ Successfully deleted all article images from storage');
         }
 
         // Delete image metadata
@@ -746,6 +767,59 @@ export async function deleteArticle(articleId: string): Promise<{ success: boole
 
         if (imageMetaError) {
           console.warn('Warning: Could not delete image metadata:', imageMetaError);
+        } else {
+          console.log('✅ Successfully deleted article image metadata');
+        }
+      }
+
+      // Also check article content for embedded images
+      if (articleData.article_content) {
+        const embeddedImageUrls = extractImageUrlsFromContent(articleData.article_content);
+        const articleStorageImages = embeddedImageUrls.filter(url => 
+          url.includes('article-images') || url.includes('media-library')
+        );
+        
+        if (articleStorageImages.length > 0) {
+          console.log(`🖼️ Found ${articleStorageImages.length} embedded images in article content`);
+          
+          // Extract paths from URLs
+          const embeddedPaths = articleStorageImages.map(url => {
+            try {
+              const urlObj = new URL(url);
+              const pathParts = urlObj.pathname.split('/');
+              // Get the path after the bucket name
+              const bucketIndex = pathParts.findIndex(part => 
+                part === 'article-images' || part === 'media-library'
+              );
+              if (bucketIndex !== -1 && bucketIndex < pathParts.length - 1) {
+                return pathParts.slice(bucketIndex + 1).join('/');
+              }
+              return null;
+            } catch (e) {
+              console.warn('Could not parse image URL:', url);
+              return null;
+            }
+          }).filter(path => path !== null) as string[];
+
+          if (embeddedPaths.length > 0) {
+            // Import the reliable deletion helper
+            const { deleteFromStorageWithVerification } = await import('./storage');
+            
+            // Try to delete from article-images bucket first
+            const articleImagePaths = embeddedPaths.filter(path => !path.includes('media-library'));
+            if (articleImagePaths.length > 0) {
+              const { success, errors } = await deleteFromStorageWithVerification(
+                'article-images',
+                articleImagePaths
+              );
+              if (!success) {
+                console.warn('Failed to delete some embedded article images:', errors);
+              }
+            }
+            
+            // Note: We don't delete from media-library as those might be shared
+            console.log('✅ Processed embedded image cleanup');
+          }
         }
       }
 

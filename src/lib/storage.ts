@@ -18,6 +18,86 @@ export const ARTICLE_IMAGES_BUCKET = 'article-images';
 export const MEDIA_LIBRARY_BUCKET = 'media-library';
 export const MEDIA_THUMBNAILS_BUCKET = 'media-thumbnails';
 
+/**
+ * Reliably delete files from Supabase storage with verification and retry
+ * @param bucketName - The storage bucket name
+ * @param filePaths - Array of file paths to delete
+ * @param maxRetries - Maximum number of retry attempts (default: 3)
+ * @returns Object with success status and any errors
+ */
+export async function deleteFromStorageWithVerification(
+  bucketName: string,
+  filePaths: string[],
+  maxRetries: number = 3
+): Promise<{ success: boolean; errors: string[]; deletedFiles: string[] }> {
+  const errors: string[] = [];
+  const deletedFiles: string[] = [];
+  
+  console.log(`🗑️ Starting verified deletion from bucket "${bucketName}":`, filePaths);
+
+  for (const filePath of filePaths) {
+    let retryCount = 0;
+    let deleted = false;
+
+    while (retryCount < maxRetries && !deleted) {
+      try {
+        // Attempt to delete the file
+        const { error: deleteError } = await supabase.storage
+          .from(bucketName)
+          .remove([filePath]);
+
+        if (deleteError) {
+          console.error(`❌ Delete attempt ${retryCount + 1} failed for ${filePath}:`, deleteError);
+          retryCount++;
+          
+          // Wait before retry (exponential backoff)
+          if (retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+          }
+          continue;
+        }
+
+        // Verify the file is actually deleted by trying to get its public URL and checking if it exists
+        const { data: listData, error: listError } = await supabase.storage
+          .from(bucketName)
+          .list(filePath.split('/').slice(0, -1).join('/'), {
+            limit: 100,
+            search: filePath.split('/').pop()
+          });
+
+        if (!listError && (!listData || listData.length === 0)) {
+          // File successfully deleted
+          deleted = true;
+          deletedFiles.push(filePath);
+          console.log(`✅ Successfully deleted and verified: ${filePath}`);
+        } else {
+          console.warn(`⚠️ File may still exist after deletion attempt: ${filePath}`);
+          retryCount++;
+        }
+
+      } catch (error) {
+        console.error(`❌ Unexpected error deleting ${filePath}:`, error);
+        retryCount++;
+      }
+    }
+
+    if (!deleted) {
+      errors.push(`Failed to delete ${filePath} after ${maxRetries} attempts`);
+    }
+  }
+
+  const success = errors.length === 0;
+  
+  console.log(`📊 Storage deletion summary:`, {
+    totalFiles: filePaths.length,
+    deletedFiles: deletedFiles.length,
+    failedFiles: errors.length,
+    success
+  });
+
+  return { success, errors, deletedFiles };
+}
+
 // Media Library Types
 export interface MediaFile {
   id: string;
@@ -873,34 +953,90 @@ export async function updateMediaFileMetadata(
  */
 export async function deleteMediaFile(fileId: string): Promise<{ success: boolean; error?: string }> {
   try {
+    console.log('🗑️ Starting media file deletion for ID:', fileId);
+    
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return {
+        success: false,
+        error: 'You must be logged in to delete files'
+      };
+    }
+    
     // Get file info first
     const { data: mediaFile, error: fetchError } = await supabase
       .from('media_files')
-      .select('file_path, thumbnail_path')
+      .select('file_path, thumbnail_path, user_id, uploaded_by_user_id')
       .eq('id', fileId)
       .single();
 
     if (fetchError) {
       console.error('Error fetching media file for deletion:', fetchError);
+      if (fetchError.code === 'PGRST116') {
+        return {
+          success: false,
+          error: 'File not found'
+        };
+      }
       return {
         success: false,
         error: `Failed to fetch file info: ${fetchError.message}`
       };
     }
 
-    // Delete from storage
+    // Check if user is an admin first
+    const { data: adminProfile } = await supabase
+      .from('admin_profiles')
+      .select('id, admin_role')
+      .eq('id', user.id)
+      .single();
+    
+    const isAdmin = !!adminProfile;
+    
+    // Check if user has permission to delete
+    if (!isAdmin && mediaFile.user_id !== user.id && mediaFile.uploaded_by_user_id !== user.id) {
+      console.warn('User does not have permission to delete this file', {
+        fileUserId: mediaFile.user_id,
+        fileUploadedBy: mediaFile.uploaded_by_user_id,
+        currentUser: user.id,
+        isAdmin: false
+      });
+      return {
+        success: false,
+        error: 'You can only delete files that you uploaded'
+      };
+    }
+    
+    if (isAdmin) {
+      console.log('🔓 Admin user detected, allowing deletion of any file');
+    }
+
+    console.log('📁 File to delete:', {
+      path: mediaFile.file_path,
+      thumbnail: mediaFile.thumbnail_path,
+      userId: mediaFile.user_id,
+      uploadedBy: mediaFile.uploaded_by_user_id
+    });
+
+    // Delete from storage with verification
     const filesToDelete = [mediaFile.file_path];
     if (mediaFile.thumbnail_path) {
       filesToDelete.push(mediaFile.thumbnail_path);
     }
 
-    const { error: storageError } = await supabase.storage
-      .from(MEDIA_LIBRARY_BUCKET)
-      .remove(filesToDelete);
+    const { success: storageSuccess, errors: storageErrors } = await deleteFromStorageWithVerification(
+      MEDIA_LIBRARY_BUCKET,
+      filesToDelete
+    );
 
-    if (storageError) {
-      console.error('Error deleting files from storage:', storageError);
-      // Continue with database deletion even if storage deletion fails
+    if (!storageSuccess) {
+      console.error('Failed to delete some files from storage:', storageErrors);
+      // Return error if storage deletion failed
+      return {
+        success: false,
+        error: `Failed to delete files from storage: ${storageErrors.join(', ')}`
+      };
     }
 
     // Delete from database
@@ -911,12 +1047,19 @@ export async function deleteMediaFile(fileId: string): Promise<{ success: boolea
 
     if (dbError) {
       console.error('Error deleting media file from database:', dbError);
+      if (dbError.code === '42501') {
+        return {
+          success: false,
+          error: 'You do not have permission to delete this file'
+        };
+      }
       return {
         success: false,
         error: `Failed to delete file: ${dbError.message}`
       };
     }
 
+    console.log('✅ Successfully deleted from database');
     return { success: true };
 
   } catch (error) {

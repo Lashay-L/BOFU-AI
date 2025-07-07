@@ -204,12 +204,12 @@ export default function MediaGrid({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (confirm('Are you sure you want to delete this file?')) {
+                if (confirm(`Are you sure you want to delete "${file.title || file.original_filename}"?\n\nThis will permanently remove the file from the media library.`)) {
                   onFileDelete(file.id);
                 }
               }}
-              className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-              title="Delete"
+              className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
+              title="Delete permanently"
             >
               <TrashIcon className="h-4 w-4" />
             </button>
@@ -355,12 +355,12 @@ export default function MediaGrid({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (confirm('Are you sure you want to delete this file?')) {
+                if (confirm(`Are you sure you want to delete "${file.title || file.original_filename}"?\n\nThis will permanently remove the file from the media library.`)) {
                   onFileDelete(file.id);
                 }
               }}
-              className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded transition-colors"
-              title="Delete"
+              className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-700/20 rounded transition-colors"
+              title="Delete permanently"
             >
               <TrashIcon className="h-4 w-4" />
             </button>
