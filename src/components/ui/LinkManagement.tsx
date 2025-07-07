@@ -4,6 +4,7 @@ import {
   Link as LinkIcon, ExternalLink, Edit, Trash2, Check, X, 
   AlertCircle, Globe, Mail, Phone 
 } from 'lucide-react';
+import { BaseModal } from './BaseModal';
 
 interface LinkManagementProps {
   editor: Editor;

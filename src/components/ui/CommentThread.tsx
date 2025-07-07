@@ -1,8 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, CheckCircle, Archive, MoreHorizontal, Edit2, Trash2, Reply, Clock, AlertTriangle, Calendar, User, Edit3, ImageIcon, AtSign, X } from 'lucide-react';
+import { 
+  MessageCircle, 
+  CheckCircle, 
+  Archive, 
+  MoreHorizontal, 
+  Edit2, 
+  Trash2, 
+  Reply, 
+  Clock, 
+  AlertTriangle, 
+  Calendar, 
+  User, 
+  Edit3, 
+  Image, 
+  AtSign, 
+  X, 
+  Eye,
+  Timer,
+  Tag
+} from 'lucide-react';
 import { ArticleComment, highlightMentions, getMentionableUsers, MentionableUser } from '../../lib/commentApi';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../lib/auth';
+import { BaseModal } from './BaseModal';
 
 // Custom scrollbar styles for dropdown menu
 const scrollbarStyles = `
@@ -340,7 +360,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
           {comment.content && comment.content.trim() && (
             <div className="text-gray-700 dark:text-gray-300 text-sm">
               <div className="flex items-start gap-2">
-                <ImageIcon size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                <Image className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
                   {renderTextWithMentions(comment.content)}
                 </div>
@@ -753,61 +773,47 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
 
       {/* Image Modal */}
       {showImageModal && comment.content_type === 'image' && comment.image_url && (
-        <div 
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={() => setShowImageModal(false)}
+        <BaseModal
+          isOpen={showImageModal}
+          onClose={() => setShowImageModal(false)}
+          title="Comment Image"
+          size="xl"
+          theme="dark"
         >
-          <div 
-            className="relative max-w-4xl max-h-[90vh] bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Content */}
-            <div className="flex flex-col max-h-[90vh]">
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                    <ImageIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white">Comment Image</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {comment.user?.name || 'User'} • {new Date(comment.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowImageModal(false)}
-                  className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-
-              {/* Scrollable Content Area */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {/* Image */}
-                <div className="flex justify-center">
-                  <img
-                    src={comment.image_url}
-                    alt="Comment attachment"
-                    className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg"
-                  />
-                </div>
-
-                {/* Comment Text */}
-                {comment.content && comment.content.trim() && (
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">Comment:</h4>
-                    <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                      {comment.content}
-                    </p>
-                  </div>
-                )}
-              </div>
+          {/* User info */}
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+              <Image className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {comment.user?.name || 'User'} • {new Date(comment.created_at).toLocaleDateString()}
+              </p>
             </div>
           </div>
-        </div>
+
+          {/* Scrollable Content Area */}
+          <div className="space-y-4">
+            {/* Image */}
+            <div className="flex justify-center">
+              <img
+                src={comment.image_url}
+                alt="Comment attachment"
+                className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg"
+              />
+            </div>
+
+            {/* Comment Text */}
+            {comment.content && comment.content.trim() && (
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">Comment:</h4>
+                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                  {comment.content}
+                </p>
+              </div>
+            )}
+          </div>
+        </BaseModal>
       )}
     </div>
   );

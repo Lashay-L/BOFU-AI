@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Supabase Credentials Memory
+
+**Important Credentials:**
+- When using Supabase MCP, always use the following credentials:
+  * Project URL: https://nhxjashreguofalhaofj.supabase.co
+  * Service Key: sbp_3d5cd8b7a046e8dfcf1706d7265af9092b0230cc
+
 ## Development Commands
 
 **Core Development:**
@@ -16,8 +23,11 @@ npm run dev:server            # Start Express.js server with nodemon
 
 **Database Setup:**
 ```bash
-# Create first admin account
-node scripts/create-admin.js  # After editing admin details in script
+# Create first admin account (after editing admin details in script)
+node scripts/create-admin.js
+
+# Bundle Analysis (production build insights)
+npm run build     # Includes rollup-plugin-visualizer for bundle analysis
 ```
 
 **Required Environment Variables:**
@@ -154,12 +164,15 @@ This project integrates with multiple MCP (Model Context Protocol) servers for e
 **BOFU AI** is a React-based SaaS application for automating Bottom-of-Funnel content creation for B2B SaaS companies. The application uses AI to analyze product information and generate tailored content briefs.
 
 ### Technology Stack
-- **Frontend:** React 18.3.1 with TypeScript, Vite build tool
-- **Backend:** Supabase (PostgreSQL) with Edge Functions
-- **Styling:** Tailwind CSS with custom design system
-- **Editor:** TipTap rich text editor with collaborative features
-- **Animation:** Framer Motion for UI animations
-- **Routing:** React Router DOM
+- **Frontend:** React 18.3.1 with TypeScript, Vite build tool with advanced optimization
+- **Backend:** Supabase (PostgreSQL) with Edge Functions and real-time subscriptions
+- **Styling:** Tailwind CSS with custom glassmorphism design system
+- **Rich Text Editor:** TipTap with 20+ extensions including collaborative editing (Y.js)
+- **UI Components:** Radix UI primitives with Headless UI for complex interactions
+- **Animation:** Framer Motion for sophisticated UI animations
+- **Routing:** React Router DOM v7.4.1 with lazy loading
+- **Document Export:** Multi-format support (DOCX, PDF, HTML, Markdown)
+- **Performance:** Strategic code splitting and bundle optimization
 
 ### Core Application Flow
 1. **User Authentication:** Role-based access (regular users vs admin users)
@@ -183,29 +196,38 @@ The application maintains separate user types with distinct workflows:
 - **Collaborative Features:** Real-time editing with presence indicators
 
 ### Database Architecture (Supabase)
-**Key Tables:**
-- `user_profiles` / `admin_profiles` - User management with role separation
-- `research_results` - Product analysis data storage
-- `content_briefs` - AI-generated content briefs
+**Core Tables:**
+- `user_profiles` / `admin_profiles` - Dual user system with role separation
+- `research_results` - AI-generated product analysis data
+- `content_briefs` - User-created content briefs with approval workflow
 - `approved_products` - User-approved product submissions
-- `article_comments` - Collaborative commenting system
-- `version_history` - Document version tracking
+- `article_comments` - Rich commenting system with mentions and resolution
+- `article_presence` - Real-time user presence tracking for collaboration
+- `version_history` - Comprehensive document versioning and audit trail
+- `comment_status_history` - Comment lifecycle audit trail
+- `user_dashboard_embeds` - Embedded analytics dashboards
 
-**Security:** Row Level Security (RLS) policies for data protection
+**Security:** Row Level Security (RLS) policies with multi-tenant data protection
 
 ### Component Organization
 ```
 src/components/
-├── admin/           # Admin dashboard and management
-│   ├── AdminDashboard.tsx
-│   └── ContentBriefManagement.tsx
-├── auth/            # Authentication components
-├── content-brief/   # Content brief management
-├── product/         # Product analysis components
-│   ├── ProductCard.tsx
-│   └── ProductCardContent.tsx
-├── profile/         # User profile management
-└── ui/              # Reusable UI components
+├── admin/                    # Complete admin management system
+│   ├── ContentBriefManagement/  # Modular admin interface with hooks
+│   ├── layout/               # Admin-specific layouts
+│   ├── modals/               # Admin modal components
+│   └── ui/                   # Admin UI components
+├── auth/                     # Authentication components
+├── content-brief/            # Content brief management
+├── product/                  # Product analysis components
+├── profile/                  # User profile management
+├── user-dashboard/           # User dashboard components
+├── settings/                 # Application settings
+├── chat/                     # Chat functionality
+└── ui/                       # 40+ reusable UI components
+    ├── collaborative editing tools (CommentingSystem, UserPresence)
+    ├── rich text editor components (LinkEditor, SpecialCharacters)
+    └── mobile-responsive components (MobileNavigation, MobileCommentSystem)
 ```
 
 ### State Management Patterns

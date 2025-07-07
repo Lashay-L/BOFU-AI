@@ -4,8 +4,11 @@ import {
   Sliders, Sun, Contrast, Palette, Scissors, Move, AlignLeft, 
   AlignCenter, AlignRight, Maximize 
 } from 'lucide-react';
+import { BaseModal } from './BaseModal';
 
 interface ImageEditorProps {
+  isOpen: boolean;
+  onClose: () => void;
   imageUrl: string;
   onSave: (editedImageBlob: Blob, metadata: EditedImageMetadata) => void;
   onCancel: () => void;
@@ -50,6 +53,8 @@ const DEFAULT_FILTERS: FilterSettings = {
 };
 
 export const ImageEditor: React.FC<ImageEditorProps> = ({
+  isOpen,
+  onClose,
   imageUrl,
   onSave,
   onCancel,
@@ -304,210 +309,204 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Image Editor</h3>
-          <button
-            onClick={onCancel}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X size={24} />
-          </button>
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Image Editor"
+      size="xl"
+      theme="light"
+      contentClassName="bg-white rounded-lg max-w-6xl max-h-[90vh] overflow-hidden flex flex-col"
+    >
+      <div className="flex flex-1 overflow-hidden">
+        {/* Toolbar */}
+        <div className="w-64 bg-gray-50 p-4 border-r border-gray-200 overflow-y-auto">
+          <div className="space-y-6">
+            {/* Basic Tools */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Basic Tools</h4>
+              <div className="space-y-2">
+                <button
+                  onClick={() => handleRotate('left')}
+                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm bg-white border border-gray-200 rounded hover:bg-gray-50"
+                >
+                  <RotateCcw size={16} />
+                  <span>Rotate Left</span>
+                </button>
+                <button
+                  onClick={() => handleRotate('right')}
+                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm bg-white border border-gray-200 rounded hover:bg-gray-50"
+                >
+                  <RotateCw size={16} />
+                  <span>Rotate Right</span>
+                </button>
+                <button
+                  onClick={isCropping ? handleCropCancel : handleCropStart}
+                  className={`w-full flex items-center space-x-2 px-3 py-2 text-sm border rounded ${
+                    isCropping 
+                      ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100' 
+                      : 'bg-white border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <Crop size={16} />
+                  <span>{isCropping ? 'Cancel Crop' : 'Crop Image'}</span>
+                </button>
+                {isCropping && (
+                  <button
+                    onClick={handleCropConfirm}
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-sm bg-green-50 border border-green-200 text-green-700 rounded hover:bg-green-100"
+                  >
+                    <Check size={16} />
+                    <span>Apply Crop</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Filters</h4>
+              <div className="space-y-4">
+                <div>
+                  <label className="flex items-center space-x-2 text-sm text-gray-600 mb-1">
+                    <Sun size={14} />
+                    <span>Brightness: {filters.brightness}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="200"
+                    value={filters.brightness}
+                    onChange={(e) => handleFilterChange('brightness', parseInt(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <label className="flex items-center space-x-2 text-sm text-gray-600 mb-1">
+                    <Contrast size={14} />
+                    <span>Contrast: {filters.contrast}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="200"
+                    value={filters.contrast}
+                    onChange={(e) => handleFilterChange('contrast', parseInt(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <label className="flex items-center space-x-2 text-sm text-gray-600 mb-1">
+                    <Palette size={14} />
+                    <span>Saturation: {filters.saturation}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="200"
+                    value={filters.saturation}
+                    onChange={(e) => handleFilterChange('saturation', parseInt(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Image Alignment */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Alignment</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setMetadata(prev => ({ ...prev, alignment: 'left' }))}
+                  className={`flex items-center justify-center p-2 border rounded ${
+                    metadata.alignment === 'left' 
+                      ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                      : 'bg-white border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <AlignLeft size={16} />
+                </button>
+                <button
+                  onClick={() => setMetadata(prev => ({ ...prev, alignment: 'center' }))}
+                  className={`flex items-center justify-center p-2 border rounded ${
+                    metadata.alignment === 'center' 
+                      ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                      : 'bg-white border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <AlignCenter size={16} />
+                </button>
+                <button
+                  onClick={() => setMetadata(prev => ({ ...prev, alignment: 'right' }))}
+                  className={`flex items-center justify-center p-2 border rounded ${
+                    metadata.alignment === 'right' 
+                      ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                      : 'bg-white border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <AlignRight size={16} />
+                </button>
+                <button
+                  onClick={() => setMetadata(prev => ({ ...prev, alignment: 'full' }))}
+                  className={`flex items-center justify-center p-2 border rounded ${
+                    metadata.alignment === 'full' 
+                      ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                      : 'bg-white border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <Maximize size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Metadata */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Metadata</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Alt Text</label>
+                  <textarea
+                    value={metadata.altText}
+                    onChange={(e) => setMetadata(prev => ({ ...prev, altText: e.target.value }))}
+                    placeholder="Describe the image..."
+                    className="w-full px-2 py-1 text-sm border border-gray-200 rounded resize-none"
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Caption</label>
+                  <textarea
+                    value={metadata.caption}
+                    onChange={(e) => setMetadata(prev => ({ ...prev, caption: e.target.value }))}
+                    placeholder="Add a caption..."
+                    className="w-full px-2 py-1 text-sm border border-gray-200 rounded resize-none"
+                    rows={2}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Reset */}
+            <button
+              onClick={resetAll}
+              className="w-full px-3 py-2 text-sm bg-gray-100 border border-gray-200 rounded hover:bg-gray-200"
+            >
+              Reset All Changes
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
-          {/* Toolbar */}
-          <div className="w-64 bg-gray-50 p-4 border-r border-gray-200 overflow-y-auto">
-            <div className="space-y-6">
-              {/* Basic Tools */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Basic Tools</h4>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => handleRotate('left')}
-                    className="w-full flex items-center space-x-2 px-3 py-2 text-sm bg-white border border-gray-200 rounded hover:bg-gray-50"
-                  >
-                    <RotateCcw size={16} />
-                    <span>Rotate Left</span>
-                  </button>
-                  <button
-                    onClick={() => handleRotate('right')}
-                    className="w-full flex items-center space-x-2 px-3 py-2 text-sm bg-white border border-gray-200 rounded hover:bg-gray-50"
-                  >
-                    <RotateCw size={16} />
-                    <span>Rotate Right</span>
-                  </button>
-                  <button
-                    onClick={isCropping ? handleCropCancel : handleCropStart}
-                    className={`w-full flex items-center space-x-2 px-3 py-2 text-sm border rounded ${
-                      isCropping 
-                        ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100' 
-                        : 'bg-white border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Crop size={16} />
-                    <span>{isCropping ? 'Cancel Crop' : 'Crop Image'}</span>
-                  </button>
-                  {isCropping && (
-                    <button
-                      onClick={handleCropConfirm}
-                      className="w-full flex items-center space-x-2 px-3 py-2 text-sm bg-green-50 border border-green-200 text-green-700 rounded hover:bg-green-100"
-                    >
-                      <Check size={16} />
-                      <span>Apply Crop</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Filters */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Filters</h4>
-                <div className="space-y-4">
-                  <div>
-                    <label className="flex items-center space-x-2 text-sm text-gray-600 mb-1">
-                      <Sun size={14} />
-                      <span>Brightness: {filters.brightness}%</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="200"
-                      value={filters.brightness}
-                      onChange={(e) => handleFilterChange('brightness', parseInt(e.target.value))}
-                      className="w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="flex items-center space-x-2 text-sm text-gray-600 mb-1">
-                      <Contrast size={14} />
-                      <span>Contrast: {filters.contrast}%</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="200"
-                      value={filters.contrast}
-                      onChange={(e) => handleFilterChange('contrast', parseInt(e.target.value))}
-                      className="w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="flex items-center space-x-2 text-sm text-gray-600 mb-1">
-                      <Palette size={14} />
-                      <span>Saturation: {filters.saturation}%</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="200"
-                      value={filters.saturation}
-                      onChange={(e) => handleFilterChange('saturation', parseInt(e.target.value))}
-                      className="w-full"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Image Alignment */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Alignment</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setMetadata(prev => ({ ...prev, alignment: 'left' }))}
-                    className={`flex items-center justify-center p-2 border rounded ${
-                      metadata.alignment === 'left' 
-                        ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                        : 'bg-white border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <AlignLeft size={16} />
-                  </button>
-                  <button
-                    onClick={() => setMetadata(prev => ({ ...prev, alignment: 'center' }))}
-                    className={`flex items-center justify-center p-2 border rounded ${
-                      metadata.alignment === 'center' 
-                        ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                        : 'bg-white border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <AlignCenter size={16} />
-                  </button>
-                  <button
-                    onClick={() => setMetadata(prev => ({ ...prev, alignment: 'right' }))}
-                    className={`flex items-center justify-center p-2 border rounded ${
-                      metadata.alignment === 'right' 
-                        ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                        : 'bg-white border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <AlignRight size={16} />
-                  </button>
-                  <button
-                    onClick={() => setMetadata(prev => ({ ...prev, alignment: 'full' }))}
-                    className={`flex items-center justify-center p-2 border rounded ${
-                      metadata.alignment === 'full' 
-                        ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                        : 'bg-white border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Maximize size={16} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Metadata */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Metadata</h4>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Alt Text</label>
-                    <textarea
-                      value={metadata.altText}
-                      onChange={(e) => setMetadata(prev => ({ ...prev, altText: e.target.value }))}
-                      placeholder="Describe the image..."
-                      className="w-full px-2 py-1 text-sm border border-gray-200 rounded resize-none"
-                      rows={2}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Caption</label>
-                    <textarea
-                      value={metadata.caption}
-                      onChange={(e) => setMetadata(prev => ({ ...prev, caption: e.target.value }))}
-                      placeholder="Add a caption..."
-                      className="w-full px-2 py-1 text-sm border border-gray-200 rounded resize-none"
-                      rows={2}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Reset */}
-              <button
-                onClick={resetAll}
-                className="w-full px-3 py-2 text-sm bg-gray-100 border border-gray-200 rounded hover:bg-gray-200"
-              >
-                Reset All Changes
-              </button>
-            </div>
-          </div>
-
-          {/* Canvas Area */}
-          <div className="flex-1 flex items-center justify-center p-8 bg-gray-100">
-            <div className="relative">
-              <canvas
-                ref={canvasRef}
-                className="max-w-full max-h-full border border-gray-300 rounded-lg shadow-lg bg-white"
-                style={{ maxHeight: 'calc(90vh - 200px)' }}
-              />
-              {isCropping && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-white bg-black bg-opacity-50 px-3 py-1 rounded text-sm">
-                    Crop preview - adjust in controls panel
-                  </div>
+        {/* Canvas Area */}
+        <div className="flex-1 flex items-center justify-center p-8 bg-gray-100">
+          <div className="relative">
+            <canvas
+              ref={canvasRef}
+              className="max-w-full max-h-full border border-gray-300 rounded-lg shadow-lg bg-white"
+              style={{ maxHeight: 'calc(90vh - 200px)' }}
+            />
+            {isCropping && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-white bg-black bg-opacity-50 px-3 py-1 rounded text-sm">
+                  Crop preview - adjust in controls panel
                 </div>
               )}
             </div>
@@ -555,6 +554,6 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </BaseModal>
   );
 }; 

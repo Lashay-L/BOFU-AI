@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Settings,
   Users,
   CheckSquare,
-  User as UserIcon,
+  UserIcon,
   Calendar,
   BookOpen,
   Shield,
@@ -15,7 +15,7 @@ import {
   Edit3,
   Loader2
 } from 'lucide-react';
-import { AdminArticleList } from '../components/admin/AdminArticleList';
+import { EnhancedArticleList } from '../components/admin/EnhancedArticleList';
 import { BulkOperationsPanel } from '../components/admin/BulkOperationsPanel';
 import { OwnershipTransferModal } from '../components/admin/OwnershipTransferModal';
 import { VersionHistoryModal } from '../components/admin/VersionHistoryModal';
@@ -35,6 +35,7 @@ import {
 } from '../lib/auditLogger';
 import { User } from '@supabase/supabase-js';
 import { useAdminContext } from '../contexts/AdminContext';
+import { BaseModal } from '../components/ui/BaseModal';
 
 // Define props for the page
 interface AdminArticleManagementPageProps {
@@ -253,9 +254,9 @@ function AdminArticleManagementPage({ user }: AdminArticleManagementPageProps) {
       console.log('🔥 Modal should now be open, loading article content...');
 
       // Load the actual article content using admin API
-      if (adminProfile?.id) {
+      if (adminId) {
         try {
-          const articleContent = await loadArticleContentAsAdmin(article.id, adminProfile.id);
+          const articleContent = await loadArticleContentAsAdmin(article.id, adminId);
           
           if (articleContent) {
             console.log('🔥 Article content loaded successfully:', {
@@ -513,7 +514,7 @@ function AdminArticleManagementPage({ user }: AdminArticleManagementPageProps) {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
         >
-          <AdminArticleList
+          <EnhancedArticleList
             selectedUser={selectedUser} 
             onArticleSelect={handleArticleSelectionChange}
             onEditArticle={handleEditArticle} 
@@ -532,237 +533,228 @@ function AdminArticleManagementPage({ user }: AdminArticleManagementPageProps) {
         </motion.div>
       </div>
 
-      {/* Full-Screen Article Editor Modal */}
-      {articleEditing.isOpen && articleEditing.article && isAdmin && (() => {
-        console.log('🔥 Rendering article editor modal:', {
-          isOpen: articleEditing.isOpen,
-          hasArticle: !!articleEditing.article,
-          isAdmin: isAdmin,
-          articleId: articleEditing.article?.id
-        });
-        return (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 sm:p-6"
-            onClick={handleCloseEditor}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-              className="relative w-full h-full max-w-[98vw] max-h-[98vh] bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 border border-gray-600/50 rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden backdrop-blur-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Beautiful Header */}
-              <div className="flex-shrink-0 border-b border-gray-700/50 bg-gradient-to-r from-gray-800 via-gray-800 to-gray-700">
-                <div className="px-3 sm:px-6 py-3 sm:py-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                      <div className="p-2 sm:p-3 bg-yellow-400/10 rounded-lg sm:rounded-xl border border-yellow-400/20 shadow-lg flex-shrink-0">
-                        <Edit3 size={20} className="sm:w-6 sm:h-6 text-yellow-400" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h2 className="text-lg sm:text-2xl font-semibold text-white mb-1 sm:mb-2 tracking-wide truncate">
-                          {articleEditing.article.title || articleEditing.article.product_name}
-                        </h2>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 text-sm text-gray-400">
+      {/* Article Editor Modal */}
+      {articleEditing.isOpen && articleEditing.article && (
+        <BaseModal
+          isOpen={articleEditing.isOpen}
+          onClose={handleCloseEditor}
+          title=""
+          size="full"
+          theme="dark"
+          showCloseButton={false}
+        >
+          <div className="h-full flex flex-col">
+            {/* Header */}
+            <div className="flex-shrink-0 border-b border-gray-700/50 bg-gradient-to-r from-gray-800 via-gray-800 to-gray-700">
+              <div className="px-3 sm:px-6 py-3 sm:py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+                    <div className="p-2 sm:p-3 bg-yellow-400/10 rounded-lg sm:rounded-xl border border-yellow-400/20 shadow-lg flex-shrink-0">
+                      <Edit3 size={20} className="sm:w-6 sm:h-6 text-yellow-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-lg sm:text-2xl font-semibold text-white mb-1 sm:mb-2 tracking-wide truncate">
+                        {articleEditing.article.title || articleEditing.article.product_name}
+                      </h2>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 text-sm text-gray-400">
+                        <div className="flex items-center space-x-2 px-2 py-1 bg-gray-700/30 rounded-lg">
+                          <UserIcon size={14} className="flex-shrink-0" />
+                          <span className="truncate">
+                            Author: <span className="text-gray-300">{articleEditing.originalAuthor?.email || 'Unknown'}</span>
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
                           <div className="flex items-center space-x-2 px-2 py-1 bg-gray-700/30 rounded-lg">
-                            <UserIcon size={14} className="flex-shrink-0" />
-                            <span className="truncate">
-                              Author: <span className="text-gray-300">{articleEditing.originalAuthor?.email || 'Unknown'}</span>
+                            <Calendar size={14} className="flex-shrink-0" />
+                            <span className="text-xs sm:text-sm">
+                              {new Date(articleEditing.article.last_edited_at).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
                             </span>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center space-x-2 px-2 py-1 bg-gray-700/30 rounded-lg">
-                              <Calendar size={14} className="flex-shrink-0" />
-                              <span className="text-xs sm:text-sm">
-                                {new Date(articleEditing.article.last_edited_at).toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
-                            </div>
-                            <div className="flex items-center space-x-2 px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                              <FileText size={14} className="text-blue-400 flex-shrink-0" />
-                              <span className="text-blue-400 font-medium text-xs sm:text-sm">v{articleEditing.article.article_version}</span>
-                            </div>
+                          <div className="flex items-center space-x-2 px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                            <FileText size={14} className="text-blue-400 flex-shrink-0" />
+                            <span className="text-blue-400 font-medium text-xs sm:text-sm">v{articleEditing.article.article_version}</span>
                           </div>
                         </div>
                       </div>
                     </div>
-                    
-                    <motion.button
-                      whileHover={{ scale: 1.05, rotate: 90 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={handleCloseEditor}
-                      className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gray-700/50 hover:bg-gray-600/50 text-gray-400 hover:text-white transition-all duration-300 border border-gray-600/50 hover:border-gray-500/50 shadow-lg flex-shrink-0"
-                    >
-                      <X size={18} className="sm:w-[22px] sm:h-[22px]" />
-                    </motion.button>
                   </div>
+                  
+                  <motion.button
+                    whileHover={{ scale: 1.05, rotate: 90 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleCloseEditor}
+                    className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gray-700/50 hover:bg-gray-600/50 text-gray-400 hover:text-white transition-all duration-300 border border-gray-600/50 hover:border-gray-500/50 shadow-lg flex-shrink-0"
+                  >
+                    <X size={18} className="sm:w-[22px] sm:h-[22px]" />
+                  </motion.button>
                 </div>
               </div>
+            </div>
 
-              {/* Editor Content */}
-              <div className="flex-1 flex flex-col min-h-0 bg-gray-900">
-                <div className="flex-1 p-2 sm:p-4 overflow-auto">
-                  <div className="h-auto min-h-[600px] w-full rounded-xl bg-white border border-gray-700/50 shadow-inner overflow-auto">
-                    {articleEditing.isLoadingContent ? (
-                      // Loading state
-                      <div className="flex flex-col items-center justify-center h-full min-h-[600px] text-gray-500">
-                        <motion.div 
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                          className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full mb-6"
+            {/* Editor Content */}
+            <div className="flex-1 flex flex-col min-h-0 bg-gray-900">
+              <div className="flex-1 p-2 sm:p-4 overflow-auto">
+                <div className="h-auto min-h-[600px] w-full rounded-xl bg-white border border-gray-700/50 shadow-inner overflow-auto">
+                  {articleEditing.isLoadingContent ? (
+                    // Loading state
+                    <div className="flex flex-col items-center justify-center h-full min-h-[600px] text-gray-500">
+                      <motion.div 
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                        className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full mb-6"
+                      />
+                      <motion.p 
+                        initial={{ y: 10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                        className="text-lg font-medium mb-2"
+                      >
+                        Loading article content...
+                      </motion.p>
+                      <motion.p 
+                        initial={{ y: 10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.4 }}
+                        className="text-sm text-gray-400"
+                      >
+                        Syncing with user's latest version
+                      </motion.p>
+                    </div>
+                  ) : articleEditing.contentError ? (
+                    // Error state
+                    <div className="flex flex-col items-center justify-center h-full min-h-[600px] text-gray-500">
+                      <motion.div
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-6"
+                      >
+                        <AlertTriangle className="w-8 h-8 text-red-500" />
+                      </motion.div>
+                      <motion.p 
+                        initial={{ y: 10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.1 }}
+                        className="text-lg font-medium mb-2 text-red-600"
+                      >
+                        Failed to load article content
+                      </motion.p>
+                      <motion.p 
+                        initial={{ y: 10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                        className="text-sm text-gray-400 mb-4 text-center max-w-md"
+                      >
+                        {articleEditing.contentError}
+                      </motion.p>
+                      <motion.button
+                        initial={{ y: 10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.3 }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleEditArticle(articleEditing.article!)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Retry Loading
+                      </motion.button>
+                    </div>
+                  ) : articleEditing.articleContent ? (
+                    // Article editor with content
+                    (() => {
+                      console.log('🔥 About to render ArticleEditor with props:', {
+                        articleId: articleEditing.article.id,
+                        adminMode: true,
+                        hasAdminUser: isAdmin,
+                        hasOriginalAuthor: !!articleEditing.originalAuthor,
+                        hasArticleContent: !!articleEditing.articleContent,
+                        initialContentLength: articleEditing.articleContent.content?.length || 0
+                      });
+                      // Create admin user profile from AdminContext
+                      const adminUserProfile: UserProfile = {
+                        id: adminId || '',
+                        email: adminEmail || '',
+                        company_name: 'Admin',
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        article_count: 0
+                      };
+
+                      return (
+                        <ArticleEditor
+                          articleId={articleEditing.article.id}
+                          initialContent={articleEditing.articleContent.content || ''}
+                          adminMode={true}
+                          adminUser={adminUserProfile}
+                          originalAuthor={articleEditing.originalAuthor}
+                          onStatusChange={handleArticleStatusChange}
+                          onOwnershipTransfer={handleArticleOwnershipTransfer}
+                          onAdminNote={handleAdminNote}
+                          className="w-full min-h-[600px] overflow-auto"
                         />
-                        <motion.p 
-                          initial={{ y: 10, opacity: 0 }}
-                          animate={{ y: 0, opacity: 1 }}
-                          transition={{ delay: 0.2 }}
-                          className="text-lg font-medium mb-2"
-                        >
-                          Loading article content...
-                        </motion.p>
-                        <motion.p 
-                          initial={{ y: 10, opacity: 0 }}
-                          animate={{ y: 0, opacity: 1 }}
-                          transition={{ delay: 0.4 }}
-                          className="text-sm text-gray-400"
-                        >
-                          Syncing with user's latest version
-                        </motion.p>
-                      </div>
-                    ) : articleEditing.contentError ? (
-                      // Error state
-                      <div className="flex flex-col items-center justify-center h-full min-h-[600px] text-gray-500">
-                        <motion.div
-                          initial={{ scale: 0.8, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-6"
-                        >
-                          <AlertTriangle className="w-8 h-8 text-red-500" />
-                        </motion.div>
-                        <motion.p 
-                          initial={{ y: 10, opacity: 0 }}
-                          animate={{ y: 0, opacity: 1 }}
-                          transition={{ delay: 0.1 }}
-                          className="text-lg font-medium mb-2 text-red-600"
-                        >
-                          Failed to load article content
-                        </motion.p>
-                        <motion.p 
-                          initial={{ y: 10, opacity: 0 }}
-                          animate={{ y: 0, opacity: 1 }}
-                          transition={{ delay: 0.2 }}
-                          className="text-sm text-gray-400 mb-4 text-center max-w-md"
-                        >
-                          {articleEditing.contentError}
-                        </motion.p>
-                        <motion.button
-                          initial={{ y: 10, opacity: 0 }}
-                          animate={{ y: 0, opacity: 1 }}
-                          transition={{ delay: 0.3 }}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => handleEditArticle(articleEditing.article!)}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                          Retry Loading
-                        </motion.button>
-                      </div>
-                    ) : articleEditing.articleContent ? (
-                      // Article editor with content
-                      (() => {
-                        console.log('🔥 About to render ArticleEditor with props:', {
-                          articleId: articleEditing.article.id,
-                          adminMode: true,
-                          hasAdminUser: isAdmin,
-                          hasOriginalAuthor: !!articleEditing.originalAuthor,
-                          hasArticleContent: !!articleEditing.articleContent,
-                          initialContentLength: articleEditing.articleContent.content?.length || 0
-                        });
-                        // Create admin user profile from AdminContext
-                        const adminUserProfile: UserProfile = {
-                          id: adminId || '',
-                          email: adminEmail || '',
-                          company_name: 'Admin',
-                          role: adminRole || 'admin'
-                        };
-
-                        return (
-                          <ArticleEditor
-                            articleId={articleEditing.article.id}
-                            initialContent={articleEditing.articleContent.content || ''}
-                            adminMode={true}
-                            adminUser={adminUserProfile}
-                            originalAuthor={articleEditing.originalAuthor}
-                            onStatusChange={handleArticleStatusChange}
-                            onOwnershipTransfer={handleArticleOwnershipTransfer}
-                            onAdminNote={handleAdminNote}
-                            className="w-full min-h-[600px] overflow-auto"
-                          />
-                        );
-                      })()
-                    ) : (
-                      // Fallback state
-                      <div className="flex flex-col items-center justify-center h-full min-h-[600px] text-gray-500">
-                        <AlertTriangle className="w-12 h-12 text-gray-400 mb-4" />
-                        <p className="text-lg font-medium mb-2">No content available</p>
-                        <p className="text-sm text-gray-400">Unable to load article content</p>
-                      </div>
-                    )}
-                  </div>
+                      );
+                    })()
+                  ) : (
+                    // Fallback state
+                    <div className="flex flex-col items-center justify-center h-full min-h-[600px] text-gray-500">
+                      <AlertTriangle className="w-12 h-12 text-gray-400 mb-4" />
+                      <p className="text-lg font-medium mb-2">No content available</p>
+                      <p className="text-sm text-gray-400">Unable to load article content</p>
+                    </div>
+                  )}
                 </div>
               </div>
+            </div>
 
-              {/* Enhanced Footer with Admin Badge */}
-              <div className="flex-shrink-0 border-t border-gray-700/50 bg-gradient-to-r from-gray-800/80 to-gray-800/60 backdrop-blur-sm">
-                <div className="px-3 sm:px-6 py-2 sm:py-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                      <div className="flex items-center space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-red-500/10 border border-red-500/20 rounded-full shadow-lg">
-                        <Shield size={14} className="sm:w-4 sm:h-4 text-red-400 flex-shrink-0" />
-                        <span className="text-xs sm:text-sm font-semibold text-red-400 tracking-wide">ADMIN MODE</span>
+            {/* Enhanced Footer with Admin Badge */}
+            <div className="flex-shrink-0 border-t border-gray-700/50 bg-gradient-to-r from-gray-800/80 to-gray-800/60 backdrop-blur-sm">
+              <div className="px-3 sm:px-6 py-2 sm:py-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                    <div className="flex items-center space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-red-500/10 border border-red-500/20 rounded-full shadow-lg">
+                      <Shield size={14} className="sm:w-4 sm:h-4 text-red-400 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm font-semibold text-red-400 tracking-wide">ADMIN MODE</span>
+                    </div>
+                    <div className="hidden sm:block h-6 w-px bg-gray-600"></div>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                        <UserIcon size={12} className="sm:w-4 sm:h-4 text-gray-900" />
                       </div>
-                      <div className="hidden sm:block h-6 w-px bg-gray-600"></div>
-                      <div className="flex items-center space-x-3">
-                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
-                          <UserIcon size={12} className="sm:w-4 sm:h-4 text-gray-900" />
-                        </div>
-                        <div>
-                          <p className="text-xs sm:text-sm text-gray-300 font-medium truncate max-w-48">{adminProfile.email}</p>
-                          <p className="text-xs text-gray-500">Administrator</p>
-                        </div>
+                      <div>
+                        <p className="text-xs sm:text-sm text-gray-300 font-medium truncate max-w-48">{adminEmail}</p>
+                        <p className="text-xs text-gray-500">Administrator</p>
                       </div>
                     </div>
-                    
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
-                      <div className="flex items-center space-x-2 sm:space-x-3 px-2 sm:px-3 py-1.5 sm:py-2 bg-green-500/10 border border-green-500/20 rounded-lg">
-                        <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full animate-pulse shadow-lg"></div>
-                        <span className="text-xs sm:text-sm text-green-400 font-medium">Auto-save Active</span>
-                      </div>
-                      <div className="text-xs text-gray-500 hidden sm:block">
-                        Changes are automatically saved as you type
-                      </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-end gap-2 sm:gap-4">
+                    <div className="px-2 sm:px-3 py-1 bg-gray-700/30 rounded-lg border border-gray-600/30">
+                      <p className="text-xs text-gray-400">Powered by <span className="text-blue-400 font-medium">BOFU AI</span></p>
                     </div>
                   </div>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
-        );
-      })()}
+            </div>
+          </div>
+        </BaseModal>
+      )}
 
       {/* Modals */}
-      {activeArticleForModal && adminProfile && (() => {
-        // Inside this block, adminProfile is guaranteed to be UserProfile
-        const currentAdminProfile: UserProfile = adminProfile;
+      {activeArticleForModal && adminId && (() => {
+        // Create admin user profile from AdminContext
+        const currentAdminProfile: UserProfile = {
+          id: adminId,
+          email: adminEmail || '',
+          company_name: 'Admin',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          article_count: 0
+        };
+
         return (
           <>
             <OwnershipTransferModal

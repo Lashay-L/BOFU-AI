@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import OpenAI from 'openai'; 
-import { supabase } from '../lib/supabase'; 
-
-// Import the sophisticated chat interface
+import OpenAI from 'openai';
+import { supabase } from '../lib/supabase';
 import ChatInterface from './chat/ChatInterface';
+import { BaseModal } from './ui/BaseModal';
 
 // Import types
 import { Product, Message, ChatStatus } from '../types/chat';
@@ -396,47 +394,34 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0, y: 20 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.95, opacity: 0, y: 20 }}
-          transition={{ 
-            type: "spring", 
-            stiffness: 300, 
-            damping: 30,
-            mass: 0.8
-          }}
-          onClick={(e) => e.stopPropagation()}
-          className="relative w-full h-full max-w-6xl max-h-[90vh] bg-gray-800 rounded-2xl shadow-2xl overflow-hidden"
-        >
-          <ChatInterface
-            isOpen={true}
-            onClose={onClose}
-            products={newProducts}
-            selectedProduct={newSelectedProduct}
-            messages={newMessages}
-            status={chatStatus}
-            statusMessage={statusMessage}
-            inputValue={inputValue}
-            onInputChange={setInputValue}
-            onProductSelect={handleProductSelect}
-            onSendMessage={handleSend}
-            onRetry={handleRetry}
-            isLoadingProducts={isLoadingProducts}
-            onStartNewChat={startNewChat}
-            onLoadMessages={handleLoadMessages}
-          />
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title=""
+      size="full"
+      theme="dark"
+      showCloseButton={false}
+    >
+      <div className="h-full">
+        <ChatInterface
+          isOpen={true}
+          onClose={onClose}
+          products={newProducts}
+          selectedProduct={newSelectedProduct}
+          messages={newMessages}
+          status={chatStatus}
+          statusMessage={statusMessage}
+          inputValue={inputValue}
+          onInputChange={setInputValue}
+          onProductSelect={handleProductSelect}
+          onSendMessage={handleSend}
+          onRetry={handleRetry}
+          isLoadingProducts={isLoadingProducts}
+          onStartNewChat={startNewChat}
+          onLoadMessages={handleLoadMessages}
+        />
+      </div>
+    </BaseModal>
   );
 };
 

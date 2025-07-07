@@ -12,11 +12,15 @@ import { AssignmentNotificationCenter } from './AssignmentNotificationCenter';
 import { ContentBriefManagement } from './ContentBriefManagement';
 import { AdminAssignmentHub } from './AdminAssignmentHub';
 import { sendPasswordResetEmail } from '../../lib/auth';
+import { AdminStatsCard, AdminActivityFeed, AdminQuickActions } from './ui';
+import { AdminUserArticlesModal, AdminDirectPasswordChangeModal } from './modals';
+import { AdminSidebar, AdminHeader, AdminMainContent } from './layout';
 
 // Dynamically import AdminArticleManagementPage for article editing functionality
 const AdminArticleManagementPage = lazy(() => import('../../pages/AdminArticleManagementPage'));
+const ImageRepositoryPage = lazy(() => import('../media/ImageRepositoryPage'));
 
-type AdminView = 'dashboard' | 'userManagement' | 'articleManagement' | 'commentManagement' | 'auditLogs' | 'adminAssignmentHub' | 'contentBriefManagement';
+type AdminView = 'dashboard' | 'userManagement' | 'articleManagement' | 'commentManagement' | 'auditLogs' | 'adminAssignmentHub' | 'contentBriefManagement' | 'mediaLibrary';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -48,126 +52,11 @@ interface CompanyGroup {
 }
 
 
-// Beautiful Stats Card Component
-const StatsCard = ({ title, value, change, icon: Icon, trend, color = "gray" }: {
-  title: string;
-  value: string | number;
-  change?: string;
-  icon: any;
-  trend?: 'up' | 'down' | 'neutral';
-  color?: 'gray' | 'dark' | 'minimal';
-}) => {
-  const colorClasses = {
-    gray: 'from-gray-600 to-gray-700',
-    dark: 'from-gray-700 to-gray-800', 
-    minimal: 'from-gray-500 to-gray-600'
-  };
 
-  const trendColors = {
-    up: 'text-green-400',
-    down: 'text-red-400',
-    neutral: 'text-gray-400'
-  };
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -2 }}
-      className="relative group"
-    >
-      <div className="relative bg-gray-800/60 backdrop-blur-sm p-6 rounded-lg shadow-lg border border-gray-700/30 hover:shadow-xl hover:border-gray-600/50 transition-all duration-300">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-gray-400 mb-1">{title}</p>
-            <p className="text-2xl font-bold text-white mb-2">{value}</p>
-            {change && (
-              <div className="flex items-center gap-1">
-                {trend === 'up' && <TrendingUp size={14} className={trendColors.up} />}
-                {trend === 'down' && <ArrowLeft size={14} className={`${trendColors.down} rotate-45`} />}
-                <span className={`text-xs font-medium ${trend ? trendColors[trend] : 'text-gray-400'}`}>
-                  {change}
-                </span>
-              </div>
-            )}
-          </div>
-          <div className={`p-2 rounded-lg bg-gradient-to-r ${colorClasses[color]} shadow-sm border border-gray-600/20`}>
-            <Icon className="h-5 w-5 text-gray-300" />
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-};
 
-// Modern Activity Feed Component
-const ActivityFeed = ({ activities }: { activities: any[] }) => (
-  <motion.div 
-    initial={{ opacity: 0, x: 20 }}
-    animate={{ opacity: 1, x: 0 }}
-    className="bg-gray-800/60 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/30 p-6"
-  >
-    <div className="flex items-center justify-between mb-6">
-      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-        <Activity className="h-5 w-5 text-gray-400" />
-        Recent Activity
-      </h3>
-      <button className="text-sm text-gray-400 hover:text-gray-300 font-medium transition-colors">
-        View All
-      </button>
-    </div>
-    <div className="space-y-3">
-      {activities.length > 0 ? activities.slice(0, 5).map((activity, index) => (
-        <div key={index} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-700/40 transition-colors border border-gray-700/20 hover:border-gray-600/30">
-          <div className="flex-shrink-0 w-2 h-2 bg-gray-500 rounded-full mt-2" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-white font-medium">{activity.title}</p>
-            <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
-          </div>
-        </div>
-      )) : (
-        <div className="text-center py-8">
-          <Clock className="h-10 w-10 text-gray-500 mx-auto mb-3" />
-          <p className="text-gray-400 text-sm">No recent activity</p>
-        </div>
-      )}
-    </div>
-  </motion.div>
-);
 
-// Modern Quick Actions Component
-const QuickActions = () => (
-  <motion.div 
-    initial={{ opacity: 0, x: -20 }}
-    animate={{ opacity: 1, x: 0 }}
-    className="bg-gray-800/60 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/30 p-6"
-  >
-    <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
-      <Zap className="h-5 w-5 text-gray-400" />
-      Quick Actions
-    </h3>
-    <div className="grid grid-cols-2 gap-3">
-      {[
-        { label: 'New Article', icon: Plus },
-        { label: 'Review Queue', icon: Eye },
-        { label: 'User Reports', icon: BarChart3 },
-        { label: 'System Health', icon: Activity }
-      ].map((action, index) => (
-        <motion.button
-          key={action.label}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="relative p-4 rounded-lg bg-gray-700/60 hover:bg-gray-600/60 text-gray-300 hover:text-white shadow-sm hover:shadow-md transition-all duration-200 border border-gray-600/30 hover:border-gray-500/50"
-        >
-          <div className="flex flex-col items-center gap-2">
-            <action.icon className="h-5 w-5" />
-            <span className="text-sm font-medium">{action.label}</span>
-          </div>
-        </motion.button>
-      ))}
-    </div>
-  </motion.div>
-);
+
 
 // Simplified component - no complex grouping by approver
 export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
@@ -606,6 +495,12 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
 
   // Handle navigation
   const handleNavigation = (view: AdminView) => {
+    if (view === 'mediaLibrary') {
+      // Navigate to standalone media library page
+      navigate('/admin/media-library');
+      return;
+    }
+    
     setCurrentView(view);
   };
 
@@ -1142,7 +1037,7 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
 
             {/* User Articles Modal */}
             {selectedUserForArticles.user && (
-              <UserArticlesModal
+              <AdminUserArticlesModal
                 user={selectedUserForArticles.user}
                 companyGroup={selectedUserForArticles.companyGroup}
                 isOpen={!!selectedUserForArticles.user}
@@ -1166,6 +1061,9 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
         return <ContentBriefManagement />;
       case 'adminAssignmentHub':
         return <AdminAssignmentHub />;
+      case 'mediaLibrary':
+        // This case should not be reached since navigation redirects
+        return null;
       default:
         return (
           <motion.div 
@@ -1306,271 +1204,36 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-      {/* Glassmorphism Sidebar */}
-      <motion.aside 
-        initial={{ x: -100, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        className="fixed left-0 top-0 h-full w-80 bg-gray-900/95 backdrop-blur-sm border-r border-gray-700/50 shadow-lg z-40"
-      >
-        <div className="flex flex-col h-full p-6">
-          {/* Brand Header */}
-          <motion.div 
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="mb-8"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center">
-                <Crown className="h-5 w-5 text-gray-300" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-white">
-                  Control Center
-                </h1>
-                <p className="text-sm text-gray-400">Admin Dashboard</p>
-              </div>
-            </div>
-            <div className="h-px bg-gray-700" />
-          </motion.div>
-
-          {/* Navigation */}
-          <nav className="flex-1 space-y-1">
-            {/* Navigation Menu */}
-            <div className="space-y-2">
-              {[
-                { view: 'dashboard', label: 'Dashboard', icon: Home },
-                { view: 'userManagement', label: 'User Management', icon: Users },
-                { view: 'contentBriefManagement', label: 'Content Brief Management', icon: BookOpen },
-                { view: 'articleManagement', label: 'Article Management', icon: FileText },
-                { view: 'commentManagement', label: 'Comment Management', icon: MessageSquare },
-                ...(adminRole === 'super_admin' ? [
-                  { view: 'auditLogs' as AdminView, label: 'Security Logs', icon: Shield },
-                  { view: 'adminAssignmentHub' as AdminView, label: 'Admin Assignment Hub', icon: Users },
-                ] : []),
-              ].map((item, index) => (
-                <motion.button
-                  key={item.view}
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  onClick={() => handleNavigation(item.view as AdminView)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                    currentView === item.view
-                      ? 'bg-primary-500/20 text-yellow-300 border border-primary-500/30'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
-                  }`}
-                >
-                  <item.icon size={18} />
-                  <span className="font-medium">{item.label}</span>
-                  {currentView === item.view && (
-                    <div className="ml-auto w-1.5 h-1.5 bg-gray-400 rounded-full" />
-                  )}
-                </motion.button>
-              ))}
-            </div>
-          </nav>
-
-          {/* User Profile & Logout */}
-          <motion.div 
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="mt-6 pt-6 border-t border-gray-700/50"
-          >
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/60 mb-4 border border-gray-700/30">
-              <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center">
-                <UserCircle className="h-4 w-4 text-gray-300" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
-                  {adminEmail || 'Admin User'}
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                    adminRole === 'super_admin' 
-                      ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' 
-                      : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                  }`}>
-                    {adminRole === 'super_admin' ? 'Super Admin' : 'Sub Admin'}
-                  </span>
-                  {adminRole === 'sub_admin' && (
-                    <span className="text-xs text-gray-400">
-                      {assignedClients.length} clients
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-            
-            {/* Assignment Summary for Sub-Admins */}
-            {adminRole === 'sub_admin' && assignedClients.length > 0 && (
-              <div className="mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                <h4 className="text-sm font-medium text-blue-300 mb-2">Your Assigned Clients</h4>
-                <div className="space-y-1">
-                  {assignedClients.slice(0, 3).map(client => (
-                    <div key={client.id} className="text-xs text-gray-300 truncate">
-                      {client.client_email}
-                    </div>
-                  ))}
-                  {assignedClients.length > 3 && (
-                    <div className="text-xs text-blue-400">
-                      +{assignedClients.length - 3} more
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            
-            {/* Admin Error Display */}
-            {adminError && (
-              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-red-400" />
-                  <span className="text-sm text-red-300">Admin Error</span>
-                </div>
-                <p className="text-xs text-red-400 mt-1">{adminError}</p>
-                <button
-                  onClick={refreshAdminData}
-                  className="mt-2 text-xs text-red-300 hover:text-red-200 underline"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-            
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-400 hover:text-white hover:bg-red-500/20 transition-all duration-200 border border-red-500/30 hover:border-red-500/50"
-            >
-              <LogOut size={16} />
-              <span className="font-medium">Sign Out</span>
-            </motion.button>
-          </motion.div>
-        </div>
-      </motion.aside>
+      {/* Admin Sidebar */}
+      <AdminSidebar
+        currentView={currentView}
+        adminRole={adminRole}
+        adminEmail={adminEmail}
+        assignedClients={assignedClients}
+        adminError={adminError}
+        onNavigation={handleNavigation}
+        onLogout={handleLogout}
+        onRefreshAdminData={refreshAdminData}
+      />
 
       {/* Main Content */}
       <div className="ml-80">
-        {/* Top Header */}
-        <motion.header 
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="sticky top-0 z-30 bg-gray-800/90 backdrop-blur-xl border-b border-gray-700/50 p-6"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white">
-                {currentView === 'dashboard' ? 'Dashboard Overview' :
-                 currentView === 'userManagement' ? 'User Management' :
-                 currentView === 'contentBriefManagement' ? 'Content Brief Management' :
-                 currentView === 'articleManagement' ? 'Content Management Hub' :
-                 currentView === 'commentManagement' ? 'Engagement Center' :
-                 currentView === 'auditLogs' ? 'Security & Audit Logs' :
-                 currentView === 'adminAssignmentHub' ? 'Admin Assignment Hub' :
-                 'Admin Dashboard'}
-              </h1>
-              <p className="text-gray-400 mt-1">
-                {currentView === 'dashboard' ? 'Welcome back! Here\'s what\'s happening today.' :
-                 currentView === 'userManagement' ? 'Manage users and their permissions' :
-                 currentView === 'contentBriefManagement' ? 'Manage user content briefs and product cards' :
-                 currentView === 'adminAssignmentHub' ? 'Manage admin accounts, client assignments, and operations' :
-                 'Manage your BOFU AI platform'}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={refreshData}
-                className="p-3 rounded-xl bg-gray-700/60 hover:bg-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-200 border border-gray-600/30 hover:border-yellow-500/30"
-                title="Refresh Data"
-              >
-                <RefreshCw size={18} className="text-gray-300 hover:text-white transition-colors" />
-              </motion.button>
-              
-              {/* Notification Bell - Admin Users */}
-              {(adminRole === 'super_admin' || adminRole === 'sub_admin') && (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowNotificationCenter(true)}
-                  className="relative p-3 rounded-xl bg-gray-700/60 hover:bg-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-200 border border-gray-600/30 hover:border-blue-500/30"
-                  title="Assignment Notifications"
-                >
-                  <Bell size={18} className="text-gray-300 hover:text-white transition-colors" />
-                  {/* Dynamic notification badge */}
-                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-bold">
-                    {/* This will be updated to show actual count from AssignmentNotificationCenter */}
-                    {assignedClients.length > 0 ? assignedClients.length : ''}
-                  </div>
-                </motion.button>
-              )}
-            </div>
-          </div>
-        </motion.header>
+        {/* Admin Header */}
+        <AdminHeader
+          currentView={currentView}
+          adminRole={adminRole}
+          assignedClients={assignedClients}
+          showNotificationCenter={showNotificationCenter}
+          onRefreshData={refreshData}
+          onToggleNotificationCenter={setShowNotificationCenter}
+        />
 
-        {/* Main Content Area */}
-        <main className="p-6 bg-gray-800/90 min-h-screen">
-          {currentView === 'dashboard' ? (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-6"
-            >
-              {/* Stats Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatsCard
-                  title="Total Users"
-                  value={stats.totalUsers}
-                  change="+12% vs last month"
-                  trend="up"
-                  icon={Users}
-                  color="gray"
-                />
-                <StatsCard
-                  title="Research Projects"
-                  value={stats.totalResearches}
-                  change="+8% vs last month"
-                  trend="up"
-                  icon={BarChart3}
-                  color="gray"
-                />
-                <StatsCard
-                  title="Content Briefs"
-                  value={stats.totalApproved}
-                  change="+15% vs last month"
-                  trend="up"
-                  icon={BookOpen}
-                  color="gray"
-                />
-                <StatsCard
-                  title="Active Sessions"
-                  value={stats.pendingReview}
-                  change={stats.pendingReview > 0 ? "Currently active" : "No active sessions"}
-                  trend="neutral"
-                  icon={Clock}
-                  color="gray"
-                />
-              </div>
-
-              {/* Dashboard Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <ActivityFeed activities={[
-                    { title: "User profile updated", time: "15 minutes ago" },
-                    { title: "Article published", time: "1 hour ago" },
-                    { title: "System backup completed", time: "2 hours ago" },
-                    { title: "New user registered", time: "3 hours ago" }
-                  ]} />
-                </div>
-                <QuickActions />
-              </div>
-            </motion.div>
-          ) : (
-            renderMainContent()
-          )}
-        </main>
+        {/* Admin Main Content */}
+        <AdminMainContent
+          currentView={currentView}
+          stats={stats}
+          renderMainContent={renderMainContent}
+        />
       </div>
 
       {/* Assignment Notification Center */}
@@ -1580,7 +1243,7 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
       />
 
       {/* Direct Password Change Modal */}
-      <DirectPasswordChangeModal
+      <AdminDirectPasswordChangeModal
         isOpen={showPasswordChangeModal}
         user={directPasswordChangeUser}
         onClose={() => {
@@ -1593,427 +1256,7 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
   );
 }
 
-// User Articles Modal Component
-const UserArticlesModal = ({ user, companyGroup, isOpen, onClose, onEditArticle }: {
-  user: UserProfile;
-  companyGroup?: CompanyGroup | null;
-  isOpen: boolean;
-  onClose: () => void;
-  onEditArticle: (article: any) => void;
-}) => {
-  const [articles, setArticles] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
 
-  // Fetch articles for all users in the company
-  useEffect(() => {
-    if (isOpen && user) {
-      fetchCompanyArticles();
-    }
-  }, [isOpen, user, companyGroup]);
 
-  const fetchCompanyArticles = async () => {
-    setLoading(true);
-    try {
-      if (!supabaseAdmin) {
-        console.error('Admin client not available');
-        return;
-      }
-
-      let userIds: string[] = [];
-      
-      if (companyGroup) {
-        // Get all user IDs from the company (main account + sub accounts)
-        userIds = [
-          companyGroup.main_account.id,
-          ...companyGroup.sub_accounts.map(subUser => subUser.id)
-        ];
-      } else {
-        // Fallback to just the selected user
-        userIds = [user.id];
-      }
-
-      // First, fetch articles without the join
-      const { data: articlesData, error } = await supabaseAdmin
-        .from('content_briefs')
-        .select('*')
-        .in('user_id', userIds)
-        .not('article_content', 'is', null)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching articles:', error);
-        toast.error('Failed to fetch articles');
-        return;
-      }
-
-      // If we have articles, fetch user information for those users
-      let enrichedArticles = articlesData || [];
-      
-      if (articlesData && articlesData.length > 0) {
-        const articleUserIds = [...new Set(articlesData.map(article => article.user_id))];
-        
-        // Fetch user profiles for the article authors
-        const { data: usersData, error: usersError } = await supabaseAdmin
-          .from('user_profiles')
-          .select('id, email, company_name')
-          .in('id', articleUserIds);
-
-        if (usersError) {
-          console.error('Error fetching user profiles:', usersError);
-          // Continue without user data - we'll show the article anyway
-        } else {
-          // Create a map for quick lookup
-          const userMap = new Map(usersData.map(u => [u.id, u]));
-          
-          // Enrich articles with user data
-          enrichedArticles = articlesData.map(article => ({
-            ...article,
-            user_profiles: userMap.get(article.user_id) || null
-          }));
-        }
-      }
-
-      setArticles(enrichedArticles);
-    } catch (error) {
-      console.error('Exception fetching articles:', error);
-      toast.error('Failed to fetch articles');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredArticles = articles.filter(article =>
-    article.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    article.article_content?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    article.user_profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    article.user_profiles?.profile_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  if (!isOpen) return null;
-
-  const companyName = companyGroup?.company_name || user.company_name || 'Unknown Company';
-  const totalArticles = articles.length;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        className="bg-gray-900 rounded-2xl shadow-xl border border-gray-700 w-full max-w-4xl max-h-[80vh] overflow-hidden"
-      >
-        {/* Header */}
-        <div className="p-6 border-b border-gray-700">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-2 bg-purple-500/20 rounded-lg">
-                <Building2 className="h-6 w-6 text-purple-400" />
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-white">
-                  {companyName} - All Articles
-                </h2>
-                <p className="text-gray-400 text-sm">
-                  {companyGroup ? `${companyGroup.total_users} users` : '1 user'} • {totalArticles} articles
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <X className="h-5 w-5 text-gray-400" />
-            </button>
-          </div>
-        </div>
-
-        {/* Search */}
-        <div className="p-6 border-b border-gray-700">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search articles, authors, or content..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-            />
-          </div>
-        </div>
-
-        {/* Article List */}
-        <div className="p-6 overflow-y-auto max-h-96">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 text-purple-400 animate-spin" />
-              <span className="ml-2 text-gray-400">Loading articles...</span>
-            </div>
-          ) : filteredArticles.length > 0 ? (
-            <div className="space-y-4">
-              {filteredArticles.map((article) => (
-                <motion.div
-                  key={article.id}
-                  className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 hover:bg-gray-700/50 transition-colors"
-                  whileHover={{ scale: 1.01 }}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-white font-medium">
-                          {article.product_name || 'Untitled Article'}
-                        </h3>
-                        <span className="px-2 py-1 text-xs bg-gray-700 text-gray-300 rounded-full">
-                          by {article.user_profiles?.profile_name || article.user_profiles?.email || 'Unknown'}
-                        </span>
-                      </div>
-                      <p className="text-gray-400 text-sm mb-3 line-clamp-2">
-                        {article.article_content?.substring(0, 150)}...
-                      </p>
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>Created: {new Date(article.created_at).toLocaleDateString()}</span>
-                        <span>•</span>
-                        <span>Version: {article.article_version || 1}</span>
-                        <span>•</span>
-                        <span className={`px-2 py-1 rounded-full ${
-                          article.editing_status === 'final' ? 'bg-green-500/20 text-green-300' :
-                          article.editing_status === 'review' ? 'bg-yellow-500/20 text-yellow-300' :
-                          article.editing_status === 'editing' ? 'bg-blue-500/20 text-blue-300' :
-                          'bg-gray-500/20 text-gray-300'
-                        }`}>
-                          {article.editing_status || 'draft'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 ml-4">
-                      <button
-                        onClick={() => onEditArticle(article)}
-                        className="px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg transition-colors text-purple-400 hover:text-purple-300 text-sm font-medium"
-                      >
-                        Edit Article
-                      </button>
-                      {article.link && (
-                        <a
-                          href={article.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-                        >
-                          <Eye className="h-4 w-4 text-gray-400" />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <FileText className="h-12 w-12 text-gray-500 mx-auto mb-4" />
-              <p className="text-gray-400">
-                {searchTerm ? 'No articles found matching your search' : `No articles found for ${companyName}`}
-              </p>
-            </div>
-          )}
-        </div>
-      </motion.div>
-    </div>
-  );
-};
-
-// Direct Password Change Modal Component
-const DirectPasswordChangeModal = ({ 
-  isOpen, 
-  user, 
-  onClose, 
-  onPasswordChange 
-}: {
-  isOpen: boolean;
-  user: UserProfile | null;
-  onClose: () => void;
-  onPasswordChange: (user: UserProfile, newPassword: string) => Promise<boolean>;
-}) => {
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isChanging, setIsChanging] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!newPassword || !confirmPassword) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      toast.error('Password must be at least 8 characters long');
-      return;
-    }
-
-    if (!user) return;
-
-    setIsChanging(true);
-    const success = await onPasswordChange(user, newPassword);
-    setIsChanging(false);
-
-    if (success) {
-      setNewPassword('');
-      setConfirmPassword('');
-      onClose();
-    }
-  };
-
-  const handleClose = () => {
-    setNewPassword('');
-    setConfirmPassword('');
-    onClose();
-  };
-
-  const generateSecurePassword = () => {
-    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
-    let password = '';
-    for (let i = 0; i < 12; i++) {
-      password += charset.charAt(Math.floor(Math.random() * charset.length));
-    }
-    setNewPassword(password);
-    setConfirmPassword(password);
-  };
-
-  if (!user || !isOpen) return null;
-
-  return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-        onClick={handleClose}
-      >
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="bg-gray-800 rounded-xl shadow-2xl border border-gray-700 p-6 w-full max-w-md"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-500/20 rounded-lg">
-                <KeyRound className="h-5 w-5 text-orange-400" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">Change Password</h3>
-                <p className="text-sm text-gray-400">{user.email}</p>
-              </div>
-            </div>
-            <button
-              onClick={handleClose}
-              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <X className="h-4 w-4 text-gray-400" />
-            </button>
-          </div>
-
-          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm text-yellow-300 font-medium">Direct Password Change</p>
-                <p className="text-xs text-yellow-200/80 mt-1">
-                  This will immediately change the user's password. The user will need to use the new password to log in.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                New Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
-                  placeholder="Enter new password"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Confirm Password
-              </label>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
-                placeholder="Confirm new password"
-                required
-              />
-            </div>
-
-            <motion.button
-              type="button"
-              onClick={generateSecurePassword}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full px-4 py-2 bg-gray-600/50 hover:bg-gray-600/70 text-gray-300 rounded-lg text-sm font-medium transition-colors border border-gray-600/50 hover:border-gray-500/50"
-            >
-              Generate Secure Password
-            </motion.button>
-
-            <div className="flex gap-3 pt-4">
-              <motion.button
-                type="button"
-                onClick={handleClose}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="flex-1 px-4 py-3 bg-gray-600/50 hover:bg-gray-600/70 text-gray-300 rounded-lg font-medium transition-colors"
-              >
-                Cancel
-              </motion.button>
-              <motion.button
-                type="submit"
-                disabled={isChanging}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-500/50 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isChanging ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Changing...
-                  </>
-                ) : (
-                  'Change Password'
-                )}
-              </motion.button>
-            </div>
-          </form>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  );
-};
 
 export default AdminDashboard;

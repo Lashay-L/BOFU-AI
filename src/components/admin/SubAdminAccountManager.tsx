@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAdminContext } from '../../contexts/AdminContext';
 import { 
   UserPlus, 
@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase, supabaseAdmin } from '../../lib/supabase';
+import { BaseModal } from '../ui/BaseModal';
 
 interface SubAdminAccountManagerProps {
   isVisible: boolean;
@@ -293,251 +294,222 @@ export function SubAdminAccountManager({ isVisible, onClose }: SubAdminAccountMa
   }, [isVisible]);
 
   return (
-    <AnimatePresence>
-      {isVisible && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={(e) => e.target === e.currentTarget && onClose()}
-        >
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-gray-900 rounded-xl shadow-2xl border border-gray-700 max-w-5xl w-full max-h-[90vh] overflow-hidden"
+    <BaseModal
+      isOpen={isVisible}
+      onClose={onClose}
+      title="Sub-Admin Account Manager"
+      size="xl"
+      theme="dark"
+    >
+      {/* Title icon and description */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2 rounded-lg bg-yellow-500/20">
+          <Crown className="h-6 w-6 text-yellow-400" />
+        </div>
+        <div>
+          <p className="text-sm text-gray-400">Create and manage sub-admin editor accounts</p>
+        </div>
+        <div className="ml-auto">
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
           >
-            {/* Header */}
-            <div className="p-6 border-b border-gray-700 bg-gray-800/50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-yellow-500/20">
-                    <Crown className="h-6 w-6 text-yellow-400" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-white">Sub-Admin Account Manager</h2>
-                    <p className="text-sm text-gray-400">Create and manage sub-admin editor accounts</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setShowCreateForm(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    Create Sub-Admin
-                  </button>
-                  <button
-                    onClick={onClose}
-                    className="p-2 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
+            <UserPlus className="h-4 w-4" />
+            Create Sub-Admin
+          </button>
+        </div>
+      </div>
+
+      {/* Create Form Modal */}
+      <BaseModal
+        isOpen={showCreateForm}
+        onClose={() => setShowCreateForm(false)}
+        title="Create New Sub-Admin"
+        size="md"
+        theme="dark"
+      >
+        {/* Icon */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-blue-500/20 rounded-lg">
+            <UserPlus className="h-5 w-5 text-blue-400" />
+          </div>
+        </div>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Email Address
+            </label>
+            <input
+              type="email"
+              value={createForm.email}
+              onChange={(e) => setCreateForm(prev => ({ ...prev, email: e.target.value }))}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+              placeholder="editor@company.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Temporary Password
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={createForm.tempPassword}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, tempPassword: e.target.value }))}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 pr-20"
+                placeholder="Enter password"
+              />
+              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="p-1 text-gray-400 hover:text-white"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={generatePassword}
+              className="mt-1 text-xs text-blue-400 hover:text-blue-300"
+            >
+              Generate secure password
+            </button>
+          </div>
 
-            {/* Content */}
-            <div className="p-6 max-h-[calc(90vh-140px)] overflow-y-auto">
-              {/* Create Form Modal */}
-              <AnimatePresence>
-                {showCreateForm && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-60 p-4"
-                    onClick={(e) => e.target === e.currentTarget && setShowCreateForm(false)}
-                  >
-                    <div className="bg-gray-800 rounded-xl shadow-2xl border border-gray-700 max-w-md w-full p-6">
-                      <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                        <UserPlus className="h-5 w-5 text-blue-400" />
-                        Create New Sub-Admin
-                      </h3>
-                      
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Email Address
-                          </label>
-                          <input
-                            type="email"
-                            value={createForm.email}
-                            onChange={(e) => setCreateForm(prev => ({ ...prev, email: e.target.value }))}
-                            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                            placeholder="editor@company.com"
-                          />
-                        </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Confirm Password
+            </label>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={createForm.confirmPassword}
+              onChange={(e) => setCreateForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+              placeholder="Confirm password"
+            />
+          </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Temporary Password
-                          </label>
-                          <div className="relative">
-                            <input
-                              type={showPassword ? 'text' : 'password'}
-                              value={createForm.tempPassword}
-                              onChange={(e) => setCreateForm(prev => ({ ...prev, tempPassword: e.target.value }))}
-                              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 pr-20"
-                              placeholder="Enter password"
-                            />
-                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="p-1 text-gray-400 hover:text-white"
-                              >
-                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                              </button>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={generatePassword}
-                            className="mt-1 text-xs text-blue-400 hover:text-blue-300"
-                          >
-                            Generate secure password
-                          </button>
-                        </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="sendInvite"
+              checked={createForm.sendInvite}
+              onChange={(e) => setCreateForm(prev => ({ ...prev, sendInvite: e.target.checked }))}
+              className="rounded"
+            />
+            <label htmlFor="sendInvite" className="text-sm text-gray-300">
+              Send invitation email to new sub-admin
+            </label>
+          </div>
+        </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Confirm Password
-                          </label>
-                          <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={createForm.confirmPassword}
-                            onChange={(e) => setCreateForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                            placeholder="Confirm password"
-                          />
-                        </div>
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={handleCreateSubAdmin}
+            disabled={isCreating}
+            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {isCreating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <UserPlus className="h-4 w-4" />
+                Create Account
+              </>
+            )}
+          </button>
+          <button
+            onClick={() => setShowCreateForm(false)}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </BaseModal>
 
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id="sendInvite"
-                            checked={createForm.sendInvite}
-                            onChange={(e) => setCreateForm(prev => ({ ...prev, sendInvite: e.target.checked }))}
-                            className="rounded"
-                          />
-                          <label htmlFor="sendInvite" className="text-sm text-gray-300">
-                            Send invitation email to new sub-admin
-                          </label>
-                        </div>
-                      </div>
+      {/* Sub-Admin List */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Shield className="h-5 w-5 text-blue-400" />
+            Sub-Admin Accounts ({subAdmins.length})
+          </h3>
+          <button
+            onClick={loadSubAdmins}
+            disabled={isLoading}
+            className="p-2 text-gray-400 hover:text-white transition-colors"
+          >
+            <Loader2 className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
 
-                      <div className="flex gap-3 mt-6">
-                        <button
-                          onClick={handleCreateSubAdmin}
-                          disabled={isCreating}
-                          className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                          {isCreating ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <UserPlus className="h-4 w-4" />
-                              Create Account
-                            </>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => setShowCreateForm(false)}
-                          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                        >
-                          Cancel
-                        </button>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+          </div>
+        ) : subAdmins.length > 0 ? (
+          <div className="grid gap-4">
+            {subAdmins.map((admin) => (
+              <motion.div
+                key={admin.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 bg-gray-800/60 rounded-lg border border-gray-700"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
+                      <UserCheck className="h-5 w-5 text-gray-300" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-white">{admin.email}</h4>
+                      <div className="flex items-center gap-4 text-sm text-gray-400">
+                        <span className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {admin.assigned_clients_count || 0} clients
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Created {new Date(admin.created_at).toLocaleDateString()}
+                        </span>
                       </div>
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Sub-Admin List */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-blue-400" />
-                    Sub-Admin Accounts ({subAdmins.length})
-                  </h3>
-                  <button
-                    onClick={loadSubAdmins}
-                    disabled={isLoading}
-                    className="p-2 text-gray-400 hover:text-white transition-colors"
-                  >
-                    <Loader2 className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
                   </div>
-                ) : subAdmins.length > 0 ? (
-                  <div className="grid gap-4">
-                    {subAdmins.map((admin) => (
-                      <motion.div
-                        key={admin.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="p-4 bg-gray-800/60 rounded-lg border border-gray-700"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
-                              <UserCheck className="h-5 w-5 text-gray-300" />
-                            </div>
-                            <div>
-                              <h4 className="font-medium text-white">{admin.email}</h4>
-                              <div className="flex items-center gap-4 text-sm text-gray-400">
-                                <span className="flex items-center gap-1">
-                                  <Users className="h-3 w-3" />
-                                  {admin.assigned_clients_count || 0} clients
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  Created {new Date(admin.created_at).toLocaleDateString()}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs font-medium rounded-full border border-blue-500/30">
-                              Sub Admin
-                            </span>
-                            <button
-                              onClick={() => handleDeleteSubAdmin(admin.id, admin.email)}
-                              className="p-2 text-gray-400 hover:text-red-400 transition-colors"
-                              title="Delete account"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-gray-500">
-                    <UserCheck className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                    <h3 className="text-lg font-semibold mb-2">No Sub-Admin Accounts</h3>
-                    <p className="mb-4">Create your first sub-admin editor account to get started</p>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs font-medium rounded-full border border-blue-500/30">
+                      Sub Admin
+                    </span>
                     <button
-                      onClick={() => setShowCreateForm(true)}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                      onClick={() => handleDeleteSubAdmin(admin.id, admin.email)}
+                      className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                      title="Delete account"
                     >
-                      <UserPlus className="h-4 w-4" />
-                      Create Sub-Admin
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 text-gray-500">
+            <UserCheck className="h-16 w-16 mx-auto mb-4 opacity-50" />
+            <h3 className="text-lg font-semibold mb-2">No Sub-Admin Accounts</h3>
+            <p className="mb-4">Create your first sub-admin editor account to get started</p>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+            >
+              <UserPlus className="h-4 w-4" />
+              Create Sub-Admin
+            </button>
+          </div>
+        )}
+      </div>
+    </BaseModal>
   );
 } 

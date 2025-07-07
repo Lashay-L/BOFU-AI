@@ -43,30 +43,7 @@ const MobileDrawer: React.FC<MobileDrawerProps> = ({
   onBack
 }) => {
   const { isMobile } = useMobileDetection();
-  const drawerRef = useRef<HTMLDivElement>(null);
-  const [startX, setStartX] = useState<number>(0);
-  const [currentX, setCurrentX] = useState<number>(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [translateX, setTranslateX] = useState<number>(0);
-
-  // Close drawer on escape key
-  useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen, onClose]);
+  
 
   // Handle swipe to close
   const handleTouchStart = (event: React.TouchEvent) => {
@@ -102,69 +79,57 @@ const MobileDrawer: React.FC<MobileDrawerProps> = ({
     }
   };
 
-  // Handle backdrop click
-  const handleBackdropClick = (event: React.MouseEvent) => {
-    if (event.target === event.currentTarget) {
-      onClose();
-    }
-  };
-
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex"
-      onClick={handleBackdropClick}
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      size="auto"
+      theme="light"
+      showCloseButton={false} // Custom close button is handled inside
+      overlayClassName="bg-black bg-opacity-50"
+      contentClassName="relative bg-white w-80 max-w-[85vw] h-full shadow-xl overflow-hidden"
+      style={{
+        transform: isDragging ? `translateX(-${translateX}px)` : 'translateX(0)',
+        transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black bg-opacity-50 transition-opacity" />
-      
-      {/* Drawer */}
-      <div
-        ref={drawerRef}
-        className="relative bg-white w-80 max-w-[85vw] h-full shadow-xl overflow-hidden"
-        style={{
-          transform: isDragging ? `translateX(-${translateX}px)` : 'translateX(0)',
-          transition: isDragging ? 'none' : 'transform 0.3s ease-out'
-        }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
-          <div className="flex items-center space-x-3">
-            {showBackButton && onBack && (
-              <button
-                onClick={onBack}
-                className="p-2 rounded-full hover:bg-gray-200 transition-colors"
-                title="Back"
-              >
-                <ArrowLeft size={20} />
-              </button>
-            )}
-            {title && (
-              <h2 className="text-lg font-semibold text-gray-900 truncate">
-                {title}
-              </h2>
-            )}
-          </div>
-          
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-gray-200 transition-colors"
-            title="Close"
-          >
-            <X size={20} />
-          </button>
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+        <div className="flex items-center space-x-3">
+          {showBackButton && onBack && (
+            <button
+              onClick={onBack}
+              className="p-2 rounded-full hover:bg-gray-200 transition-colors"
+              title="Back"
+            >
+              <ArrowLeft size={20} />
+            </button>
+          )}
+          {title && (
+            <h2 className="text-lg font-semibold text-gray-900 truncate">
+              {title}
+            </h2>
+          )}
         </div>
         
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
-          {children}
-        </div>
+        <button
+          onClick={onClose}
+          className="p-2 rounded-full hover:bg-gray-200 transition-colors"
+          title="Close"
+        >
+          <X size={20} />
+        </button>
       </div>
-    </div>
+      
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        {children}
+      </div>
+    </BaseModal>
   );
 };
 

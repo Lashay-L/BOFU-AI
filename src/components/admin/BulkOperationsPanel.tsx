@@ -260,127 +260,97 @@ export function BulkOperationsPanel({
       </motion.div>
 
       {/* Confirmation Modal */}
-      <AnimatePresence>
-        {showConfirmation && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4"
-            onClick={() => setShowConfirmation(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-gray-900 rounded-lg border-2 border-yellow-400/30 shadow-2xl max-w-md w-full"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-6">
-                <div className="flex items-center space-x-2 mb-4">
-                  <AlertTriangle className="text-yellow-400" size={20} />
-                  <h3 className="text-lg font-semibold text-yellow-400">Confirm Bulk Operation</h3>
-                </div>
-                
-                <p className="text-white mb-6">{confirmationMessage}</p>
+      <BaseModal
+        isOpen={showConfirmation}
+        onClose={() => setShowConfirmation(false)}
+        title="Confirm Bulk Operation"
+        size="md"
+        theme="dark"
+        contentClassName="bg-gray-900 rounded-lg border-2 border-yellow-400/30 shadow-2xl"
+      >
+        <div className="p-6">
+          <div className="flex items-center space-x-2 mb-4">
+            <AlertTriangle className="text-yellow-400" size={20} />
+            <h3 className="text-lg font-semibold text-yellow-400">Confirm Bulk Operation</h3>
+          </div>
+          
+          <p className="text-white mb-6">{confirmationMessage}</p>
 
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => setShowConfirmation(false)}
-                    className="flex-1 px-4 py-2 bg-gray-700 text-gray-200 rounded-lg hover:bg-gray-600 transition-colors border border-gray-600"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={executeConfirmedAction}
-                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors border border-red-500"
-                  >
-                    Confirm
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowConfirmation(false)}
+              className="flex-1 px-4 py-2 bg-gray-700 text-gray-200 rounded-lg hover:bg-gray-600 transition-colors border border-gray-600"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={executeConfirmedAction}
+              className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors border border-red-500"
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      </BaseModal>
 
       {/* Results Modal */}
-      <AnimatePresence>
-        {showResults && lastResult && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4"
-            onClick={() => setShowResults(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-gray-900 rounded-lg border-2 border-yellow-400/30 shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-yellow-400">Operation Results</h3>
-                  <button
-                    onClick={() => setShowResults(false)}
-                    className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
-                  >
-                    <X size={20} />
-                  </button>
+      {showResults && lastResult && (
+        <BaseModal
+          isOpen={showResults}
+          onClose={() => setShowResults(false)}
+          title="Operation Results"
+          size="lg"
+          theme="dark"
+          contentClassName="bg-gray-900 rounded-lg border-2 border-yellow-400/30 shadow-2xl max-h-[80vh] overflow-y-auto"
+        >
+          <div className="p-6">
+            <div className="space-y-4">
+              {/* Success Results */}
+              {lastResult.successful.length > 0 && (
+                <div className="bg-green-900/20 border border-green-500/20 rounded-lg p-3">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <CheckCircle className="text-green-400" size={16} />
+                    <span className="text-green-400 font-medium">
+                      {lastResult.successful.length} Successful
+                    </span>
+                  </div>
+                  <div className="text-sm text-green-300">
+                    Operations completed successfully for {lastResult.successful.length} articles.
+                  </div>
                 </div>
+              )}
 
-                <div className="space-y-4">
-                  {/* Success Results */}
-                  {lastResult.successful.length > 0 && (
-                    <div className="bg-green-900/20 border border-green-500/20 rounded-lg p-3">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <CheckCircle className="text-green-400" size={16} />
-                        <span className="text-green-400 font-medium">
-                          {lastResult.successful.length} Successful
-                        </span>
+              {/* Failed Results */}
+              {lastResult.failed.length > 0 && (
+                <div className="bg-red-900/20 border border-red-500/20 rounded-lg p-3">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <XCircle className="text-red-400" size={16} />
+                    <span className="text-red-400 font-medium">
+                      {lastResult.failed.length} Failed
+                    </span>
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    {lastResult.failed.map((failure, index) => (
+                      <div key={index} className="text-red-300">
+                        Article {failure.id}: {failure.error}
                       </div>
-                      <div className="text-sm text-green-300">
-                        Operations completed successfully for {lastResult.successful.length} articles.
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Failed Results */}
-                  {lastResult.failed.length > 0 && (
-                    <div className="bg-red-900/20 border border-red-500/20 rounded-lg p-3">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <XCircle className="text-red-400" size={16} />
-                        <span className="text-red-400 font-medium">
-                          {lastResult.failed.length} Failed
-                        </span>
-                      </div>
-                      <div className="space-y-1 text-sm">
-                        {lastResult.failed.map((failure, index) => (
-                          <div key={index} className="text-red-300">
-                            Article {failure.id}: {failure.error}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
                 </div>
+              )}
+            </div>
 
-                <div className="flex justify-end mt-6">
-                  <button
-                    onClick={() => setShowResults(false)}
-                    className="px-4 py-2 bg-yellow-500 text-black rounded-lg hover:bg-yellow-400 transition-colors border border-yellow-400"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowResults(false)}
+                className="px-4 py-2 bg-yellow-500 text-black rounded-lg hover:bg-yellow-400 transition-colors border border-yellow-400"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </BaseModal>
+      )}
     </>
   );
 } 

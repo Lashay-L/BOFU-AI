@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { RichTextEditor } from './RichTextEditor';
 import TextareaAutosize from 'react-textarea-autosize';
 import { Edit2, Save, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { uploadImageToMediaLibrary, getUserCompanyName } from '../utils/mediaLibraryUtils';
 
 interface Capability {
   title: string;
@@ -23,15 +24,45 @@ export function CapabilityEditor({ capability, onUpdate, onDelete }: CapabilityE
   const [isExpanded, setIsExpanded] = useState(false);
 
   const handleImageUpload = async (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+    try {
+      console.log('🖼️ CapabilityEditor: Starting image upload for file:', file.name);
+      
+      // Get user's company name
+      const companyName = await getUserCompanyName();
+      console.log('🏢 CapabilityEditor: Company name retrieved:', companyName);
+      
+      if (companyName) {
+        console.log('✅ CapabilityEditor: Company found, uploading to media library...');
+        // Upload to media library and get public URL
+        const publicUrl = await uploadImageToMediaLibrary(file, companyName, 'product-capabilities');
+        console.log('🔗 CapabilityEditor: Upload completed, URL:', publicUrl);
+        return publicUrl;
+      } else {
+        console.warn('⚠️ CapabilityEditor: No company name found, falling back to base64');
+        // Fallback to base64 if no company found
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            console.log('📄 CapabilityEditor: Base64 conversion completed');
+            resolve(reader.result as string);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+    } catch (error) {
+      console.error('❌ CapabilityEditor: Failed to upload image:', error);
+      // Fallback to base64 on error
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          console.log('📄 CapabilityEditor: Error fallback to base64 completed');
+          resolve(reader.result as string);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
   };
 
   const handleSave = () => {

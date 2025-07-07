@@ -17,10 +17,12 @@ import {
   Filter,
   Search,
   MoreHorizontal,
-  Shield
+  Shield,
+  X
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { adminClientAssignmentApi } from '../../lib/adminApi';
+import { BaseModal } from '../ui/BaseModal';
 
 interface BulkAssignmentPanelProps {
   className?: string;
@@ -463,46 +465,50 @@ export function BulkAssignmentPanel({ className = '' }: BulkAssignmentPanelProps
 
         {/* Preview Modal */}
         {showPreview && currentOperation && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          <BaseModal
+            isOpen={showPreview}
+            onClose={() => setShowPreview(false)}
+            title="Confirm Bulk Operation"
+            size="md"
+            theme="dark"
           >
-            <div className="bg-gray-900 rounded-xl border border-gray-700 max-w-md w-full p-6">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            {/* Icon and warning */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-orange-500/20 rounded-lg">
                 <AlertTriangle className="h-5 w-5 text-orange-400" />
-                Confirm Bulk Operation
-              </h3>
-              
-              <div className="mb-6">
-                <p className="text-gray-300 mb-2">{currentOperation.description}</p>
-                <div className="text-sm text-gray-400">
-                  <p>Clients affected: {currentOperation.clientIds.length}</p>
-                  <p className="text-orange-400 mt-2">This action cannot be undone.</p>
-                </div>
               </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowPreview(false)}
-                  className="flex-1 px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={executeBulkOperation}
-                  disabled={isProcessing}
-                  className="flex-1 px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50"
-                >
-                  {isProcessing ? (
-                    <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                  ) : (
-                    'Execute'
-                  )}
-                </button>
+              <div>
+                <p className="text-gray-300">{currentOperation.description}</p>
               </div>
             </div>
-          </motion.div>
+            
+            <div className="mb-6">
+              <div className="text-sm text-gray-400">
+                <p>Clients affected: {currentOperation.clientIds.length}</p>
+                <p className="text-orange-400 mt-2">This action cannot be undone.</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPreview(false)}
+                className="flex-1 px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeBulkOperation}
+                disabled={isProcessing}
+                className="flex-1 px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50"
+              >
+                {isProcessing ? (
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                ) : (
+                  'Execute'
+                )}
+              </button>
+            </div>
+          </BaseModal>
         )}
       </div>
     </div>

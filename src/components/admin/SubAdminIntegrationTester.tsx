@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAdminContext } from '../../contexts/AdminContext';
 import { 
   TestTube, 
@@ -32,6 +32,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { adminClientAssignmentApi } from '../../lib/adminApi';
+import { BaseModal } from '../ui/BaseModal';
 
 interface SubAdminIntegrationTesterProps {
   isVisible: boolean;
@@ -904,248 +905,246 @@ export function SubAdminIntegrationTester({ isVisible, onClose }: SubAdminIntegr
   };
 
   return (
-    <AnimatePresence>
-      {isVisible && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={(e) => e.target === e.currentTarget && onClose()}
-        >
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-gray-900 rounded-xl shadow-2xl border border-gray-700 max-w-7xl w-full max-h-[95vh] overflow-hidden"
-          >
-            {/* Header */}
-            <div className="p-6 border-b border-gray-700 bg-gray-800/50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-purple-500/20 relative">
-                    <TestTube className="h-6 w-6 text-purple-400" />
-                    {isRunning && (
-                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full animate-pulse" />
-                    )}
+    <>
+      <BaseModal
+        isOpen={isVisible}
+        onClose={onClose}
+        title="Sub-Admin Integration Tester"
+        size="xxl"
+        theme="dark"
+        showCloseButton={false}
+      >
+        <div className="max-h-[85vh] overflow-hidden flex flex-col">
+          {/* Header Content */}
+          <div className="p-6 border-b border-gray-700 bg-gray-800/50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-500/20 relative">
+                  <TestTube className="h-6 w-6 text-purple-400" />
+                  {isRunning && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full animate-pulse" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">
+                    Comprehensive testing suite for sub-admin system validation
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {testReport && (
+                  <button
+                    onClick={() => {
+                      const blob = new Blob([JSON.stringify(testReport, null, 2)], { 
+                        type: 'application/json' 
+                      });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `sub-admin-test-report-${Date.now()}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="flex items-center gap-2 px-3 py-1 bg-green-500/20 text-green-400 rounded-lg text-sm hover:bg-green-500/30"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export Report
+                  </button>
+                )}
+                <button
+                  onClick={runAllTests}
+                  disabled={isRunning}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-400 rounded-lg font-medium hover:bg-purple-500/30 disabled:opacity-50"
+                >
+                  {isRunning ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Running Tests...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4" />
+                      Run All Tests
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="p-2 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Overall Status */}
+            {testReport && (
+              <div className="mt-4 p-4 rounded-lg bg-gray-800/60 border border-gray-700/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-400">{testReport.summary.passed}</div>
+                      <div className="text-xs text-gray-400">Passed</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-yellow-400">{testReport.summary.warnings}</div>
+                      <div className="text-xs text-gray-400">Warnings</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-red-400">{testReport.summary.failed}</div>
+                      <div className="text-xs text-gray-400">Failed</div>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-white">Sub-Admin Integration Tester</h2>
-                    <p className="text-sm text-gray-400">
-                      Comprehensive testing suite for sub-admin system validation
-                    </p>
+                  <div className="text-right">
+                    <div className="text-3xl font-bold text-white">{testReport.summary.successRate}%</div>
+                    <div className="text-sm text-gray-400">Success Rate</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {testReport && (
-                    <button
-                      onClick={() => {
-                        const blob = new Blob([JSON.stringify(testReport, null, 2)], { 
-                          type: 'application/json' 
-                        });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `sub-admin-test-report-${Date.now()}.json`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      }}
-                      className="flex items-center gap-2 px-3 py-1 bg-green-500/20 text-green-400 rounded-lg text-sm hover:bg-green-500/30"
-                    >
-                      <Download className="h-4 w-4" />
-                      Export Report
-                    </button>
-                  )}
-                  <button
-                    onClick={runAllTests}
-                    disabled={isRunning}
-                    className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-400 rounded-lg font-medium hover:bg-purple-500/30 disabled:opacity-50"
-                  >
-                    {isRunning ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Running Tests...
-                      </>
-                    ) : (
-                      <>
-                        <Play className="h-4 w-4" />
-                        Run All Tests
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={onClose}
-                    className="p-2 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
+              </div>
+            )}
+          </div>
+
+          {/* Content */}
+          <div className="p-6 flex-1 overflow-y-auto">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {testSuites.map((suite) => (
+                <motion.div
+                  key={suite.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-gray-800/60 rounded-lg border border-gray-700/50 p-4"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">{suite.name}</h3>
+                      <p className="text-sm text-gray-400">{suite.description}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {suite.status === 'running' && (
+                        <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
+                      )}
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        suite.status === 'completed' ? 'bg-green-500/20 text-green-300' :
+                        suite.status === 'running' ? 'bg-blue-500/20 text-blue-300' :
+                        'bg-gray-500/20 text-gray-300'
+                      }`}>
+                        {suite.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {suite.tests.map((test) => {
+                      const StatusIcon = getStatusIcon(test.status);
+                      
+                      return (
+                        <div
+                          key={test.id}
+                          className={`p-3 rounded-lg border transition-all cursor-pointer ${
+                            test.status === 'running' ? 'bg-blue-500/10 border-blue-500/30' :
+                            test.status === 'passed' ? 'bg-green-500/10 border-green-500/30' :
+                            test.status === 'failed' ? 'bg-red-500/10 border-red-500/30' :
+                            test.status === 'warning' ? 'bg-yellow-500/10 border-yellow-500/30' :
+                            'bg-gray-700/50 border-gray-600/30'
+                          } hover:bg-gray-600/30`}
+                          onClick={() => {
+                            setSelectedTest(test);
+                            setShowDetails(true);
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <StatusIcon 
+                                className={`h-4 w-4 ${getStatusColor(test.status)} ${
+                                  test.status === 'running' ? 'animate-spin' : ''
+                                }`} 
+                              />
+                              <div>
+                                <h4 className="font-medium text-white">{test.name}</h4>
+                                <p className="text-xs text-gray-400">{test.description}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              {test.duration && (
+                                <div className="text-xs text-gray-400">
+                                  {Math.round(test.duration)}ms
+                                </div>
+                              )}
+                              {currentTest === test.id && (
+                                <div className="text-xs text-blue-400">Running...</div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </BaseModal>
+
+      {/* Test Details Modal */}
+      {showDetails && selectedTest && (
+        <BaseModal
+          isOpen={showDetails}
+          onClose={() => setShowDetails(false)}
+          title={selectedTest.name}
+          size="lg"
+          theme="dark"
+        >
+          <div className="max-h-[70vh] overflow-y-auto">
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-800/60 rounded-lg border border-gray-700/50">
+                <h4 className="font-semibold text-white mb-2">Description</h4>
+                <p className="text-gray-300 text-sm">{selectedTest.description}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-gray-800/60 rounded-lg border border-gray-700/50">
+                  <h4 className="font-semibold text-white mb-2">Status</h4>
+                  <span className={`px-3 py-1 text-sm font-medium rounded-full ${
+                    selectedTest.status === 'passed' ? 'bg-green-500/20 text-green-300' :
+                    selectedTest.status === 'failed' ? 'bg-red-500/20 text-red-300' :
+                    selectedTest.status === 'warning' ? 'bg-yellow-500/20 text-yellow-300' :
+                    selectedTest.status === 'running' ? 'bg-blue-500/20 text-blue-300' :
+                    'bg-gray-500/20 text-gray-300'
+                  }`}>
+                    {selectedTest.status}
+                  </span>
+                </div>
+
+                <div className="p-4 bg-gray-800/60 rounded-lg border border-gray-700/50">
+                  <h4 className="font-semibold text-white mb-2">Duration</h4>
+                  <p className="text-gray-300 text-sm">
+                    {selectedTest.duration ? `${Math.round(selectedTest.duration)}ms` : 'Not completed'}
+                  </p>
                 </div>
               </div>
 
-              {/* Overall Status */}
-              {testReport && (
-                <div className="mt-4 p-4 rounded-lg bg-gray-800/60 border border-gray-700/50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-green-400">{testReport.summary.passed}</div>
-                        <div className="text-xs text-gray-400">Passed</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-yellow-400">{testReport.summary.warnings}</div>
-                        <div className="text-xs text-gray-400">Warnings</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-red-400">{testReport.summary.failed}</div>
-                        <div className="text-xs text-gray-400">Failed</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-3xl font-bold text-white">{testReport.summary.successRate}%</div>
-                      <div className="text-sm text-gray-400">Success Rate</div>
-                    </div>
-                  </div>
+              {selectedTest.error && (
+                <div className="p-4 bg-red-500/10 rounded-lg border border-red-500/30">
+                  <h4 className="font-semibold text-red-300 mb-2">Error Details</h4>
+                  <pre className="text-xs text-red-200 bg-red-900/20 p-3 rounded overflow-x-auto">
+                    {selectedTest.error}
+                  </pre>
+                </div>
+              )}
+
+              {selectedTest.details && (
+                <div className="p-4 bg-gray-800/60 rounded-lg border border-gray-700/50">
+                  <h4 className="font-semibold text-white mb-2">Test Details</h4>
+                  <pre className="text-xs text-gray-300 bg-gray-900/60 p-3 rounded overflow-x-auto">
+                    {JSON.stringify(selectedTest.details, null, 2)}
+                  </pre>
                 </div>
               )}
             </div>
-
-            {/* Content */}
-            <div className="p-6 max-h-[calc(95vh-200px)] overflow-y-auto">
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {testSuites.map((suite) => (
-                  <motion.div
-                    key={suite.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-gray-800/60 rounded-lg border border-gray-700/50 p-4"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">{suite.name}</h3>
-                        <p className="text-sm text-gray-400">{suite.description}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {suite.status === 'running' && (
-                          <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
-                        )}
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          suite.status === 'completed' ? 'bg-green-500/20 text-green-300' :
-                          suite.status === 'running' ? 'bg-blue-500/20 text-blue-300' :
-                          'bg-gray-500/20 text-gray-300'
-                        }`}>
-                          {suite.status}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      {suite.tests.map((test) => {
-                        const StatusIcon = getStatusIcon(test.status);
-                        
-                        return (
-                          <div
-                            key={test.id}
-                            className={`p-3 rounded-lg border transition-all cursor-pointer ${
-                              test.status === 'running' ? 'bg-blue-500/10 border-blue-500/30' :
-                              test.status === 'passed' ? 'bg-green-500/10 border-green-500/30' :
-                              test.status === 'failed' ? 'bg-red-500/10 border-red-500/30' :
-                              test.status === 'warning' ? 'bg-yellow-500/10 border-yellow-500/30' :
-                              'bg-gray-700/50 border-gray-600/30'
-                            } hover:bg-gray-600/30`}
-                            onClick={() => {
-                              setSelectedTest(test);
-                              setShowDetails(true);
-                            }}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <StatusIcon 
-                                  className={`h-4 w-4 ${getStatusColor(test.status)} ${
-                                    test.status === 'running' ? 'animate-spin' : ''
-                                  }`} 
-                                />
-                                <div>
-                                  <h4 className="font-medium text-white">{test.name}</h4>
-                                  <p className="text-xs text-gray-400">{test.description}</p>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                {test.duration && (
-                                  <div className="text-xs text-gray-400">
-                                    {Math.round(test.duration)}ms
-                                  </div>
-                                )}
-                                {currentTest === test.id && (
-                                  <div className="text-xs text-blue-400">Running...</div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-
-            {/* Test Details Modal */}
-            {showDetails && selectedTest && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="absolute inset-0 bg-black/80 flex items-center justify-center p-4"
-                onClick={() => setShowDetails(false)}
-              >
-                <motion.div
-                  initial={{ scale: 0.95 }}
-                  animate={{ scale: 1 }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="bg-gray-800 rounded-lg border border-gray-700 max-w-2xl w-full max-h-[80vh] overflow-hidden"
-                >
-                  <div className="p-4 border-b border-gray-700">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-white">{selectedTest.name}</h3>
-                      <button
-                        onClick={() => setShowDetails(false)}
-                        className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-white"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="p-4 max-h-[60vh] overflow-y-auto">
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="font-medium text-white mb-2">Test Details</h4>
-                        <p className="text-sm text-gray-300">{selectedTest.description}</p>
-                      </div>
-                      
-                      {selectedTest.details && (
-                        <div>
-                          <h4 className="font-medium text-white mb-2">Results</h4>
-                          <pre className="text-xs bg-gray-900 p-3 rounded border border-gray-700 overflow-x-auto text-gray-300">
-                            {JSON.stringify(selectedTest.details, null, 2)}
-                          </pre>
-                        </div>
-                      )}
-                      
-                      {selectedTest.error && (
-                        <div>
-                          <h4 className="font-medium text-red-400 mb-2">Error</h4>
-                          <div className="text-sm bg-red-500/10 border border-red-500/30 p-3 rounded text-red-300">
-                            {selectedTest.error}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              </motion.div>
-            )}
-          </motion.div>
-        </motion.div>
+          </div>
+        </BaseModal>
       )}
-    </AnimatePresence>
+    </>
   );
 } 

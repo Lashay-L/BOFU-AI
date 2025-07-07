@@ -1,12 +1,14 @@
 import React, { useCallback, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, X, AlertCircle, CheckCircle, Image as ImageIcon } from 'lucide-react';
-import { uploadCapabilityImage, UploadResult } from '../../lib/storage';
+import { uploadProductImage, UploadResult } from '../../lib/storage';
+import { supabase } from '../../lib/supabase';
 
 interface ImageUploaderProps {
   onUpload: (result: UploadResult) => void;
   userId: string;
   capabilityId: string;
+  companyName?: string;
   disabled?: boolean;
   maxFiles?: number;
   currentImages?: string[];
@@ -24,6 +26,7 @@ export function ImageUploader({
   onUpload,
   userId,
   capabilityId,
+  companyName,
   disabled = false,
   maxFiles = 5,
   currentImages = [],
@@ -52,10 +55,49 @@ export function ImageUploader({
     });
 
     try {
-      const result = await uploadCapabilityImage(
+      // Get company name if not provided
+      let finalCompanyName = companyName;
+      if (!finalCompanyName) {
+        console.log('🔍 ImageUploader: Getting company name...');
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          // Try company_profiles first
+          const { data: companyProfile } = await supabase
+            .from('company_profiles')
+            .select('company_id')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .single();
+          
+          if (companyProfile?.company_id) {
+            finalCompanyName = companyProfile.company_id;
+          } else {
+            // Fallback to user_profiles
+            const { data: userProfile } = await supabase
+              .from('user_profiles')
+              .select('company_name')
+              .eq('id', user.id)
+              .single();
+            
+            if (userProfile?.company_name) {
+              finalCompanyName = userProfile.company_name;
+            }
+          }
+        }
+        
+        if (!finalCompanyName) {
+          console.warn('⚠️ ImageUploader: No company name found, using default');
+          finalCompanyName = 'default';
+        }
+      }
+
+      console.log('📤 ImageUploader: Uploading with company:', finalCompanyName);
+
+      const result = await uploadProductImage(
         file,
+        finalCompanyName,
         userId,
-        capabilityId,
         (progress) => {
           setUploadState(prev => ({
             ...prev,
@@ -93,7 +135,7 @@ export function ImageUploader({
         error: 'Upload failed. Please try again.'
       });
     }
-  }, [disabled, canUploadMore, userId, capabilityId, onUpload]);
+  }, [disabled, canUploadMore, userId, companyName, onUpload]);
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();

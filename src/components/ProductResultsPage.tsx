@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
@@ -25,6 +25,23 @@ export interface ProductResultsPageProps {
   onSaveComplete?: (newId: string) => void;
 }
 
+// Debounce utility for session storage
+const useDebounce = (value: any, delay: number) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  
+  return debouncedValue;
+};
+
 function ProductResultsPage({ 
   products, 
   onStartNew, 
@@ -35,11 +52,11 @@ function ProductResultsPage({
   onHistorySave,
   onSaveComplete
 }: ProductResultsPageProps) {
-  const [editedProducts, setEditedProducts] = useState(products);
+  const [editedProducts, setEditedProducts] = useState<ProductAnalysis[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [actionLoadingIndex, setActionLoadingIndex] = useState<number | null>(null);
   const [user, setUser] = useState<any>(null);
-  const [hasSavedToHistory, setHasSavedToHistory] = useState(!!existingId);
+  const [hasSavedToHistory, setHasSavedToHistory] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const navigate = useNavigate();
@@ -48,7 +65,7 @@ function ProductResultsPage({
   // Get the current product ID from the URL params
   const currentProductId = params.id === 'new' ? undefined : params.id;
   
-  // Replace the state with a ref to better track across renders
+  // Use refs to avoid unnecessary re-renders
   const initialSaveRef = useRef({
     inProgress: false,
     completed: false,
@@ -57,105 +74,37 @@ function ProductResultsPage({
     productsHash: ""
   });
 
-  // Create a function to generate a hash of products for comparing
-  const getProductsHash = (prods: ProductAnalysis[]) => {
-    if (!prods || prods.length === 0) return "";
-    // Use first product company + length as a simple hash
-    return `${prods[0]?.companyName || "unknown"}-${prods.length}`;
-  };
+  // Memoize the effective ID to prevent unnecessary recalculations
+  const effectiveId = useMemo(() => existingId || currentProductId, [existingId, currentProductId]);
 
-  // Get the current user from Supabase
-  useEffect(() => {
-    const getCurrentUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data.user);
-    };
-    getCurrentUser();
+  // Debounce edited products for session storage
+  const debouncedEditedProducts = useDebounce(editedProducts, 500);
+
+  // Memoize products hash function
+  const getProductsHash = useCallback((prods: ProductAnalysis[]) => {
+    if (!prods || prods.length === 0) return "";
+    return `${prods[0]?.companyName || "unknown"}-${prods.length}`;
   }, []);
 
-  // Add logging for component mounting and prop changes
-  React.useEffect(() => {
-    console.log("ProductResultsPage mounted or updated with props:", { 
-      productsCount: products.length,
-      showHistory,
-      setShowHistoryType: typeof setShowHistory,
-      productId: currentProductId || 'new'
-    });
-    
-    // Try to restore products from session storage
-    const savedProducts = sessionStorage.getItem('bofu_edited_products');
-    if (savedProducts) {
-      try {
-        const parsedProducts = JSON.parse(savedProducts);
-        if (Array.isArray(parsedProducts) && parsedProducts.length > 0) {
-          setEditedProducts(parsedProducts);
-          console.log("Restored products from session storage:", parsedProducts.length);
-        }
-      } catch (error) {
-        console.error("Error parsing saved products:", error);
-      }
+  // Memoize user fetch to prevent unnecessary API calls
+  const getCurrentUser = useCallback(async () => {
+    try {
+      const { data } = await supabase.auth.getUser();
+      setUser(data.user);
+    } catch (error) {
+      console.error('Error fetching user:', error);
     }
-    
-    return () => {
-      console.log("ProductResultsPage unmounting");
-    };
-  }, [products, showHistory, setShowHistory, currentProductId]);
+  }, []);
 
-  // Update the products state when props change
-  React.useEffect(() => {
-    console.log("Products prop changed:", { 
-      productCount: products?.length || 0, 
-      hasProducts: Array.isArray(products) && products.length > 0
-    });
-    
-    if (Array.isArray(products) && products.length > 0) {
-      setEditedProducts(products);
-      sessionStorage.setItem('bofu_edited_products', JSON.stringify(products));
-      
-      // If there's an existingId, we have already saved the results
-      if (existingId || currentProductId) {
-        setHasSavedToHistory(true);
-      } else {
-        setHasSavedToHistory(false);
-        setHasUnsavedChanges(true);
-      }
-      
-      // Important: force a re-render to ensure products are displayed
-      console.log("Setting products to state:", products.length);
-      
-      // Log first product for debugging
-      if (products[0]) {
-        console.log("First product sample:", {
-          companyName: products[0].companyName,
-          productName: products[0].productDetails?.name,
-          hasCompetitors: !!products[0].competitors
-        });
-      }
-    } else {
-      console.warn("Received empty or invalid products array", products);
-      
-      // Try to restore products from session storage
-      const savedProducts = sessionStorage.getItem('bofu_edited_products');
-      if (savedProducts) {
-        try {
-          const parsedProducts = JSON.parse(savedProducts);
-          if (Array.isArray(parsedProducts) && parsedProducts.length > 0) {
-            console.log("Restored products from session storage:", parsedProducts.length);
-            setEditedProducts(parsedProducts);
-          }
-        } catch (error) {
-          console.error("Error parsing saved products:", error);
-        }
-      }
-    }
-  }, [products, existingId, currentProductId]);
+  // Initialize user once
+  useEffect(() => {
+    getCurrentUser();
+  }, [getCurrentUser]);
 
-  // Reset the initialSaveRef when existingId changes or component unmounts
-  React.useEffect(() => {
-    const effectiveId = existingId || currentProductId;
-    
+  // Initialize component state - consolidated into single effect
+  useEffect(() => {
+    // Set initial save state
     if (effectiveId) {
-      // We already have an ID, so no need for initial save
       initialSaveRef.current = {
         inProgress: false,
         completed: true,
@@ -163,10 +112,54 @@ function ProductResultsPage({
         savedId: effectiveId,
         productsHash: getProductsHash(products)
       };
+      setHasSavedToHistory(true);
     }
-    
+
+    // Initialize products
+    if (Array.isArray(products) && products.length > 0) {
+      setEditedProducts(products);
+      setHasUnsavedChanges(!effectiveId);
+    } else {
+      // Try to restore from session storage
+      const savedProducts = sessionStorage.getItem('bofu_edited_products');
+      if (savedProducts) {
+        try {
+          const parsedProducts = JSON.parse(savedProducts);
+          if (Array.isArray(parsedProducts) && parsedProducts.length > 0) {
+            setEditedProducts(parsedProducts);
+          }
+        } catch (error) {
+          console.error('Error parsing saved products:', error);
+        }
+      }
+    }
+  }, [products, effectiveId, getProductsHash]);
+
+  // Debounced session storage sync
+  useEffect(() => {
+    if (debouncedEditedProducts.length > 0) {
+      sessionStorage.setItem('bofu_edited_products', JSON.stringify(debouncedEditedProducts));
+      
+      // Notify parent component of changes
+      if (debouncedEditedProducts !== products) {
+        window.dispatchEvent(new CustomEvent('productsUpdated', { 
+          detail: { products: debouncedEditedProducts } 
+        }));
+      }
+    }
+  }, [debouncedEditedProducts, products]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (editedProducts.length > 0) {
+        sessionStorage.setItem('bofu_edited_products', JSON.stringify(editedProducts));
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
-      // Reset on unmount
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       initialSaveRef.current = {
         inProgress: false,
         completed: false,
@@ -175,26 +168,10 @@ function ProductResultsPage({
         productsHash: ""
       };
     };
-  }, [existingId, currentProductId, products]);
+  }, [editedProducts]);
 
-  // Sync products to session storage and notify parent
-  React.useEffect(() => {
-    if (editedProducts.length > 0) {
-      // Only sync to session storage and notify parent
-      sessionStorage.setItem('bofu_edited_products', JSON.stringify(editedProducts));
-      console.log("Synced products to session storage:", editedProducts.length);
-      
-      // Notify parent component of the changes
-      if (editedProducts !== products) {
-        window.dispatchEvent(new CustomEvent('productsUpdated', { 
-          detail: { products: editedProducts } 
-        }));
-      }
-    }
-  }, [editedProducts, products]);
-
-  // Handle save all products to history
-  const handleSaveAllToHistory = async () => {
+  // Memoized handlers to prevent unnecessary re-renders
+  const handleSaveAllToHistory = useCallback(async () => {
     if (isSaving) return;
     
     setIsSaving(true);
@@ -204,8 +181,6 @@ function ProductResultsPage({
       const title = editedProducts.length === 1 
         ? `${editedProducts[0]?.companyName || 'Unknown'} - ${editedProducts[0]?.productDetails?.name || 'Product'}`
         : `${editedProducts[0]?.companyName || 'Unknown'} - ${editedProducts.length} Products`;
-      
-      const effectiveId = existingId || currentProductId;
       
       if (effectiveId) {
         // Update existing history entry
@@ -241,10 +216,9 @@ function ProductResultsPage({
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [editedProducts, effectiveId, navigate, onSaveComplete, onHistorySave, isSaving]);
 
-  // Handle individual product save function required by ProductCard
-  const handleProductSave = async (product: ProductAnalysis, index: number): Promise<void> => {
+  const handleProductSave = useCallback(async (product: ProductAnalysis, index: number): Promise<void> => {
     if (actionLoadingIndex !== null || isSaving) {
       return;
     }
@@ -252,15 +226,11 @@ function ProductResultsPage({
     setActionLoadingIndex(index);
     
     try {
-      // Create a deep copy
       const productDeepCopy = JSON.parse(JSON.stringify(product));
       const currentProducts = [...editedProducts];
       currentProducts[index] = productDeepCopy;
       
-      const effectiveId = existingId || currentProductId;
-      
       if (effectiveId) {
-        // If we have an ID, update the existing entry with this product change
         await updateResearchResults(
           effectiveId,
           currentProducts,
@@ -270,22 +240,17 @@ function ProductResultsPage({
         
         toast.success(`Updated "${product.productDetails?.name || 'Product'}" analysis`);
         
-        // Refresh history
         if (onHistorySave) {
           await onHistorySave();
         }
         
-        // Reset unsaved changes flag
         setHasUnsavedChanges(false);
       } else {
-        // Just update local state and indicate unsaved changes
         toast.success(`Changes saved locally. Click "Save to History" to permanently save.`);
         setHasUnsavedChanges(true);
       }
       
-      // Always update the local state
       setEditedProducts(currentProducts);
-      sessionStorage.setItem('bofu_edited_products', JSON.stringify(currentProducts));
       
     } catch (error: any) {
       console.error('Error saving product:', error);
@@ -293,12 +258,9 @@ function ProductResultsPage({
     } finally {
       setActionLoadingIndex(null);
     }
-  };
+  }, [editedProducts, effectiveId, onHistorySave, actionLoadingIndex, isSaving]);
 
-  // Handle updating a section of a product
-  const handleUpdateSection = async (productIndex: number, section: keyof ProductAnalysis, value: any): Promise<void> => {
-    console.log(`ProductResultsPage.handleUpdateSection called for product index ${productIndex}, section ${String(section)}`, value);
-
+  const handleUpdateSection = useCallback(async (productIndex: number, section: keyof ProductAnalysis, value: any): Promise<void> => {
     const productToUpdate = editedProducts[productIndex];
     const updatedProductData = {
       ...productToUpdate,
@@ -309,72 +271,56 @@ function ProductResultsPage({
     setEditedProducts(prevProducts => {
       const newProducts = [...prevProducts];
       newProducts[productIndex] = updatedProductData;
-      sessionStorage.setItem('bofu_edited_products', JSON.stringify(newProducts)); // Also update session storage
       return newProducts;
     });
 
-    // If this is an existing historical record (i.e., we have an ID for the research result from the URL or props)
-    const currentRecordId = existingId || currentProductId; // Use existingId from props first, then from URL params
-
-    if (currentRecordId) {
-      setHasUnsavedChanges(false); // Assume we'll try to save, reset general unsaved flag for this section edit
+    if (effectiveId) {
+      setHasUnsavedChanges(false);
       setIsSaving(true); 
       setActionLoadingIndex(productIndex);
+      
       try {
-        // Fetch the current full historical record from 'research_results' table
         const { data: currentResearchResult, error: fetchError } = await supabase
           .from('research_results')
           .select('data')
-          .eq('id', currentRecordId)
+          .eq('id', effectiveId)
           .single();
 
         if (fetchError) {
           toast.error(`Failed to fetch history: ${fetchError.message}`);
-          setHasUnsavedChanges(true); // Save failed, so there are still unsaved changes
-          setIsSaving(false);
-          setActionLoadingIndex(null);
+          setHasUnsavedChanges(true);
           return;
         }
 
         if (!currentResearchResult || !Array.isArray(currentResearchResult.data)) {
           toast.error('Invalid historical data format found.');
           setHasUnsavedChanges(true);
-          setIsSaving(false);
-          setActionLoadingIndex(null);
           return;
         }
         
-        // The 'data' field in research_results is an array of ProductAnalysis objects
-        const historicalProducts: ProductAnalysis[] = [...currentResearchResult.data]; // Create a mutable copy
+        const historicalProducts: ProductAnalysis[] = [...currentResearchResult.data];
 
-        // Ensure the productIndex is valid for the fetched historical data
         if (productIndex < 0 || productIndex >= historicalProducts.length) {
           toast.error('Product index out of bounds for historical data.');
           setHasUnsavedChanges(true);
-          setIsSaving(false);
-          setActionLoadingIndex(null);
           return;
         }
         
-        // Update the specific product's section within the historical data array
         historicalProducts[productIndex] = {
-          ...historicalProducts[productIndex], // Preserve other fields of the historical product
-          [section]: value // Apply the new section value
+          ...historicalProducts[productIndex],
+          [section]: value
         };
 
-        // Save the entire modified 'data' array back to Supabase
         const { error: updateError } = await supabase
           .from('research_results')
           .update({ data: historicalProducts, updated_at: new Date().toISOString() })
-          .eq('id', currentRecordId);
+          .eq('id', effectiveId);
 
         if (updateError) {
           toast.error(`Failed to save section: ${updateError.message}`);
-          setHasUnsavedChanges(true); // Save failed
+          setHasUnsavedChanges(true);
         } else {
           toast.success(`${String(section)} saved to history!`);
-          // setHasUnsavedChanges(false); // Already set optimistically, confirm here if needed or remove if main save button is still primary
-          // If onHistorySave is provided (from App.tsx), call it to refresh the history list
           if (onHistorySave) {
             await onHistorySave();
           }
@@ -382,30 +328,26 @@ function ProductResultsPage({
       } catch (error: any) {
         console.error('Error saving section update to history:', error);
         toast.error(`Save error: ${error.message || 'Unexpected error'}`);
-        setHasUnsavedChanges(true); // Save failed
+        setHasUnsavedChanges(true);
       } finally {
         setIsSaving(false);
         setActionLoadingIndex(null);
       }
     } else {
-      // If not an existing historical record, the changes are just local until "Save to History" is clicked.
-      setHasUnsavedChanges(true); // Mark general unsaved changes for the main save button
-      console.log("Change is local as no existingRecordId. User needs to use 'Save to History'.");
+      setHasUnsavedChanges(true);
     }
-  };
+  }, [editedProducts, effectiveId, onHistorySave]);
 
-  // Update an entire product
-  const handleUpdateProduct = (updatedProductData: ProductAnalysis): void => {
+  const handleUpdateProduct = useCallback((updatedProductData: ProductAnalysis): void => {
     setEditedProducts(prevProducts =>
       prevProducts.map(p =>
         p.research_result_id === updatedProductData.research_result_id ? updatedProductData : p
       )
     );
     setHasUnsavedChanges(true);
-  };
+  }, []);
 
-  // Handle approve function required by ProductCard
-  const handleProductApprove = async (product: ProductAnalysis, index: number): Promise<void> => {
+  const handleProductApprove = useCallback(async (product: ProductAnalysis, index: number): Promise<void> => {
     if (!user) {
       toast.error('You must be logged in to approve products');
       return;
@@ -418,8 +360,6 @@ function ProductResultsPage({
     setActionLoadingIndex(index);
     
     try {
-      const effectiveId = existingId || currentProductId;
-      
       if (!effectiveId && !hasSavedToHistory) {
         toast.error('You must save to history first before approving products');
         return;
@@ -427,7 +367,6 @@ function ProductResultsPage({
       
       const researchId = effectiveId as string;
       
-      // Save the product to the approved_products table
       await saveApprovedProduct(
         researchId,
         product,
@@ -437,7 +376,6 @@ function ProductResultsPage({
       
       toast.success(`Added "${product.productDetails?.name || 'Product'}" to review queue`);
       
-      // Mark the product as approved in the local state
       const updatedProducts = [...editedProducts];
       updatedProducts[index] = {
         ...updatedProducts[index],
@@ -446,9 +384,7 @@ function ProductResultsPage({
       };
       
       setEditedProducts(updatedProducts);
-      sessionStorage.setItem('bofu_edited_products', JSON.stringify(updatedProducts));
       
-      // Update the history entry with the approved flag
       if (effectiveId) {
         await updateResearchResults(
           effectiveId,
@@ -464,21 +400,56 @@ function ProductResultsPage({
     } finally {
       setActionLoadingIndex(null);
     }
-  };
+  }, [user, actionLoadingIndex, effectiveId, hasSavedToHistory, editedProducts]);
 
-  // Add effect to handle page unload
-  React.useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Save current state before unload
-      if (editedProducts.length > 0) {
-        sessionStorage.setItem('bofu_edited_products', JSON.stringify(editedProducts));
-        console.log("Saved products before unload:", editedProducts.length);
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  // Memoized computed values
+  const displayTitle = useMemo(() => {
+    return editedProducts && editedProducts.length > 0 && editedProducts[0]?.companyName 
+      ? `${editedProducts[0].companyName}` 
+      : 'Product Analysis';
   }, [editedProducts]);
+
+  const displaySubtitle = useMemo(() => {
+    return editedProducts 
+      ? `${editedProducts.length} product${editedProducts.length === 1 ? '' : 's'} analyzed` 
+      : 'No products analyzed';
+  }, [editedProducts]);
+
+  const showSaveButton = useMemo(() => {
+    return editedProducts && editedProducts.length > 0;
+  }, [editedProducts]);
+
+  const saveButtonDisabled = useMemo(() => {
+    return isSaving || (!hasUnsavedChanges && hasSavedToHistory);
+  }, [isSaving, hasUnsavedChanges, hasSavedToHistory]);
+
+  // Memoized ProductCard components to prevent unnecessary re-renders
+  const productCards = useMemo(() => {
+    if (!editedProducts || editedProducts.length === 0) return null;
+    
+    return editedProducts.map((product, index) => (
+      <motion.div
+        key={`${product.companyName}-${index}`}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.1 }}
+      >
+        <ProductCard 
+          product={product}
+          index={index}
+          onSave={handleProductSave}
+          onApprove={handleProductApprove}
+          onUpdateSection={handleUpdateSection}
+          updateProduct={handleUpdateProduct}
+          isActionLoading={actionLoadingIndex === index}
+          isMultipleProducts={editedProducts.length > 0}
+          isAdmin={false}
+          researchResultId={existingId}
+          approvedProductId={existingId}
+        />
+      </motion.div>
+    ));
+  }, [editedProducts, handleProductSave, handleProductApprove, handleUpdateSection, handleUpdateProduct, actionLoadingIndex, existingId]);
 
   return (
     <div 
@@ -503,10 +474,10 @@ function ProductResultsPage({
               onClick={onStartNew} 
             >
               <Home size={20} className="text-primary-400"/>
-              {editedProducts && editedProducts.length > 0 && editedProducts[0]?.companyName ? `${editedProducts[0].companyName}` : 'Product Analysis'}
+              {displayTitle}
             </h2>
             <p className="text-sm text-gray-400">
-              {editedProducts ? `${editedProducts.length} product${editedProducts.length === 1 ? '' : 's'} analyzed` : 'No products analyzed'}
+              {displaySubtitle}
             </p>
           </motion.div>
           
@@ -538,20 +509,20 @@ function ProductResultsPage({
               </button>
             )}
             
-            {editedProducts && editedProducts.length > 0 && (
+            {showSaveButton && (
               <button 
                 onClick={handleSaveAllToHistory} 
-                disabled={isSaving || (!hasUnsavedChanges && hasSavedToHistory)}
+                disabled={saveButtonDisabled}
                 className={`px-4 py-2.5 rounded-lg hover:bg-primary-400 transition-all 
                             shadow-glow hover:shadow-glow-strong flex items-center gap-2 font-medium 
-                            ${isSaving || (!hasUnsavedChanges && hasSavedToHistory) ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-primary-500 text-secondary-900'}`}
+                            ${saveButtonDisabled ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-primary-500 text-secondary-900'}`}
               >
                 {isSaving ? (
                   <Loader2 size={18} className="animate-spin"/>
                 ) : (
                   <Save size={18} />
                 )}
-                {isSaving ? 'Saving...' : (currentProductId || existingId ? 'Update in History' : 'Save to History')}
+                {isSaving ? 'Saving...' : (effectiveId ? 'Update in History' : 'Save to History')}
               </button>
             )}
           </motion.div>
@@ -569,7 +540,7 @@ function ProductResultsPage({
                 </div>
                 <div className="ml-3">
                   <p className="text-sm text-yellow-700 dark:text-yellow-200">
-                    You have unsaved changes. Click <strong>"{currentProductId ? 'Update in History' : 'Save to History'}"</strong> to permanently save your analysis.
+                    You have unsaved changes. Click <strong>"{effectiveId ? 'Update in History' : 'Save to History'}"</strong> to permanently save your analysis.
                   </p>
                 </div>
               </div>
@@ -596,40 +567,7 @@ function ProductResultsPage({
           
           {/* Products grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {editedProducts && editedProducts.length > 0 ? (
-              editedProducts.map((product, index) => (
-              <motion.div
-                key={`${product.companyName}-${index}`}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                {(() => {
-                  console.log('🔍 ProductResultsPage: Rendering ProductCard with IDs:', {
-                    researchResultId: existingId,
-                    approvedProductId: existingId,
-                    productName: product?.productDetails?.name,
-                    index
-                  });
-                  return (
-                    <ProductCard 
-                      product={product}
-                      index={index}
-                      onSave={handleProductSave}
-                      onApprove={handleProductApprove}
-                      onUpdateSection={handleUpdateSection}
-                      updateProduct={handleUpdateProduct}
-                      isActionLoading={actionLoadingIndex === index}
-                      isMultipleProducts={editedProducts.length > 0}
-                      isAdmin={false}
-                      researchResultId={existingId}
-                      approvedProductId={existingId}
-                    />
-                  );
-                })()}
-              </motion.div>
-              ))
-            ) : (
+            {productCards || (
               <div className="col-span-1 lg:col-span-2 p-8 text-center">
                 <div className="mb-4">
                   <svg className="w-12 h-12 mx-auto text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">

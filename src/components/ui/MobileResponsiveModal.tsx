@@ -26,7 +26,7 @@ export const MobileResponsiveModal: React.FC<MobileResponsiveModalProps> = ({
   enableSwipeGestures = true
 }) => {
   const { isMobile, isTablet, orientation, screenHeight } = useMobileDetection();
-  const modalRef = useRef<HTMLDivElement>(null);
+  
   const contentRef = useRef<HTMLDivElement>(null);
   const [startY, setStartY] = useState<number>(0);
   const [currentY, setCurrentY] = useState<number>(0);
@@ -35,29 +35,7 @@ export const MobileResponsiveModal: React.FC<MobileResponsiveModalProps> = ({
   
   const safeAreaInsets = getSafeAreaInsets();
   
-  // Close modal on escape key
-  useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-    
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      // Prevent body scroll when modal is open
-      document.body.style.overflow = 'hidden';
-      
-      // Set CSS custom properties for safe area insets
-      document.documentElement.style.setProperty('--safe-area-inset-top', `${safeAreaInsets.top}px`);
-      document.documentElement.style.setProperty('--safe-area-inset-bottom', `${safeAreaInsets.bottom}px`);
-    }
-    
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen, onClose, safeAreaInsets]);
+  
   
   // Handle swipe gestures for mobile
   const handleTouchStart = (event: React.TouchEvent) => {
@@ -94,14 +72,7 @@ export const MobileResponsiveModal: React.FC<MobileResponsiveModalProps> = ({
     }
   };
   
-  // Handle backdrop click
-  const handleBackdropClick = (event: React.MouseEvent) => {
-    if (event.target === modalRef.current) {
-      onClose();
-    }
-  };
   
-  if (!isOpen) return null;
   
   const getModalStyles = () => {
     if (isMobile) {
@@ -170,104 +141,96 @@ export const MobileResponsiveModal: React.FC<MobileResponsiveModalProps> = ({
   const buttonSize = isMobile ? 'min-w-[44px] min-h-[44px]' : 'w-8 h-8';
   
   return (
-    <div
-      ref={modalRef}
-      className={`
-        fixed inset-0 z-50 
-        ${isMobile ? 'bg-white' : 'bg-black bg-opacity-50'} 
-        flex items-center justify-center
-        ${isMobile ? '' : 'p-4'}
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      size={isMobile ? "full" : isTablet ? "lg" : "xl"} // Adjust size based on device
+      theme="light" // Assuming light theme for this modal
+      showCloseButton={false} // Custom close button is handled inside
+      overlayClassName={isMobile ? "bg-white" : "bg-black bg-opacity-50"}
+      contentClassName={`
+        ${isMobile ? 'w-full h-full' : 'bg-white rounded-lg shadow-xl'} 
+        ${isMobile ? '' : 'border border-gray-200'} 
+        ${className}
       `}
-      onClick={handleBackdropClick}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
     >
-      <div
-        style={getModalStyles()}
-        className={`
-          ${isMobile ? 'w-full h-full' : 'bg-white rounded-lg shadow-xl'} 
-          ${isMobile ? '' : 'border border-gray-200'} 
-          ${className}
-        `}
-      >
-        <div style={getContentStyles()}>
-          {/* Header */}
-          <div 
-            className={`
-              flex items-center justify-between 
-              px-4 py-3 
-              border-b border-gray-200 
-              bg-white
-              ${isMobile ? 'sticky top-0 z-10' : ''}
-            `}
-            style={{ height: headerHeight, minHeight: headerHeight }}
-          >
-            <div className="flex items-center space-x-3">
-              {showBackButton && onBack && (
-                <button
-                  onClick={onBack}
-                  className={`
-                    ${buttonSize} 
-                    flex items-center justify-center 
-                    text-gray-600 hover:text-gray-800 
-                    hover:bg-gray-100 rounded-full 
-                    transition-colors
-                  `}
-                  title="Back"
-                >
-                  {isMobile ? <ArrowLeft size={20} /> : <ChevronLeft size={16} />}
-                </button>
-              )}
-              
-              <h2 className={`
-                font-semibold text-gray-900 
-                ${isMobile ? 'text-lg' : 'text-xl'}
-                truncate max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg
-              `}>
-                {title}
-              </h2>
-            </div>
+      <div style={getContentStyles()}>
+        {/* Header */}
+        <div 
+          className={`
+            flex items-center justify-between 
+            px-4 py-3 
+            border-b border-gray-200 
+            bg-white
+            ${isMobile ? 'sticky top-0 z-10' : ''}
+          `}
+          style={{ height: headerHeight, minHeight: headerHeight }}
+        >
+          <div className="flex items-center space-x-3">
+            {showBackButton && onBack && (
+              <button
+                onClick={onBack}
+                className={`
+                  ${buttonSize} 
+                  flex items-center justify-center 
+                  text-gray-600 hover:text-gray-800 
+                  hover:bg-gray-100 rounded-full 
+                  transition-colors
+                `}
+                title="Back"
+              >
+                {isMobile ? <ArrowLeft size={20} /> : <ChevronLeft size={16} />}
+              </button>
+            )}
             
-            <button
-              onClick={onClose}
-              className={`
-                ${buttonSize} 
-                flex items-center justify-center 
-                text-gray-600 hover:text-gray-800 
-                hover:bg-gray-100 rounded-full 
-                transition-colors
-              `}
-              title="Close"
-            >
-              <X size={isMobile ? 20 : 16} />
-            </button>
+            <h2 className={`
+              font-semibold text-gray-900 
+              ${isMobile ? 'text-lg' : 'text-xl'}
+              truncate max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg
+            `}>
+              {title}
+            </h2>
           </div>
           
-          {/* Swipe indicator for mobile */}
-          {isMobile && enableSwipeGestures && (
-            <div className="flex justify-center py-2 bg-gray-50">
-              <div className="w-8 h-1 bg-gray-300 rounded-full" />
-            </div>
-          )}
-          
-          {/* Content */}
-          <div 
-            ref={contentRef}
+          <button
+            onClick={onClose}
             className={`
-              flex-1 
-              ${isMobile ? 'overflow-y-auto' : 'overflow-hidden'} 
-              ${isMobile ? 'min-h-0' : ''}
+              ${buttonSize} 
+              flex items-center justify-center 
+              text-gray-600 hover:text-gray-800 
+              hover:bg-gray-100 rounded-full 
+              transition-colors
             `}
-            style={{
-              height: isMobile ? `calc(100% - ${headerHeight} - ${enableSwipeGestures ? '16px' : '0px'})` : 'auto'
-            }}
+            title="Close"
           >
-            {children}
+            <X size={isMobile ? 20 : 16} />
+          </button>
+        </div>
+        
+        {/* Swipe indicator for mobile */}
+        {isMobile && enableSwipeGestures && (
+          <div className="flex justify-center py-2 bg-gray-50">
+            <div className="w-8 h-1 bg-gray-300 rounded-full" />
           </div>
+        )}
+        
+        {/* Content */}
+        <div 
+          ref={contentRef}
+          className={`
+            flex-1 
+            ${isMobile ? 'overflow-y-auto' : 'overflow-hidden'} 
+            ${isMobile ? 'min-h-0' : ''}
+          `}
+          style={{
+            height: isMobile ? `calc(100% - ${headerHeight} - ${enableSwipeGestures ? '16px' : '0px'})` : 'auto'
+          }}
+        >
+          {children}
         </div>
       </div>
-    </div>
+    </BaseModal>
   );
 };
 

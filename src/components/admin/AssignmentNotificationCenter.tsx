@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useAdminContext } from '../../contexts/AdminContext';
 import { 
   Bell, 
@@ -18,7 +18,9 @@ import {
   Filter,
   MoreVertical,
   AtSign,
-  MessageSquare
+  MessageSquare,
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -34,6 +36,7 @@ import {
   markBriefApprovalNotificationsAsRead,
   BriefApprovalNotification
 } from '../../lib/briefApprovalNotifications';
+import { BaseModal } from '../ui/BaseModal';
 
 interface AssignmentNotificationCenterProps {
   isVisible: boolean;
@@ -554,187 +557,163 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   return (
-    <AnimatePresence>
-      {isVisible && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={(e) => e.target === e.currentTarget && onClose()}
-        >
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-gray-900 rounded-xl shadow-2xl border border-gray-700 max-w-4xl w-full max-h-[90vh] overflow-hidden"
+    <BaseModal
+      isOpen={isVisible}
+      onClose={onClose}
+      title="Assignment Notifications"
+      size="xl"
+      theme="dark"
+    >
+      {/* Title icon and stats */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2 rounded-lg bg-blue-500/20 relative">
+          <Bell className="h-6 w-6 text-blue-400" />
+          {unreadCount > 0 && (
+            <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-bold">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </div>
+          )}
+        </div>
+        <div>
+          <p className="text-sm text-gray-400">
+            {unreadCount} unread • {notifications.length} total
+          </p>
+        </div>
+        <div className="ml-auto flex items-center gap-3">
+          {selectedNotifications.size > 0 && (
+            <button
+              onClick={deleteSelectedNotifications}
+              className="flex items-center gap-2 px-3 py-1 bg-red-500/20 text-red-400 rounded-lg text-sm hover:bg-red-500/30"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete ({selectedNotifications.size})
+            </button>
+          )}
+          <button
+            onClick={markAllAsRead}
+            className="flex items-center gap-2 px-3 py-1 bg-blue-500/20 text-blue-400 rounded-lg text-sm hover:bg-blue-500/30"
           >
-            {/* Header */}
-            <div className="p-6 border-b border-gray-700 bg-gray-800/50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-blue-500/20 relative">
-                    <Bell className="h-6 w-6 text-blue-400" />
-                    {unreadCount > 0 && (
-                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-bold">
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </div>
+            <CheckCircle className="h-4 w-4" />
+            Mark All Read
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-2 mb-6 border-b border-gray-700 pb-4">
+        {[
+          { key: 'all', label: 'All', count: notifications.length },
+          { key: 'unread', label: 'Unread', count: unreadCount },
+          { key: 'assignments', label: 'Assignments', count: notifications.filter(n => ['assignment', 'unassignment', 'transfer', 'bulk_operation'].includes(n.type)).length },
+          { key: 'accounts', label: 'Accounts', count: notifications.filter(n => ['account_created', 'account_deleted'].includes(n.type)).length },
+          { key: 'mentions', label: 'Mentions', count: notifications.filter(n => ['mention', 'comment'].includes(n.type)).length },
+          { key: 'briefs', label: 'Brief Approvals', count: notifications.filter(n => n.type === 'brief_approved').length },
+          { key: 'products', label: 'Product Approvals', count: notifications.filter(n => n.type === 'product_approved').length }
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setFilter(tab.key as any)}
+            className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+              filter === tab.key
+                ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+            }`}
+          >
+            {tab.label} ({tab.count})
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Bell className="h-8 w-8 animate-pulse text-blue-400" />
+        </div>
+      ) : filteredNotifications.length > 0 ? (
+        <div className="space-y-3 max-h-96 overflow-y-auto">
+          {filteredNotifications.map((notification) => {
+            const Icon = getNotificationIcon(notification.type);
+            const isSelected = selectedNotifications.has(notification.id);
+            
+            return (
+              <motion.div
+                key={notification.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`group p-4 rounded-lg border transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-blue-500/20 border-blue-500/50'
+                    : notification.isRead
+                    ? 'bg-gray-800/40 border-gray-700/50'
+                    : 'bg-gray-800/80 border-gray-600/50 hover:bg-gray-700/60'
+                }`}
+                onClick={() => {
+                  toggleNotificationSelection(notification.id);
+                  if (!notification.isRead) markAsRead(notification.id);
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-lg ${
+                    notification.priority === 'high' ? 'bg-red-500/20' :
+                    notification.priority === 'medium' ? 'bg-yellow-500/20' :
+                    'bg-blue-500/20'
+                  }`}>
+                    <Icon className={`h-4 w-4 ${getNotificationColor(notification.priority, notification.isRead)}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className={`font-medium ${notification.isRead ? 'text-gray-300' : 'text-white'}`}>
+                        {notification.message}
+                      </h4>
+                      {!notification.isRead && (
+                        <div className="w-2 h-2 bg-blue-400 rounded-full" />
+                      )}
+                    </div>
+                    {notification.details && (
+                      <p className={`text-sm ${notification.isRead ? 'text-gray-500' : 'text-gray-400'} mb-2`}>
+                        {notification.details}
+                      </p>
                     )}
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Clock className="h-3 w-3" />
+                      {new Date(notification.timestamp).toLocaleString()}
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-white">Assignment Notifications</h2>
-                    <p className="text-sm text-gray-400">
-                      {unreadCount} unread • {notifications.length} total
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {selectedNotifications.size > 0 && (
+                  <div className="flex items-center gap-2">
+                    {isSelected && (
+                      <CheckCircle className="h-4 w-4 text-blue-400" />
+                    )}
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      notification.priority === 'high' ? 'bg-red-500/20 text-red-300' :
+                      notification.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
+                      'bg-blue-500/20 text-blue-300'
+                    }`}>
+                      {notification.priority}
+                    </span>
                     <button
-                      onClick={deleteSelectedNotifications}
-                      className="flex items-center gap-2 px-3 py-1 bg-red-500/20 text-red-400 rounded-lg text-sm hover:bg-red-500/30"
+                      onClick={(e) => deleteNotification(notification.id, e)}
+                      className="p-1 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                      title="Delete notification"
                     >
                       <Trash2 className="h-4 w-4" />
-                      Delete ({selectedNotifications.size})
                     </button>
-                  )}
-                  <button
-                    onClick={markAllAsRead}
-                    className="flex items-center gap-2 px-3 py-1 bg-blue-500/20 text-blue-400 rounded-lg text-sm hover:bg-blue-500/30"
-                  >
-                    <CheckCircle className="h-4 w-4" />
-                    Mark All Read
-                  </button>
-                  <button
-                    onClick={onClose}
-                    className="p-2 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
+                  </div>
                 </div>
-              </div>
-
-              {/* Filter Tabs */}
-              <div className="flex items-center gap-2 mt-4">
-                {[
-                  { key: 'all', label: 'All', count: notifications.length },
-                  { key: 'unread', label: 'Unread', count: unreadCount },
-                  { key: 'assignments', label: 'Assignments', count: notifications.filter(n => ['assignment', 'unassignment', 'transfer', 'bulk_operation'].includes(n.type)).length },
-                  { key: 'accounts', label: 'Accounts', count: notifications.filter(n => ['account_created', 'account_deleted'].includes(n.type)).length },
-                  { key: 'mentions', label: 'Mentions', count: notifications.filter(n => ['mention', 'comment'].includes(n.type)).length },
-                  { key: 'briefs', label: 'Brief Approvals', count: notifications.filter(n => n.type === 'brief_approved').length },
-                  { key: 'products', label: 'Product Approvals', count: notifications.filter(n => n.type === 'product_approved').length }
-                ].map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setFilter(tab.key as any)}
-                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                      filter === tab.key
-                        ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                        : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
-                    }`}
-                  >
-                    {tab.label} ({tab.count})
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 max-h-[calc(90vh-200px)] overflow-y-auto">
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Bell className="h-8 w-8 animate-pulse text-blue-400" />
-                </div>
-              ) : filteredNotifications.length > 0 ? (
-                <div className="space-y-3">
-                  {filteredNotifications.map((notification) => {
-                    const Icon = getNotificationIcon(notification.type);
-                    const isSelected = selectedNotifications.has(notification.id);
-                    
-                    return (
-                      <motion.div
-                        key={notification.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`group p-4 rounded-lg border transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-blue-500/20 border-blue-500/50'
-                            : notification.isRead
-                            ? 'bg-gray-800/40 border-gray-700/50'
-                            : 'bg-gray-800/80 border-gray-600/50 hover:bg-gray-700/60'
-                        }`}
-                        onClick={() => {
-                          toggleNotificationSelection(notification.id);
-                          if (!notification.isRead) markAsRead(notification.id);
-                        }}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`p-2 rounded-lg ${
-                            notification.priority === 'high' ? 'bg-red-500/20' :
-                            notification.priority === 'medium' ? 'bg-yellow-500/20' :
-                            'bg-blue-500/20'
-                          }`}>
-                            <Icon className={`h-4 w-4 ${getNotificationColor(notification.priority, notification.isRead)}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className={`font-medium ${notification.isRead ? 'text-gray-300' : 'text-white'}`}>
-                                {notification.message}
-                              </h4>
-                              {!notification.isRead && (
-                                <div className="w-2 h-2 bg-blue-400 rounded-full" />
-                              )}
-                            </div>
-                            {notification.details && (
-                              <p className={`text-sm ${notification.isRead ? 'text-gray-500' : 'text-gray-400'} mb-2`}>
-                                {notification.details}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                              <Clock className="h-3 w-3" />
-                              {new Date(notification.timestamp).toLocaleString()}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {isSelected && (
-                              <CheckCircle className="h-4 w-4 text-blue-400" />
-                            )}
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              notification.priority === 'high' ? 'bg-red-500/20 text-red-300' :
-                              notification.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
-                              'bg-blue-500/20 text-blue-300'
-                            }`}>
-                              {notification.priority}
-                            </span>
-                            <button
-                              onClick={(e) => deleteNotification(notification.id, e)}
-                              className="p-1 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-                              title="Delete notification"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-12 text-gray-500">
-                  <Bell className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                  <h3 className="text-lg font-semibold mb-2">No Notifications</h3>
-                  <p>
-                    {filter === 'all' ? 'No notifications found' :
-                     filter === 'unread' ? 'All notifications have been read' :
-                     `No ${filter} notifications found`}
-                  </p>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        </motion.div>
+              </motion.div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-12 text-gray-500">
+          <Bell className="h-16 w-16 mx-auto mb-4 opacity-50" />
+          <h3 className="text-lg font-semibold mb-2">No Notifications</h3>
+          <p>
+            {filter === 'all' ? 'No notifications found' :
+             filter === 'unread' ? 'All notifications have been read' :
+             `No ${filter} notifications found`}
+          </p>
+        </div>
       )}
-    </AnimatePresence>
+    </BaseModal>
   );
 } 

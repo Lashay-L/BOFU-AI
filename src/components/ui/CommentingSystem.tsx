@@ -18,6 +18,7 @@ import { CommentResolutionPanel } from './CommentResolutionPanel';
 import { InlineCommentingExtension } from './InlineCommentingExtension';
 import { supabase } from '../../lib/supabase';
 import { AnimatePresence, motion } from 'framer-motion';
+import { BaseModal } from './BaseModal';
 
 export type { ArticleComment };
 
@@ -1071,82 +1072,49 @@ const CommentSelectionButton: React.FC<CommentSelectionButtonProps> = ({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9, y: 10 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.9, y: 10 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-      style={{
-        position: 'fixed',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        zIndex: 60000,
-        pointerEvents: 'auto',
-      }}
+    <BaseModal
+      isOpen={true}
+      onClose={() => {}}
+      title="Add Comment"
+      size="sm"
+      theme="light"
+      showCloseButton={false}
     >
-      {/* Professional backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/20 backdrop-blur-sm"
-        style={{ 
-          zIndex: -1,
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0
-        }}
-      />
-      
-      {/* Modern comment card */}
-      <motion.div
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden max-w-sm"
-      >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-              <MessageSquare className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="text-white font-semibold text-lg">Add Comment</h3>
-              <p className="text-blue-100 text-sm">Share your thoughts on this selection</p>
-            </div>
-          </div>
+      {/* Title icon and description */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+          <MessageSquare className="w-5 h-5 text-blue-500" />
         </div>
-        
-        {/* Content */}
-        <div className="p-6">
-          <div className="mb-4">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Selected text:</p>
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 border-l-4 border-blue-500">
-              <p className="text-sm text-gray-600 dark:text-gray-400 italic">
-                "{selection.text.length > 80 ? `${selection.text.substring(0, 80)}...` : selection.text}"
-              </p>
-            </div>
-          </div>
-          
-          <motion.button
-            whileHover={{ backgroundColor: '#1d4ed8' }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleClick}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center space-x-2 shadow-lg"
-          >
-            <MessageSquare className="w-5 h-5" />
-            <span>Add Comment</span>
-          </motion.button>
-          
-          <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-3">
-            Click anywhere outside to cancel
+        <div>
+          <p className="text-blue-600 text-sm">Share your thoughts on this selection</p>
+        </div>
+      </div>
+      
+      {/* Selected text display */}
+      <div className="mb-4">
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Selected text:</p>
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 border-l-4 border-blue-500">
+          <p className="text-sm text-gray-600 dark:text-gray-400 italic">
+            "{selection.text.length > 80 ? `${selection.text.substring(0, 80)}...` : selection.text}"
           </p>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+      
+      {/* Action button */}
+      <motion.button
+        whileHover={{ backgroundColor: '#1d4ed8' }}
+        whileTap={{ scale: 0.98 }}
+        onClick={handleClick}
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center space-x-2 shadow-lg"
+      >
+        <MessageSquare className="w-5 h-5" />
+        <span>Add Comment</span>
+      </motion.button>
+      
+      <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-3">
+        Click anywhere outside to cancel
+      </p>
+    </BaseModal>
   );
 };
 

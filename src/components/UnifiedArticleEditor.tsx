@@ -10,6 +10,10 @@ import {
 } from '../lib/unifiedArticleApi';
 import { useAdminCheck } from '../hooks/useAdminCheck';
 import { realtimeCollaboration } from '../lib/realtimeCollaboration';
+import ArticleAICoPilot from './admin/ArticleAICoPilot';
+import { Brain, Sparkles } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useLayout } from '../contexts/LayoutContext';
 
 
 interface UnifiedArticleEditorProps {
@@ -22,6 +26,7 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
   const articleId = params.id || params.articleId;
   const navigate = useNavigate();
   const { isAdmin, loading: adminCheckLoading } = useAdminCheck();
+  const { layout, setAICopilotVisible } = useLayout();
   
   // State management
   const [article, setArticle] = useState<UnifiedArticleContent | null>(null);
@@ -34,11 +39,53 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
   const [error, setError] = useState<string | null>(null);
   const [isCollaborationReady, setIsCollaborationReady] = useState(false);
   
+  // AI Co-Pilot states
+  const [showAICoPilot, setShowAICoPilot] = useState(false);
+  const [currentArticleContent, setCurrentArticleContent] = useState('');
+  const [originalAuthorCompany, setOriginalAuthorCompany] = useState<string | null>(null);
+  
   // Ref for managing content update timeouts (to prevent excessive API calls)
   const contentUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Determine UI mode based on user permissions and route
   const uiMode = forceMode || (userContext?.isAdmin ? 'admin' : 'user');
+
+  // Sync local AI copilot state with layout context
+  useEffect(() => {
+    setAICopilotVisible(showAICoPilot);
+  }, [showAICoPilot, setAICopilotVisible]);
+
+  // Handle AI copilot toggle with layout awareness
+  const handleAICopilotToggle = useCallback(() => {
+    const newState = !showAICoPilot;
+    setShowAICoPilot(newState);
+    setAICopilotVisible(newState);
+  }, [showAICoPilot, setAICopilotVisible]);
+
+  /**
+   * Fetch original author's company name for AI copilot filtering
+   */
+  const fetchOriginalAuthorCompany = useCallback(async (authorUserId: string) => {
+    try {
+      const { data: authorProfile, error } = await supabase
+        .from('user_profiles')
+        .select('company_name')
+        .eq('id', authorUserId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching author company:', error);
+        return;
+      }
+
+      if (authorProfile?.company_name) {
+        console.log(`🏢 Setting original author company: "${authorProfile.company_name}"`);
+        setOriginalAuthorCompany(authorProfile.company_name);
+      }
+    } catch (error) {
+      console.error('Failed to fetch original author company:', error);
+    }
+  }, []);
 
   /**
    * Load article data using unified API
@@ -60,12 +107,13 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
         setError(result.error || 'Failed to load article');
         
         // Redirect based on error type
+        const redirectPath = forceMode === 'admin' || isAdmin ? '/admin' : '/dashboard';
         if (result.error?.includes('Access denied')) {
           toast.error('You do not have permission to access this article');
-          navigate('/dashboard');
+          navigate(redirectPath);
         } else if (result.error?.includes('not found')) {
           toast.error('Article not found');
-          navigate('/dashboard');
+          navigate(redirectPath);
         }
         return;
       }
@@ -74,6 +122,12 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
       setUserContext(result.userContext!);
       setPermissions(result.permissions!);
       setHasUnsavedChanges(false);
+      setCurrentArticleContent(result.data!.content || ''); // Initialize content for AI copilot
+      
+      // Fetch original author's company name for AI copilot filtering
+      if (result.data!.user_id) {
+        fetchOriginalAuthorCompany(result.data!.user_id);
+      }
 
     } catch (error) {
       console.error('Error loading article:', error);
@@ -82,7 +136,7 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
     } finally {
       setLoading(false);
     }
-  }, [articleId, navigate]);
+  }, [articleId, navigate, fetchOriginalAuthorCompany]);
 
   /**
    * Save article using unified API with conflict resolution
@@ -197,6 +251,8 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
   const handleAutoSave = useCallback(async (content: string) => {
     if (!hasUnsavedChanges) return;
     
+    setCurrentArticleContent(content); // Update content for AI copilot
+    
     await saveArticle(content, { 
       isAutoSave: true, 
       showToast: false 
@@ -248,28 +304,62 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
       
       // Only process if this is a content_briefs table update for our article
       if (payload?.table === 'content_briefs' && payload?.new?.id === articleId) {
+        const newContent = payload?.new?.article_content;
+        const oldContent = payload?.old?.article_content;
+        
         console.log('✅ [UNIFIED EDITOR] Processing content change for our article:', {
-          oldContent: payload?.old?.article_content?.substring(0, 100) + '...',
-          newContent: payload?.new?.article_content?.substring(0, 100) + '...',
-          contentChanged: payload?.old?.article_content !== payload?.new?.article_content
+          oldContentLength: oldContent?.length || 0,
+          newContentLength: newContent?.length || 0,
+          contentChanged: oldContent !== newContent,
+          newVersion: payload?.new?.article_version
         });
         
-        // Debounce content updates to prevent excessive API calls
-        if (contentUpdateTimeoutRef.current) {
-          clearTimeout(contentUpdateTimeoutRef.current);
-          console.log('🔄 [UNIFIED EDITOR] Clearing previous timeout');
-        }
-        
-        contentUpdateTimeoutRef.current = setTimeout(async () => {
-          console.log('🔄 [UNIFIED EDITOR] Refreshing article content due to real-time update...');
-          try {
-            // Reload the article to get the latest content
-            await loadArticle();
-            console.log('✅ [UNIFIED EDITOR] Article reloaded successfully');
-          } catch (error) {
-            console.error('❌ [UNIFIED EDITOR] Failed to reload article after real-time update:', error);
+        // Only update if content actually changed
+        if (newContent && oldContent !== newContent) {
+          // Debounce content updates to prevent excessive updates
+          if (contentUpdateTimeoutRef.current) {
+            clearTimeout(contentUpdateTimeoutRef.current);
+            console.log('🔄 [UNIFIED EDITOR] Clearing previous timeout');
           }
-        }, 1500); // 1.5 second debounce
+          
+          contentUpdateTimeoutRef.current = setTimeout(async () => {
+            console.log('🚀 [UNIFIED EDITOR] Applying seamless content update...');
+            try {
+              // Update article state with new data
+              if (article) {
+                const updatedArticle = {
+                  ...article,
+                  content: newContent,
+                  article_version: payload?.new?.article_version || article.article_version + 1,
+                  last_edited_at: payload?.new?.updated_at || new Date().toISOString(),
+                  last_edited_by: payload?.new?.last_edited_by || article.last_edited_by
+                };
+                
+                console.log('📝 [UNIFIED EDITOR] Updating article state seamlessly:', {
+                  oldVersion: article.article_version,
+                  newVersion: updatedArticle.article_version,
+                  contentLengthDiff: newContent.length - (article.content?.length || 0)
+                });
+                
+                // Update article state seamlessly - the key change will remount ArticleEditor
+                setArticle(updatedArticle);
+                
+                // Clear unsaved changes since we just received a fresh update
+                setHasUnsavedChanges(false);
+                setLastSaved(new Date());
+                
+                console.log('✅ [UNIFIED EDITOR] Seamless content update applied - ArticleEditor will remount with new version');
+              }
+            } catch (error) {
+              console.error('❌ [UNIFIED EDITOR] Failed to apply seamless update:', error);
+              // Fallback to full reload if seamless update fails
+              console.log('🔄 [UNIFIED EDITOR] Falling back to full article reload...');
+              await loadArticle();
+            }
+          }, 500); // Faster response - 0.5 second debounce
+        } else {
+          console.log('⏭️ [UNIFIED EDITOR] Content unchanged, skipping update');
+        }
       } else {
         console.log('⏭️ [UNIFIED EDITOR] Ignoring content change - not for our article:', {
           payloadTable: payload?.table,
@@ -290,7 +380,7 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
         clearTimeout(contentUpdateTimeoutRef.current);
       }
     };
-  }, [articleId, userContext, loadArticle]);
+  }, [articleId, userContext?.email, loadArticle]);
 
   // Loading states
   if (adminCheckLoading || loading) {
@@ -309,7 +399,7 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
           <h3 className="text-red-400 text-lg font-semibold mb-2">Error Loading Article</h3>
           <p className="text-gray-300 mb-4">{error}</p>
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate(uiMode === 'admin' ? '/admin' : '/dashboard')}
             className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded transition-colors"
           >
             Return to Dashboard
@@ -331,107 +421,168 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      {/* Header with unified status and permissions */}
-      <div className="bg-gray-800 border-b border-gray-700 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-semibold text-white">
-              {article.title}
-            </h1>
-            
-            {/* Mode indicator */}
-            <span className={`px-2 py-1 rounded text-xs font-medium ${
-              uiMode === 'admin' 
-                ? 'bg-red-900/30 text-red-400 border border-red-500/30' 
-                : 'bg-blue-900/30 text-blue-400 border border-blue-500/30'
-            }`}>
-              {uiMode === 'admin' ? 'Admin Mode' : 'User Mode'}
-            </span>
+    <div className="min-h-screen bg-gray-900 flex">
+      {/* Main content area */}
+      <div 
+        className="flex-1 flex flex-col transition-all duration-300"
+        style={{ 
+          width: `${layout.editorWidth}px`,
+          maxWidth: showAICoPilot ? 'calc(100vw - 650px)' : '100%'
+        }}
+      >
+        {/* New Header */}
+        <div className="bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/50 sticky top-0 z-30">
+          {/* Top Bar: Title and Primary Actions */}
+          <div className="px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-bold text-white tracking-tight">
+                {article.title}
+              </h1>
+            </div>
+            <div className="flex items-center gap-3">
+              {/* AI Co-Pilot Button */}
+              {uiMode === 'admin' && (
+                <button
+                  onClick={handleAICopilotToggle}
+                  className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 group ${
+                    showAICoPilot
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-lg'
+                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white border border-gray-700'
+                  }`}
+                  title={showAICoPilot ? 'Hide AI Co-Pilot' : 'Show AI Co-Pilot'}
+                >
+                  <Brain size={16} className="transition-transform duration-300 group-hover:scale-110" />
+                  <span>AI Assistant</span>
+                  {showAICoPilot && (
+                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-purple-400 rounded-full border-2 border-gray-900 animate-pulse" />
+                  )}
+                </button>
+              )}
 
-            {/* Article status */}
-            <span className={`px-2 py-1 rounded text-xs font-medium ${
-              article.editing_status === 'published' ? 'bg-green-900/30 text-green-400' :
-              article.editing_status === 'review' ? 'bg-yellow-900/30 text-yellow-400' :
-              'bg-gray-700 text-gray-300'
-            }`}>
-              {article.editing_status}
-            </span>
-
-            {/* Version indicator */}
-            <span className="text-xs text-gray-500">
-              v{article.article_version}
-            </span>
+              {/* Delete Button */}
+              {uiMode === 'admin' && permissions?.canDelete && (
+                <button
+                  onClick={() => {
+                    if (confirm('Are you sure you want to delete this article?')) {
+                      toast.error('Delete functionality not yet implemented');
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gray-800 text-red-400 hover:bg-red-500/20 hover:text-red-300 border border-gray-700 hover:border-red-500/30 transition-all duration-300"
+                >
+                  Delete
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="flex items-center space-x-4">
-            {/* Save status */}
-            {saving && (
-              <span className="text-xs text-blue-400">Saving...</span>
-            )}
-            {hasUnsavedChanges && (
-              <span className="text-xs text-yellow-400">Unsaved changes</span>
-            )}
-            {lastSaved && !hasUnsavedChanges && (
-              <span className="text-xs text-green-400">
-                Saved {lastSaved.toLocaleTimeString()}
-              </span>
-            )}
+          {/* Bottom Bar: Status, Version, and Save Info */}
+          <div className="px-6 py-3 bg-gray-800/50 border-t border-gray-700/50 flex items-center justify-between text-sm">
+            <div className="flex items-center gap-6">
+              {/* Status Dropdown */}
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-gray-400">Status:</span>
+                {permissions?.canChangeStatus ? (
+                  <select
+                    value={article.editing_status}
+                    onChange={(e) => handleStatusChange(e.target.value as UnifiedArticleContent['editing_status'])}
+                    className="bg-gray-700/50 text-white px-3 py-1.5 rounded-md border border-gray-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all duration-300 appearance-none"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="editing">Editing</option>
+                    <option value="review">Review</option>
+                    <option value="final">Final</option>
+                    <option value="published">Published</option>
+                  </select>
+                ) : (
+                  <span className="px-3 py-1.5 rounded-md bg-gray-700/50 text-white border border-gray-600">{article.editing_status}</span>
+                )}
+              </div>
 
-            {/* Status change controls (if user has permission) */}
-            {permissions?.canChangeStatus && (
-              <select
-                value={article.editing_status}
-                onChange={(e) => handleStatusChange(e.target.value as UnifiedArticleContent['editing_status'])}
-                className="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-              >
-                <option value="draft">Draft</option>
-                <option value="editing">Editing</option>
-                <option value="review">Review</option>
-                <option value="final">Final</option>
-                <option value="published">Published</option>
-              </select>
-            )}
+              {/* Version */}
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-gray-400">Version:</span>
+                <span className="text-white font-semibold">v{article.article_version}</span>
+              </div>
 
-            {/* Admin-specific controls */}
-            {uiMode === 'admin' && permissions?.canDelete && (
-              <button
-                onClick={() => {
-                  if (confirm('Are you sure you want to delete this article?')) {
-                    // Implement delete functionality
-                    toast.error('Delete functionality not yet implemented');
-                  }
-                }}
-                className="text-xs text-red-400 hover:text-red-300 px-2 py-1 border border-red-500/30 rounded hover:bg-red-900/20 transition-colors"
-              >
-                Delete
-              </button>
-            )}
+              {/* Mode */}
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-gray-400">Mode:</span>
+                <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                  uiMode === 'admin'
+                    ? 'bg-red-900/30 text-red-300 border border-red-500/40'
+                    : 'bg-blue-900/30 text-blue-300 border border-blue-500/40'
+                }`}>
+                  {uiMode === 'admin' ? 'Admin' : 'User'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-6">
+              {/* Permissions */}
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-gray-400">Permissions:</span>
+                <div className="flex items-center gap-2 text-xs">
+                  {permissions?.canEdit && <span className="px-2 py-1 bg-green-900/30 text-green-300 rounded-full border border-green-500/40">Edit</span>}
+                  {permissions?.canChangeStatus && <span className="px-2 py-1 bg-blue-900/30 text-blue-300 rounded-full border border-blue-500/40">Status</span>}
+                  {permissions?.canTransferOwnership && <span className="px-2 py-1 bg-purple-900/30 text-purple-300 rounded-full border border-purple-500/40">Transfer</span>}
+                  {permissions?.canDelete && <span className="px-2 py-1 bg-red-900/30 text-red-300 rounded-full border border-red-500/40">Delete</span>}
+                </div>
+              </div>
+
+              {/* Save Status */}
+              <div className="flex items-center gap-2 text-white font-semibold">
+                {saving ? (
+                  <>
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+                    <span>Saving...</span>
+                  </>
+                ) : hasUnsavedChanges ? (
+                  <>
+                    <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                    <span>Unsaved changes</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-2 h-2 bg-green-400 rounded-full" />
+                    <span>Saved {lastSaved ? lastSaved.toLocaleTimeString() : ''}</span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Permission indicators */}
-        <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-          <span>Permissions:</span>
-          {permissions?.canEdit && <span className="text-green-400">Edit</span>}
-          {permissions?.canChangeStatus && <span className="text-blue-400">Change Status</span>}
-          {permissions?.canTransferOwnership && <span className="text-purple-400">Transfer</span>}
-          {permissions?.canDelete && <span className="text-red-400">Delete</span>}
-        </div>
+        {/* Article Editor */}
+        <ArticleEditor
+          key={`article-${article.id}-${article.article_version}`} // Force re-render on content updates
+          articleId={articleId!}
+          initialContent={article.content}
+          onSave={(content) => saveArticle(content, { showToast: true })}
+          onAutoSave={handleAutoSave}
+          adminMode={uiMode === 'admin'}
+          adminUser={userContext.isAdmin ? userContext as any : undefined}
+          originalAuthor={article.user_id !== userContext.id ? { id: article.user_id } as any : undefined}
+          onStatusChange={handleStatusChange}
+          onBack={() => navigate(uiMode === 'admin' ? '/admin' : '/dashboard')}
+          isAiCopilotOpen={showAICoPilot}
+        />
       </div>
 
-      {/* Article Editor */}
-      <ArticleEditor
-        key={`article-${article.id}-${article.article_version}`} // Force re-render on content updates
-        articleId={articleId!}
-        initialContent={article.content}
-        onSave={(content) => saveArticle(content, { showToast: true })}
-        onAutoSave={handleAutoSave}
-        adminMode={uiMode === 'admin'}
-        adminUser={userContext.isAdmin ? userContext as any : undefined}
-        originalAuthor={article.user_id !== userContext.id ? { id: article.user_id } as any : undefined}
-        onStatusChange={handleStatusChange}
-      />
+      {/* AI Co-Pilot - Admin Only */}
+      {uiMode === 'admin' && (
+        <ArticleAICoPilot
+          isVisible={showAICoPilot}
+          onToggle={() => setShowAICoPilot(!showAICoPilot)}
+          articleContent={currentArticleContent || article.content}
+          articleTitle={article.title || 'Untitled Article'}
+          authorCompanyName={originalAuthorCompany}
+          onSuggestion={(suggestion) => {
+            // Handle AI suggestions - could integrate with editor
+            console.log('AI Suggestion:', suggestion);
+            toast.success('AI suggestion received! Check the console for details.');
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -36,7 +36,15 @@ import {
   MessageCircle,
   ChevronRight,
   RefreshCw,
-  MoreHorizontal
+  MoreHorizontal,
+  Layers,
+  ShieldCheck,
+  Activity,
+  Layout,
+  Cpu,
+  Workflow,
+  Gauge,
+  Network
 } from 'lucide-react';
 import { Product, Message, ChatStatus } from '../../types/chat';
 import { Product as ProductType } from '../../types';
@@ -66,54 +74,73 @@ interface SuggestionTemplate {
 
 const suggestionTemplates: SuggestionTemplate[] = [
   {
-    id: 'improve-intro',
-    title: 'Enhance Introduction',
-    icon: '🎯',
-    description: 'Make your opening more compelling',
-    prompt: 'Analyze the introduction of this article and suggest improvements to make it more engaging and hook readers immediately.',
+    id: 'strategic-analysis',
+    title: 'Strategic Content Analysis',
+    icon: 'target',
+    description: 'Analyze content effectiveness and strategic positioning',
+    prompt: 'Perform a comprehensive strategic analysis of this article, evaluating its positioning, messaging effectiveness, and competitive advantages. Suggest improvements for maximum market impact.',
     category: 'content'
   },
   {
-    id: 'add-transitions',
-    title: 'Smooth Transitions',
-    icon: '🌊',
-    description: 'Improve flow between sections',
-    prompt: 'Review the article structure and suggest better transitions between paragraphs and sections for improved readability.',
+    id: 'narrative-architecture',
+    title: 'Narrative Architecture',
+    icon: 'layers',
+    description: 'Optimize story structure and information hierarchy',
+    prompt: 'Review the narrative architecture of this article. Analyze the flow of information, story progression, and structural elements to create a more compelling and logical reader journey.',
     category: 'style'
   },
   {
-    id: 'seo-optimize',
-    title: 'SEO Enhancement',
-    icon: '📈',
-    description: 'Optimize for search engines',
-    prompt: 'Analyze this article for SEO opportunities and suggest improvements for keywords, meta descriptions, and structure.',
+    id: 'performance-optimization',
+    title: 'Performance Optimization',
+    icon: 'trending-up',
+    description: 'Enhance for search visibility and engagement metrics',
+    prompt: 'Optimize this article for peak performance across search engines, social media, and user engagement metrics. Focus on technical SEO, semantic structure, and conversion optimization.',
     category: 'seo'
   },
   {
-    id: 'add-examples',
-    title: 'Add Examples',
-    icon: '💡',
-    description: 'Include practical examples',
-    prompt: 'Suggest specific, practical examples that could be added to this article to make concepts clearer and more actionable.',
+    id: 'proof-validation',
+    title: 'Proof & Validation',
+    icon: 'shield-check',
+    description: 'Strengthen credibility with evidence and examples',
+    prompt: 'Enhance this article with compelling proof points, case studies, data validation, and practical examples that build trust and demonstrate real-world application.',
     category: 'content'
   },
   {
-    id: 'call-to-action',
-    title: 'Strengthen CTA',
-    icon: '🚀',
-    description: 'Improve calls to action',
-    prompt: 'Review and suggest improvements for the calls-to-action in this article to increase engagement and conversion.',
+    id: 'conversion-psychology',
+    title: 'Conversion Psychology',
+    icon: 'brain-circuit',
+    description: 'Apply behavioral triggers and persuasion principles',
+    prompt: 'Apply advanced conversion psychology principles to optimize this article for decision-making, trust-building, and action-taking. Focus on psychological triggers and behavioral science.',
     category: 'engagement'
   },
   {
-    id: 'readability',
-    title: 'Readability Check',
-    icon: '👁️',
-    description: 'Enhance clarity and flow',
-    prompt: 'Analyze the readability of this article and suggest improvements for sentence structure, word choice, and overall clarity.',
+    id: 'cognitive-clarity',
+    title: 'Cognitive Clarity',
+    icon: 'brain',
+    description: 'Optimize for cognitive load and comprehension',
+    prompt: 'Enhance cognitive clarity by optimizing information processing, reducing mental friction, and improving comprehension speed. Focus on cognitive load theory and readability science.',
     category: 'style'
   }
 ];
+
+// Icon mapping for dynamic rendering
+const iconMap: Record<string, React.ComponentType<any>> = {
+  'target': Target,
+  'layers': Layers,
+  'trending-up': TrendingUp,
+  'shield-check': ShieldCheck,
+  'brain-circuit': Activity,
+  'brain': Brain,
+  'zap': Zap,
+  'file-text': FileText,
+  'layout': Layout,
+  'cpu': Cpu,
+  'workflow': Workflow,
+  'gauge': Gauge,
+  'network': Network
+};
+
+const getIcon = (iconName: string) => iconMap[iconName] || Target;
 
 // Initialize OpenAI client exactly like ChatWindow does
 const openai = new OpenAI({
@@ -300,7 +327,7 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
         .from('products')
         .select('id, name, description, openai_vector_store_id, created_at, user_id');
 
-      // If we have an author company name, filter products by that company
+      // ALWAYS filter products by company - only show products from the same company
       if (authorCompanyName) {
         console.log(`🏢 Filtering products for company: "${authorCompanyName}"`);
         
@@ -311,25 +338,33 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
           .eq('company_name', authorCompanyName);
 
         if (usersError) {
-          console.warn('Could not load company users, showing all products:', usersError);
-        } else if (companyUsers && companyUsers.length > 0) {
+          console.error('Error loading company users:', usersError);
+          setAvailableProducts([]);
+          return;
+        } 
+        
+        if (companyUsers && companyUsers.length > 0) {
           const userIds = companyUsers.map(user => user.id);
           query = query.in('user_id', userIds);
           console.log(`🏢 Found ${userIds.length} users for company "${authorCompanyName}"`);
         } else {
-          console.log(`🏢 No users found for company "${authorCompanyName}", showing all products`);
+          console.log(`🏢 No users found for company "${authorCompanyName}", showing no products`);
+          setAvailableProducts([]);
+          return;
         }
       } else {
-        console.log('🏢 No company name provided, showing all products');
+        console.log('🏢 No company name provided, cannot load products');
+        setAvailableProducts([]);
+        return;
       }
 
       const { data: products, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Load ALL products just like ChatWindow does
+      // Only show products from the same company
       setAvailableProducts(products || []);
-      console.log(`📦 Loaded ${(products || []).length} products:`, 
+      console.log(`📦 Loaded ${(products || []).length} company products:`, 
         (products || []).map(p => ({ 
           name: p.name, 
           id: p.id, 
@@ -337,18 +372,19 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
         }))
       );
       
-      // Auto-select provided productId if it exists
+      // Auto-select provided productId if it exists and belongs to the company
       if (productId && products && products.length > 0) {
         const matchingProduct = products.find(p => p.id === productId);
         if (matchingProduct) {
           console.log(`✅ Auto-selected product: ${matchingProduct.name}`);
           setSelectedProduct(matchingProduct);
         } else {
-          console.log(`❌ Product with ID ${productId} not found`);
+          console.log(`❌ Product with ID ${productId} not found in company products`);
         }
       }
     } catch (error) {
       console.error('Failed to load products:', error);
+      setAvailableProducts([]);
     } finally {
       setIsLoadingProducts(false);
     }
@@ -485,6 +521,11 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
         return "Please select a product with a knowledge base to get AI assistance.";
       }
 
+      // Check if the product has a valid vector store
+      if (!selectedProduct.openai_vector_store_id) {
+        return `The selected product "${selectedProduct.name}" doesn't have a knowledge base configured. Please select a different product or contact your administrator.`;
+      }
+
       console.log('🧠 Using product:', selectedProduct.name, 'with vector store:', selectedProduct.openai_vector_store_id);
       
       // Use direct OpenAI calls exactly like ChatWindow
@@ -493,20 +534,27 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
         console.log('Creating new thread with vector store...');
         
         // Configure thread with vector store exactly like ChatWindow
-        const threadConfig: any = {};
-        if (selectedProduct.openai_vector_store_id) {
-          threadConfig.tool_resources = {
+        const threadConfig: any = {
+          tool_resources: {
             file_search: {
               vector_store_ids: [selectedProduct.openai_vector_store_id],
             },
-          };
-          console.log('Creating thread with vector store:', selectedProduct.openai_vector_store_id);
-        }
+          },
+        };
+        console.log('Creating thread with vector store:', selectedProduct.openai_vector_store_id);
         
-        const threadResponse = await openai.beta.threads.create(threadConfig);
-        threadIdToUse = threadResponse.id;
-        setAssistantThreadId(threadIdToUse);
-        console.log('Thread created:', threadIdToUse);
+        try {
+          const threadResponse = await openai.beta.threads.create(threadConfig);
+          threadIdToUse = threadResponse.id;
+          setAssistantThreadId(threadIdToUse);
+          console.log('Thread created:', threadIdToUse);
+        } catch (vectorError: any) {
+          console.error('Vector store error:', vectorError);
+          if (vectorError.message && vectorError.message.includes('not found')) {
+            return `The knowledge base for "${selectedProduct.name}" is no longer available. Please contact your administrator to recreate the knowledge base or select a different product.`;
+          }
+          throw vectorError;
+        }
       }
 
       console.log('Adding message to thread...');
@@ -602,13 +650,7 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
     ? suggestionTemplates 
     : suggestionTemplates.filter(t => t.category === selectedCategory);
 
-  const categories = [
-    { id: 'all', label: 'All', icon: '🎯' },
-    { id: 'content', label: 'Content', icon: '📝' },
-    { id: 'style', label: 'Style', icon: '🎨' },
-    { id: 'seo', label: 'SEO', icon: '📈' },
-    { id: 'engagement', label: 'Engagement', icon: '🚀' }
-  ];
+  
 
   if (!isVisible) return null;
 
@@ -621,65 +663,70 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         className={`fixed right-0 top-0 h-full z-40 ${className}`}
         style={{
-          width: isMinimized ? '80px' : '420px',
-          transition: 'width 0.3s ease'
+          width: isMinimized ? '80px' : '650px',
+          transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
         }}
       >
         {/* Main Container */}
-        <div className="h-full flex flex-col bg-gray-800 border-l border-gray-700/50 shadow-2xl">
-          {/* Ambient Background Effects */}
+        <div className="h-full flex flex-col bg-gray-900 border-l border-gray-700 shadow-2xl">
+          {/* Simple Background */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
             <div className="absolute top-1/4 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl"></div>
             <div className="absolute bottom-1/3 right-0 w-24 h-24 bg-blue-500/3 rounded-full blur-2xl"></div>
-            <div className="absolute top-2/3 right-0 w-16 h-16 bg-emerald-500/4 rounded-full blur-xl"></div>
           </div>
 
           {/* Header */}
           <motion.div 
-            className="relative p-4 border-b border-gray-700/30"
+            className="relative p-6 border-b border-gray-700/50 bg-gray-800/50"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
                 <motion.div
-                  className="p-2 rounded-xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30"
-                  whileHover={{ scale: 1.05, rotate: 5 }}
+                  className="relative p-3 rounded-2xl bg-gradient-to-br from-purple-500/20 via-blue-500/15 to-indigo-500/20 border border-white/10 shadow-lg backdrop-blur-sm"
+                  whileHover={{ scale: 1.05, rotate: 3 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <Brain className="w-5 h-5 text-purple-400" />
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-400/5 to-blue-400/5 animate-pulse"></div>
+                  <Brain className="w-6 h-6 text-white relative z-10" />
                 </motion.div>
                 {!isMinimized && (
                   <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.2 }}
+                    className="flex-1"
                   >
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                        AI Co-Pilot
+                    <div className="flex items-center gap-3 mb-1">
+                      <h2 className="text-xl font-black text-white tracking-tight">
+                        Strategic AI Co-Pilot
                       </h2>
                       {(selectedProduct || productId) && (
-                        <div className="flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-xs">
-                          <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                          KB
-                        </div>
+                        <motion.div 
+                          className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 rounded-full text-xs font-semibold border border-emerald-400/30 shadow-lg"
+                          animate={{ scale: [1, 1.02, 1] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        >
+                          <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-sm shadow-emerald-400/50"></div>
+                          KNOWLEDGE ENHANCED
+                        </motion.div>
                       )}
                     </div>
-                    <p className="text-xs text-gray-400">
-                      {(selectedProduct || productId) ? 'Enhanced with Product Knowledge' : 'Article Writing Assistant'}
+                    <p className="text-sm text-gray-300 font-medium">
+                      {(selectedProduct || productId) ? 'Advanced content intelligence with product expertise' : 'Professional content optimization assistant'}
                     </p>
                   </motion.div>
                 )}
               </div>
               
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-3">
                 {!isMinimized && (
                   <motion.button
                     onClick={() => setShowHistory(!showHistory)}
-                    className="p-2 rounded-xl bg-gray-800/50 hover:bg-gray-700/50 text-gray-400 hover:text-white transition-all duration-200"
-                    whileHover={{ scale: 1.05 }}
+                    className="p-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-all duration-300 border border-gray-600"
+                    whileHover={{ scale: 1.05, y: -1 }}
                     whileTap={{ scale: 0.95 }}
                   >
                     <History className="w-4 h-4" />
@@ -688,8 +735,8 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
                 
                 <motion.button
                   onClick={() => setIsMinimized(!isMinimized)}
-                  className="p-2 rounded-xl bg-gray-800/50 hover:bg-gray-700/50 text-gray-400 hover:text-white transition-all duration-200"
-                  whileHover={{ scale: 1.05 }}
+                  className="p-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-all duration-300 border border-gray-600"
+                  whileHover={{ scale: 1.05, y: -1 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
@@ -697,8 +744,8 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
                 
                 <motion.button
                   onClick={onToggle}
-                  className="p-2 rounded-xl bg-gray-800/50 hover:bg-gray-700/50 text-gray-400 hover:text-red-300 transition-all duration-200"
-                  whileHover={{ scale: 1.05 }}
+                  className="p-3 rounded-xl bg-gray-800 hover:bg-red-500/20 text-gray-300 hover:text-red-300 transition-all duration-300 border border-gray-600 hover:border-red-400/30"
+                  whileHover={{ scale: 1.05, y: -1 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   <X className="w-4 h-4" />
@@ -711,28 +758,43 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
             <>
               {/* Product Knowledge Base Selector */}
               <motion.div 
-                className="relative p-4 border-b border-gray-700/30"
+                className="relative p-6 border-b border-gray-700/50 bg-gray-800/30"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15 }}
               >
+                <div className="mb-3">
+                  <h3 className="text-sm font-semibold text-gray-200 mb-1">Knowledge Base Selection</h3>
+                  <p className="text-xs text-gray-400">Choose your product context for enhanced AI assistance</p>
+                </div>
                 <div className="relative" ref={dropdownRef}>
                   <button
                     onClick={() => setShowProductDropdown(!showProductDropdown)}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-gray-800/60 border border-gray-700/40 rounded-xl text-white hover:border-purple-500/50 focus:ring-2 focus:ring-purple-500/50 transition-all duration-200"
+                    className="w-full group flex items-center justify-between px-5 py-4 bg-gray-800 border border-gray-600 rounded-2xl text-white hover:border-purple-400/50 focus:ring-2 focus:ring-purple-400/30 transition-all duration-300 shadow-lg hover:shadow-xl"
                     disabled={isLoadingProducts}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full ${
-                        selectedProduct ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'
-                      }`} />
-                      <span className="text-sm">
-                        {isLoadingProducts ? 'Loading products...' :
-                         selectedProduct ? selectedProduct.name : 
-                         'Select Knowledge Base'}
-                      </span>
+                    <div className="flex items-center gap-4">
+                      <div className={`relative w-3 h-3 rounded-full ${
+                        selectedProduct ? 'bg-emerald-400' : 'bg-gray-500'
+                      }`}>
+                        {selectedProduct && (
+                          <div className="absolute inset-0 bg-emerald-400 rounded-full animate-ping opacity-75"></div>
+                        )}
+                      </div>
+                      <div className="text-left">
+                        <div className="text-sm font-medium">
+                          {isLoadingProducts ? 'Scanning knowledge bases...' :
+                           selectedProduct ? selectedProduct.name : 
+                           'Select Knowledge Base'}
+                        </div>
+                        {selectedProduct && (
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            Enhanced AI with product expertise
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${
+                    <ChevronDown className={`w-5 h-5 text-gray-400 transition-all duration-300 group-hover:text-white ${
                       showProductDropdown ? 'rotate-180' : ''
                     }`} />
                   </button>
@@ -740,54 +802,67 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
                   <AnimatePresence>
                     {showProductDropdown && (
                       <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute top-full left-0 right-0 mt-2 bg-gray-800 border border-gray-700/40 rounded-xl shadow-xl z-50 max-h-64 overflow-y-auto"
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        className="absolute top-full left-0 right-0 mt-3 bg-gray-800 border border-gray-600 rounded-2xl shadow-2xl z-50 max-h-80 overflow-y-auto"
                       >
                         {/* No KB Option */}
                         <button
                           onClick={() => handleProductSelect(null)}
-                          className={`w-full px-4 py-3 text-left hover:bg-gray-700/50 transition-colors border-b border-gray-700/30 ${
+                          className={`w-full px-6 py-4 text-left hover:bg-gray-700 transition-all duration-300 border-b border-gray-700 first:rounded-t-2xl ${
                             !selectedProduct ? 'bg-purple-500/20 text-purple-300' : 'text-gray-300'
                           }`}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 bg-gray-500 rounded-full" />
+                          <div className="flex items-center gap-4">
+                            <div className={`w-3 h-3 rounded-full ${!selectedProduct ? 'bg-purple-400' : 'bg-gray-500'}`} />
                             <div>
-                              <div className="text-sm font-medium">Basic AI Assistant</div>
-                              <div className="text-xs text-gray-400">No product knowledge base</div>
+                              <div className="text-sm font-semibold">Standard AI Assistant</div>
+                              <div className="text-xs text-gray-400 mt-0.5">General content optimization without product context</div>
                             </div>
                           </div>
                         </button>
 
                         {/* Product Options */}
-                        {availableProducts.map((product) => (
+                        {availableProducts.map((product, index) => (
                           <button
                             key={product.id}
                             onClick={() => handleProductSelect(product)}
-                            className={`w-full px-4 py-3 text-left hover:bg-gray-700/50 transition-colors ${
+                            className={`w-full px-6 py-4 text-left hover:bg-gray-700 transition-all duration-300 border-b border-gray-700 last:border-b-0 last:rounded-b-2xl ${
                               selectedProduct?.id === product.id ? 'bg-emerald-500/20 text-emerald-300' : 'text-gray-300'
                             }`}
                           >
-                            <div className="flex items-center gap-3">
-                              <div className={`w-2 h-2 rounded-full ${
+                            <div className="flex items-center gap-4">
+                              <div className={`relative w-3 h-3 rounded-full ${
                                 selectedProduct?.id === product.id ? 'bg-emerald-400' : 'bg-blue-400'
-                              }`} />
-                              <div>
-                                <div className="text-sm font-medium">{product.name}</div>
-                                <div className="text-xs text-gray-400">
-                                  {product.description || 'Product knowledge base available'}
+                              }`}>
+                                {selectedProduct?.id === product.id && (
+                                  <div className="absolute inset-0 bg-emerald-400 rounded-full animate-ping opacity-75"></div>
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-sm font-semibold">{product.name}</div>
+                                <div className="text-xs text-gray-400 mt-0.5">
+                                  {product.description || 'Advanced product knowledge base with AI context'}
                                 </div>
                               </div>
+                              {product.openai_vector_store_id && (
+                                <div className="flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-medium">
+                                  <Cpu className="w-3 h-3" />
+                                  AI
+                                </div>
+                              )}
                             </div>
                           </button>
                         ))}
 
                         {availableProducts.length === 0 && !isLoadingProducts && (
-                          <div className="px-4 py-6 text-center text-gray-400">
-                            <div className="text-sm">No products with knowledge bases found</div>
-                            <div className="text-xs mt-1">Create products with vector stores to enable KB features</div>
+                          <div className="px-6 py-8 text-center text-gray-400 rounded-2xl">
+                            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-700 flex items-center justify-center">
+                              <FileText className="w-6 h-6 text-gray-500" />
+                            </div>
+                            <div className="text-sm font-medium mb-1">No Knowledge Bases Available</div>
+                            <div className="text-xs text-gray-500">Configure product knowledge bases to unlock advanced AI features</div>
                           </div>
                         )}
                       </motion.div>
@@ -796,33 +871,7 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
                 </div>
               </motion.div>
 
-              {/* Quick Stats */}
-              <motion.div 
-                className="relative p-4 border-b border-gray-700/30"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { label: 'Words', value: articleContent.split(' ').length, icon: FileText, color: 'text-blue-400' },
-                    { label: 'Read Time', value: `${Math.ceil(articleContent.split(' ').length / 200)}m`, icon: Clock, color: 'text-emerald-400' },
-                    { label: 'Score', value: '85%', icon: Target, color: 'text-purple-400' }
-                  ].map((stat, index) => (
-                    <motion.div
-                      key={stat.label}
-                      className="text-center p-3 rounded-xl bg-gradient-to-br from-gray-800/60 to-gray-900/40 border border-gray-700/40"
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.3 + index * 0.1 }}
-                    >
-                      <stat.icon className={`w-4 h-4 mx-auto mb-1 ${stat.color}`} />
-                      <div className="text-sm font-bold text-white">{stat.value}</div>
-                      <div className="text-xs text-gray-400">{stat.label}</div>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
+              
 
               {/* Content Area */}
               <div className="flex-1 flex flex-col min-h-0">
@@ -833,53 +882,9 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.3 }}
                   >
-                    {/* Category Filters */}
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {categories.map((category) => (
-                        <motion.button
-                          key={category.id}
-                          onClick={() => setSelectedCategory(category.id)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
-                            selectedCategory === category.id
-                              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
-                              : 'bg-gray-800/60 text-gray-400 border border-gray-700/40 hover:bg-gray-700/60'
-                          }`}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          <span className="mr-1">{category.icon}</span>
-                          {category.label}
-                        </motion.button>
-                      ))}
-                    </div>
+                    
 
-                    {/* Suggestion Templates */}
-                    <div className="space-y-3">
-                      {filteredTemplates.map((template, index) => (
-                        <motion.button
-                          key={template.id}
-                          onClick={() => handleTemplateClick(template)}
-                          className="w-full p-4 rounded-xl bg-gradient-to-br from-gray-800/60 to-gray-900/40 border border-gray-700/40 hover:border-purple-500/40 transition-all duration-200 text-left group"
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.4 + index * 0.1 }}
-                          whileHover={{ scale: 1.02 }}
-                        >
-                          <div className="flex items-start space-x-3">
-                            <div className="text-2xl">{template.icon}</div>
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-white group-hover:text-purple-300 transition-colors">
-                                {template.title}
-                              </h3>
-                              <p className="text-sm text-gray-400 mt-1 leading-relaxed">
-                                {template.description}
-                              </p>
-                            </div>
-                            <Sparkles className="w-4 h-4 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </div>
-                        </motion.button>
-                      ))}
-                    </div>
+                    
                   </motion.div>
                 ) : (
                   /* Chat Messages */
@@ -956,9 +961,9 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
                 )}
               </div>
 
-              {/* Input Area */}
+              {/* Advanced Input Area */}
               <motion.div 
-                className="border-t border-gray-700/30 p-4"
+                className="border-t border-gray-700/50 p-6 bg-gray-800/30"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
@@ -966,54 +971,83 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
                 {!showTemplates && (
                   <motion.button
                     onClick={() => setShowTemplates(true)}
-                    className="w-full mb-3 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30 text-purple-300 hover:text-purple-200 transition-all duration-200 text-sm font-medium"
-                    whileHover={{ scale: 1.02 }}
+                    className="w-full mb-4 px-4 py-3 rounded-2xl bg-purple-500/20 border border-purple-400/30 text-purple-300 hover:text-white hover:border-purple-300/50 transition-all duration-300 text-sm font-semibold"
+                    whileHover={{ scale: 1.02, y: -1 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <Lightbulb className="w-4 h-4 inline mr-2" />
-                    Show Suggestions
+                    <div className="flex items-center justify-center gap-2">
+                      <Lightbulb className="w-4 h-4" />
+                      <span>Show AI Optimization Tools</span>
+                      <Sparkles className="w-4 h-4 animate-pulse" />
+                    </div>
                   </motion.button>
                 )}
                 
-                <div className="relative flex items-center space-x-2">
-                  <div className="flex-1 relative">
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                      placeholder="Ask about your article..."
-                      className="w-full px-4 py-3 pl-12 pr-20 bg-gray-800/60 border border-gray-700/40 rounded-xl text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200"
-                      disabled={isLoading}
-                    />
-                    <Edit3 className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    
-                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
-                      {recognitionRef.current && (
+                <div className="relative">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-1 relative group">
+                      <input
+                        ref={inputRef}
+                        type="text"
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                        placeholder="Ask strategic questions about your content..."
+                        className="w-full px-6 py-4 pl-14 pr-24 bg-gray-800 border border-gray-600 rounded-2xl text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-400/50 focus:border-purple-400/50 transition-all duration-300"
+                        disabled={isLoading}
+                      />
+                      
+                      {/* Input icon */}
+                      <div className="absolute left-5 top-1/2 transform -translate-y-1/2">
+                        <div className="p-1 rounded-lg bg-purple-500/20">
+                          <MessageSquare className="w-4 h-4 text-purple-400" />
+                        </div>
+                      </div>
+                      
+                      {/* Input controls */}
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+                        {recognitionRef.current && (
+                          <motion.button
+                            onClick={handleVoiceInput}
+                            className={`p-2.5 rounded-xl transition-all duration-300 ${
+                              isListening 
+                                ? 'bg-red-500/20 text-red-400 border border-red-400/30' 
+                                : 'bg-gray-700 text-gray-400 hover:text-white hover:bg-gray-600 border border-gray-600'
+                            }`}
+                            whileHover={{ scale: 1.1, y: -1 }}
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                          </motion.button>
+                        )}
+                        
                         <motion.button
-                          onClick={handleVoiceInput}
-                          className={`p-2 rounded-lg transition-all duration-200 ${
-                            isListening 
-                              ? 'bg-red-500/20 text-red-400' 
-                              : 'bg-gray-700/50 text-gray-400 hover:text-white'
-                          }`}
-                          whileHover={{ scale: 1.1 }}
+                          onClick={() => handleSendMessage()}
+                          disabled={!inputValue.trim() || isLoading}
+                          className="p-2.5 rounded-xl bg-purple-500/30 text-white hover:bg-purple-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 border border-purple-400/30 hover:border-purple-300/50 shadow-lg"
+                          whileHover={{ scale: 1.1, y: -1 }}
                           whileTap={{ scale: 0.9 }}
                         >
-                          {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                          <Send className="w-4 h-4" />
                         </motion.button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* AI status indicator */}
+                  <div className="flex items-center justify-between mt-3 text-xs">
+                    <div className="flex items-center gap-2 text-gray-500">
+                      <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                      <span>AI Assistant Ready</span>
+                      {selectedProduct && (
+                        <>
+                          <span>•</span>
+                          <span className="text-emerald-400">Knowledge Enhanced</span>
+                        </>
                       )}
-                      
-                      <motion.button
-                        onClick={() => handleSendMessage()}
-                        disabled={!inputValue.trim() || isLoading}
-                        className="p-2 rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 hover:text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                      >
-                        <Send className="w-4 h-4" />
-                      </motion.button>
+                    </div>
+                    <div className="text-gray-500">
+                      Press Enter to send
                     </div>
                   </div>
                 </div>

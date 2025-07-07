@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, FileText, Link2, Download, Copy, CheckCircle, ExternalLink, Calendar, User, FileType, Hash, RefreshCw, AlertCircle, Info } from 'lucide-react';
 import { ProductDocument } from '../../types/product/types';
 import { supabase } from '../../lib/supabase';
+import { BaseModal } from '../ui/BaseModal';
 
 interface DocumentPreviewModalProps {
   document: ProductDocument | null;
@@ -199,300 +200,167 @@ ${document.openai_vsf_id ? `Vector Store File ID: ${document.openai_vsf_id}` : '
                 break;
               }
             }
-          } catch (bucketError) {
-            console.log(`Bucket ${bucketName} failed:`, bucketError);
-            continue;
+          } catch (err) {
+            console.log(`Bucket ${bucketName} not accessible:`, err);
           }
         }
         
-        // If public URL doesn't work, try signed URLs
         if (!success) {
-          setDownloadStatus('Generating secure access link...');
-          for (const bucketName of possibleBuckets) {
-            try {
-              const { data: signedUrlData, error } = await supabase.storage
-                .from(bucketName)
-                .createSignedUrl(document.storage_path, 60); // 60 seconds expiry
+          setDownloadStatus('File not found in storage buckets, trying alternative methods...');
+          
+          // Alternative: try using download API with signed URL
+          try {
+            const { data, error } = await supabase.storage
+              .from('productdocuments')
+              .download(document.storage_path);
               
-              if (signedUrlData && !error) {
-                downloadUrl = signedUrlData.signedUrl;
-                success = true;
-                console.log(`Got signed URL from bucket: ${bucketName}`);
-                setDownloadStatus(`Generated secure link from ${bucketName}`);
-                break;
-              }
-            } catch (signedError) {
-              console.log(`Signed URL from ${bucketName} failed:`, signedError);
-              continue;
+            if (data && !error) {
+              downloadUrl = URL.createObjectURL(data);
+              success = true;
+              setDownloadStatus('Generated download link from storage API');
             }
+          } catch (downloadError) {
+            console.log('Storage download API failed:', downloadError);
           }
         }
         
+        if (!success && document.file_url) {
+          setDownloadStatus('Trying file_url as fallback...');
+          // Fall back to file_url if available
+          downloadUrl = document.file_url;
+          success = true;
+        }
+        
         if (!success) {
-          throw new Error('File not found in any storage bucket. Storage path: ' + document.storage_path);
+          throw new Error('File not found in any storage bucket or method');
         }
       } else if (document.file_url) {
-        // Use the direct file URL
-        setDownloadStatus('Using direct file_url...');
-        console.log('Using direct file_url:', document.file_url);
+        setDownloadStatus('Using file URL...');
         downloadUrl = document.file_url;
       } else {
-        throw new Error('No file URL or storage path available for this document');
+        throw new Error('No storage path or file URL available');
       }
 
-      setDownloadStatus('Downloading file...');
-      console.log('Downloading from URL:', downloadUrl);
-
-      // Download the file with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds timeout
-      
-      const response = await fetch(downloadUrl, {
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+      if (downloadUrl) {
+        setDownloadStatus('Starting download...');
+        
+        // Create a temporary link and trigger download
+        const a = window.document.createElement('a');
+        a.href = downloadUrl;
+        a.download = fileName || 'document';
+        a.target = '_blank';
+        window.document.body.appendChild(a);
+        a.click();
+        window.document.body.removeChild(a);
+        
+        // Clean up blob URL if we created one
+        if (downloadUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(downloadUrl);
+        }
+        
+        setDownloadStatus('Download started successfully!');
+        console.log('✅ Download initiated successfully');
+        
+        // Clear status after 3 seconds
+        setTimeout(() => setDownloadStatus(''), 3000);
       }
-
-      const blob = await response.blob();
-      console.log('Downloaded blob size:', blob.size, 'bytes');
       
-      setDownloadStatus('Preparing file...');
-      
-      const url = URL.createObjectURL(blob);
-      const a = window.document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      a.target = '_blank';
-      window.document.body.appendChild(a);
-      a.click();
-      window.document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      setDownloadStatus('Download completed!');
-      console.log('✅ Successfully downloaded original file:', fileName);
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setDownloadStatus(''), 3000);
-
     } catch (error) {
       console.error('❌ Download failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setDownloadStatus(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       
-      if (errorMessage.includes('aborted')) {
-        setDownloadStatus('Download timed out. File may be too large.');
-      } else if (errorMessage.includes('Failed to fetch') || errorMessage.includes('HTTP error')) {
-        setDownloadStatus('Unable to access file. It may have been moved or deleted.');
-      } else {
-        setDownloadStatus(`Download failed: ${errorMessage}`);
-      }
-      
-      // Clear error message after 5 seconds
+      // Clear error status after 5 seconds
       setTimeout(() => setDownloadStatus(''), 5000);
     } finally {
       setIsDownloading(false);
     }
   };
 
-  // CONDITIONAL RETURN MOVED TO AFTER ALL HOOKS AND FUNCTION DEFINITIONS
-  if (!isOpen || !document) return null;
-
   const handleReExtractContent = async () => {
-    if (!document.storage_path && !document.file_url && !document.source_url) {
-      setReExtractionError('No file source available for re-extraction');
-      return;
-    }
-    
+    if (!document) return;
     setIsReExtracting(true);
     setReExtractionError('');
+    setFullContent('');
     
     try {
-      let fileUrl = '';
-      let extractionMethod = 'Unknown';
+      console.log('🔄 Starting content re-extraction for document:', document.id);
       
-      // Priority: storage_path > file_url > source_url
-      if (document.storage_path) {
-        extractionMethod = 'Supabase Storage';
-        console.log('🔍 Attempting re-extraction from storage_path:', document.storage_path);
-        
-        // Try different bucket names that might be used
-        const possibleBuckets = ['productdocuments', 'product_documents', 'documents', 'files', 'product-documents'];
-        let success = false;
-        
-        for (const bucketName of possibleBuckets) {
-          try {
-            const { data } = supabase.storage
-              .from(bucketName)
-              .getPublicUrl(document.storage_path);
-            
-            if (data.publicUrl) {
-              // Test if the URL is accessible
-              const testResponse = await fetch(data.publicUrl, { method: 'HEAD' });
-              if (testResponse.ok) {
-                fileUrl = data.publicUrl;
-                success = true;
-                console.log(`✅ Found file in bucket: ${bucketName}`);
-                break;
-              }
-            }
-          } catch (bucketError) {
-            console.log(`❌ Bucket ${bucketName} failed:`, bucketError);
-            continue;
-          }
-        }
-        
-        // If public URL doesn't work, try signed URLs
-        if (!success) {
-          for (const bucketName of possibleBuckets) {
-            try {
-              const { data: signedUrlData, error } = await supabase.storage
-                .from(bucketName)
-                .createSignedUrl(document.storage_path, 300); // 5 minutes expiry
-              
-              if (signedUrlData && !error) {
-                fileUrl = signedUrlData.signedUrl;
-                success = true;
-                console.log(`✅ Got signed URL from bucket: ${bucketName}`);
-                break;
-              }
-            } catch (signedError) {
-              console.log(`❌ Signed URL from ${bucketName} failed:`, signedError);
-              continue;
-            }
-          }
-        }
-        
-        if (!success) {
-          throw new Error('File not found in any storage bucket: ' + document.storage_path);
-        }
-      } else if (document.file_url) {
-        extractionMethod = 'Direct File URL';
-        console.log('🔍 Attempting re-extraction from file_url:', document.file_url);
-        fileUrl = document.file_url;
-      } else if (document.source_url) {
-        extractionMethod = 'Source URL';
-        console.log('🔍 Attempting re-extraction from source_url:', document.source_url);
-        fileUrl = document.source_url;
-      }
-
-      if (!fileUrl) {
-        throw new Error('No valid file URL found for re-extraction');
-      }
-
-      console.log(`📥 Fetching file from ${extractionMethod}:`, fileUrl);
-
-      // Fetch the original file with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-      
-      const response = await fetch(fileUrl, {
-        signal: controller.signal,
+      // Call the re-extraction endpoint
+      const response = await fetch('/api/admin/re-extract-document', {
+        method: 'POST',
         headers: {
-          'Accept': '*/*',
-        }
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          documentId: document.id,
+          forceReprocess: true
+        }),
       });
-      clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch file (${response.status}): ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Server error: ${response.status}`);
       }
       
-      const blob = await response.blob();
-      console.log('📦 Downloaded blob - size:', blob.size, 'bytes, type:', blob.type);
+      const result = await response.json();
+      console.log('✅ Re-extraction completed:', result);
       
-      // Determine file type and extract content accordingly
-      const fileType = blob.type || document.document_type?.toLowerCase() || '';
-      const fileName = document.file_name.toLowerCase();
-      
-      if (fileType.includes('text') || fileName.endsWith('.txt') || fileName.endsWith('.md')) {
-        console.log('📝 Processing as text file');
-        const text = await blob.text();
-        if (text.trim().length === 0) {
-          throw new Error('File appears to be empty or contains no readable text');
-        }
-        setFullContent(text);
+      if (result.extracted_text) {
+        setFullContent(result.extracted_text);
         setReExtractionError('');
-        console.log(`✅ Successfully extracted ${text.length} characters from text file`);
-      } else if (fileType.includes('pdf') || fileName.endsWith('.pdf')) {
-        // For PDFs, we'll provide guidance rather than attempting complex extraction
-        setReExtractionError('PDF text extraction requires specialized processing. The current extracted text is what was processed during upload. For complete content, please download the original PDF file.');
-        console.log('ℹ️ PDF re-extraction not supported - directed user to download');
-      } else if (fileType.includes('word') || fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
-        setReExtractionError('Word document re-extraction requires specialized processing. The current extracted text is what was processed during upload. For complete content, please download the original file.');
-        console.log('ℹ️ Word document re-extraction not supported - directed user to download');
-      } else if (fileType.includes('html') || fileName.endsWith('.html') || fileName.endsWith('.htm')) {
-        console.log('🌐 Processing as HTML file');
-        const htmlText = await blob.text();
-        // Basic HTML text extraction (strip tags)
-        const tempDiv = window.document.createElement('div');
-        tempDiv.innerHTML = htmlText;
-        const extractedText = tempDiv.textContent || tempDiv.innerText || '';
-        if (extractedText.trim().length === 0) {
-          throw new Error('No readable text found in HTML file');
-        }
-        setFullContent(extractedText);
-        setReExtractionError('');
-        console.log(`✅ Successfully extracted ${extractedText.length} characters from HTML file`);
+        console.log('📄 Updated content length:', result.extracted_text.length);
+        
+        // Update the document object if possible (this might require a parent component update)
+        document.extracted_text = result.extracted_text;
       } else {
-        throw new Error(`Re-extraction not supported for file type: ${fileType || 'unknown'}. Please download the original file for complete content.`);
+        setReExtractionError('Re-extraction completed but no text content was extracted from the document.');
       }
+      
     } catch (error) {
       console.error('❌ Re-extraction failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      
-      if (errorMessage.includes('aborted')) {
-        setReExtractionError('Re-extraction timed out. The file may be too large or the source is slow to respond. Please try downloading the original file instead.');
-      } else if (errorMessage.includes('Failed to fetch')) {
-        setReExtractionError('Unable to access the file source. It may have been moved or require authentication. Please try downloading the original file instead.');
-      } else {
-        setReExtractionError(errorMessage);
-      }
+      setReExtractionError(`Re-extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsReExtracting(false);
     }
   };
 
   const handleExternalLink = () => {
-    if (document.source_url) {
+    if (document?.source_url) {
       window.open(document.source_url, '_blank');
     }
   };
 
   const getDocumentIcon = () => {
-    const type = document.document_type?.toLowerCase();
-    switch (type) {
-      case 'pdf':
-        return <FileText className="w-5 h-5 text-red-400" />;
-      case 'docx':
-      case 'doc':
-        return <FileText className="w-5 h-5 text-blue-400" />;
-      case 'pptx':
-        return <FileText className="w-5 h-5 text-orange-400" />;
-      case 'gdoc':
-      case 'google_doc':
-        return <Link2 className="w-5 h-5 text-green-400" />;
-      case 'blog_link':
-      case 'link':
-        return <Link2 className="w-5 h-5 text-cyan-400" />;
-      default:
-        return <FileText className="w-5 h-5 text-gray-400" />;
+    if (!document) return <FileText className="w-6 h-6 text-gray-400" />;
+    
+    const fileExtension = document.file_name.split('.').pop()?.toLowerCase();
+    const docType = document.document_type?.toLowerCase();
+    
+    if (fileExtension === 'pdf' || docType === 'pdf') {
+      return <FileText className="w-6 h-6 text-red-400" />;
+    } else if (['doc', 'docx'].includes(fileExtension || '') || docType === 'word') {
+      return <FileText className="w-6 h-6 text-blue-400" />;
+    } else if (['txt', 'md'].includes(fileExtension || '') || docType === 'text') {
+      return <FileText className="w-6 h-6 text-gray-400" />;
+    } else if (document.source_url) {
+      return <Link2 className="w-6 h-6 text-green-400" />;
+    } else {
+      return <FileText className="w-6 h-6 text-gray-400" />;
     }
   };
 
   const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'completed':
-        return 'text-green-400 bg-green-500';
+    switch (status?.toLowerCase()) {
+      case 'processed':
+        return 'bg-green-100 text-green-800';
       case 'processing':
-        return 'text-blue-400 bg-blue-500';
-      case 'pending':
-        return 'text-yellow-400 bg-yellow-500';
+        return 'bg-yellow-100 text-yellow-800';
       case 'failed':
-        return 'text-red-400 bg-red-500';
+        return 'bg-red-100 text-red-800';
+      case 'pending':
+        return 'bg-gray-100 text-gray-800';
       default:
-        return 'text-gray-400 bg-gray-500';
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -500,7 +368,7 @@ ${document.openai_vsf_id ? `Vector Store File ID: ${document.openai_vsf_id}` : '
     try {
       return new Date(dateString).toLocaleDateString('en-US', {
         year: 'numeric',
-        month: 'long',
+        month: 'short',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
@@ -511,48 +379,40 @@ ${document.openai_vsf_id ? `Vector Store File ID: ${document.openai_vsf_id}` : '
   };
 
   const formatText = (text: string) => {
-    // Split by paragraphs and format for better readability
-    return text.split('\n\n').map((paragraph, index) => (
-      <p key={index} className="mb-4 leading-relaxed">
-        {paragraph.trim()}
-      </p>
-    ));
+    // Basic text formatting for better readability
+    return text
+      .replace(/\n{3,}/g, '\n\n') // Reduce excessive line breaks
+      .replace(/\s{3,}/g, '  '); // Reduce excessive spaces
   };
 
   const handleDownloadFromSource = async () => {
-    if (!document.source_url) return;
-    
+    if (!document?.source_url) return;
     setIsDownloading(true);
+    
     try {
-      console.log('🔗 Attempting to download from source URL:', document.source_url);
+      setDownloadStatus('Attempting to download from source URL...');
       
-      // Try to fetch the content from the source URL
+      // Try to download directly from the source URL
       const response = await fetch(document.source_url);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
-      }
-
-      const blob = await response.blob();
-      console.log('📦 Downloaded blob from source - size:', blob.size, 'bytes, type:', blob.type);
       
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = window.document.createElement('a');
       a.href = url;
       
-      // Try to get filename from source URL or use document name
-      let fileName = document.file_name;
-      try {
-        const urlObj = new URL(document.source_url);
-        const pathParts = urlObj.pathname.split('/');
-        const lastPart = pathParts[pathParts.length - 1];
-        if (lastPart && lastPart.includes('.')) {
-          fileName = lastPart;
-        }
-      } catch (e) {
-        // Use original filename if URL parsing fails
+      // Try to get filename from URL or use document filename
+      let filename = document.file_name;
+      const urlParts = document.source_url.split('/');
+      const urlFilename = urlParts[urlParts.length - 1];
+      if (urlFilename && urlFilename.includes('.')) {
+        filename = urlFilename;
       }
       
-      a.download = fileName;
+      a.download = filename;
       a.target = '_blank';
       window.document.body.appendChild(a);
       a.click();
@@ -569,19 +429,30 @@ ${document.openai_vsf_id ? `Vector Store File ID: ${document.openai_vsf_id}` : '
     }
   };
 
-  const currentContent = fullContent || document.extracted_text;
-  const isContentTruncated = document.extracted_text && document.extracted_text.length > 0 && 
+  const currentContent = fullContent || document?.extracted_text;
+  const isContentTruncated = document?.extracted_text && document.extracted_text.length > 0 && 
     (document.extracted_text.length < 500 || 
      !document.extracted_text.includes('\n\n') ||
      document.extracted_text.endsWith('...'));
 
-  const hasOriginalFile = document.storage_path || document.file_url;
-  const hasSourceUrl = document.source_url && document.source_url !== document.file_url;
+  const hasOriginalFile = document?.storage_path || document?.file_url;
+  const hasSourceUrl = document?.source_url && document.source_url !== document.file_url;
+
+  // Don't render anything if no document
+  if (!document) return null;
 
   return (
-    <div className="fixed inset-0 bg-black backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-secondary-900 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col border border-secondary-700">
-        {/* Header */}
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={document.file_name}
+      size="xl"
+      theme="dark"
+      contentClassName="bg-secondary-900 border border-secondary-700 shadow-2xl max-h-[90vh] flex flex-col"
+      showCloseButton={false}
+    >
+      <div className="flex flex-col h-full">
+        {/* Custom Header */}
         <div className="flex items-center justify-between p-6 border-b border-secondary-700 bg-secondary-900">
           <div className="flex items-center space-x-3">
             {getDocumentIcon()}
@@ -634,7 +505,7 @@ ${document.openai_vsf_id ? `Vector Store File ID: ${document.openai_vsf_id}` : '
           </div>
         </div>
 
-        {/* Enhanced Action Bar - Made completely non-transparent */}
+        {/* Enhanced Action Bar */}
         <div className="px-6 py-3 bg-secondary-800 border-b border-secondary-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 flex-wrap gap-2">
@@ -709,7 +580,7 @@ ${document.openai_vsf_id ? `Vector Store File ID: ${document.openai_vsf_id}` : '
           </div>
         </div>
 
-        {/* Main Content Area - Made non-transparent and scrollable */}
+        {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden bg-secondary-900">
           {/* Content Warning for Truncated Content */}
           {isContentTruncated && (
@@ -788,7 +659,7 @@ ${document.openai_vsf_id ? `Vector Store File ID: ${document.openai_vsf_id}` : '
           </div>
         </div>
 
-        {/* Footer - Made non-transparent */}
+        {/* Footer */}
         <div className="px-6 py-3 bg-secondary-800 border-t border-secondary-700 text-xs text-gray-400">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -810,7 +681,7 @@ ${document.openai_vsf_id ? `Vector Store File ID: ${document.openai_vsf_id}` : '
           </div>
         </div>
       </div>
-    </div>
+    </BaseModal>
   );
 };
 

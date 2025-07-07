@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
@@ -67,12 +68,20 @@ import {
   Heading4,
   Settings,
   PaintBucket,
+  ArrowLeft,
 } from 'lucide-react';
 import { ExportButton } from './ui/ExportButton';
-import { ImageUpload } from './ui/ImageUpload';
+import { MediaLibrarySelector } from './ui/MediaLibrarySelector';
 import { LinkTooltip } from './ui/LinkTooltip';
 import { CommentingSystem, ArticleComment } from './ui/CommentingSystem';
 import { InlineCommentingExtension } from './ui/InlineCommentingExtension';
+import { ToolbarButton } from './ui/ToolbarButton';
+import { ArticleColorPicker } from './ui/ArticleColorPicker';
+import { StatusIndicator } from './ui/StatusIndicator';
+import { ToolbarSeparator } from './ui/ToolbarSeparator';
+import { LinkEditor } from './ui/LinkEditor';
+import { useTheme } from '../hooks/useTheme';
+import { getTextNodeAtOffset, getTextOffset, htmlToMarkdown } from '../lib/textUtils';
 import { loadArticleContent, saveArticleContent, ArticleContent, autoSaveArticleContentAsAdmin, saveArticleContentAsAdmin } from '../lib/articleApi';
 import { adminArticlesApi } from '../lib/adminApi';
 import { getArticleComments } from '../lib/commentApi';
@@ -81,8 +90,10 @@ import { Decoration, DecorationSet } from 'prosemirror-view';
 import { Node as ProseMirrorNode } from 'prosemirror-model';
 import { supabase } from '../lib/supabase';
 import UserPresence from './ui/UserPresence';
-import CollaborativeCursors from './ui/CollaborativeCursors';
+// import CollaborativeCursors from './ui/CollaborativeCursors'; // Removed per user request
 import { realtimeCollaboration } from '../lib/realtimeCollaboration';
+import { useLayout } from '../contexts/LayoutContext';
+import { useUserCompany } from '../contexts/ProfileContext';
 
 // Import enhanced CSS styles
 import '../styles/article-editor-enhanced.css';
@@ -97,71 +108,7 @@ interface UserProfile {
   status?: 'viewing' | 'editing' | 'idle';
 }
 
-// Enhanced theme hook for better state management
-const useTheme = () => {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    // Initialize from localStorage or system preference
-    const saved = localStorage.getItem('article-editor-theme');
-    if (saved) return saved as 'light' | 'dark';
-    
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  });
 
-  // Apply theme on mount
-  useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [theme]);
-
-  return { theme };
-};
-
-// Helper function for text node positioning
-const getTextNodeAtOffset = (container: HTMLElement, offset: number): { node: Text; offset: number } | null => {
-  const walker = document.createTreeWalker(
-    container,
-    NodeFilter.SHOW_TEXT,
-    null
-  );
-
-  let currentOffset = 0;
-  let currentNode = walker.nextNode() as Text;
-  
-  while (currentNode) {
-    const nodeLength = currentNode.textContent?.length || 0;
-    if (currentOffset + nodeLength >= offset) {
-      return { node: currentNode, offset: offset - currentOffset };
-    }
-    currentOffset += nodeLength;
-    currentNode = walker.nextNode() as Text;
-  }
-  return null;
-};
-
-// Helper function to get text offset within container
-const getTextOffset = (container: HTMLElement, targetNode: Node, targetOffset: number): number => {
-  const walker = document.createTreeWalker(
-    container,
-    NodeFilter.SHOW_TEXT,
-    null
-  );
-
-  let currentOffset = 0;
-  let currentNode = walker.nextNode();
-  
-  while (currentNode) {
-    if (currentNode === targetNode) {
-      return currentOffset + targetOffset;
-    }
-    currentOffset += currentNode.textContent?.length || 0;
-    currentNode = walker.nextNode();
-  }
-  
-  return currentOffset;
-};
 
 
 // Enhanced Undo/Redo History Panel with better design
@@ -270,221 +217,7 @@ const UndoRedoHistoryPanel = ({ editor }: { editor: any }) => {
   );
 };
 
-// Professional Color Picker Component
-const ColorPicker = ({ 
-  onColorSelect, 
-  currentColor, 
-  type = 'text' 
-}: { 
-  onColorSelect: (color: string) => void;
-  currentColor?: string;
-  type?: 'text' | 'highlight';
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
 
-  const textColors = [
-    { name: 'Default', value: '#000000' },
-    { name: 'Gray', value: '#6b7280' },
-    { name: 'Red', value: '#ef4444' },
-    { name: 'Orange', value: '#f97316' },
-    { name: 'Amber', value: '#f59e0b' },
-    { name: 'Green', value: '#10b981' },
-    { name: 'Teal', value: '#14b8a6' },
-    { name: 'Blue', value: '#3b82f6' },
-    { name: 'Indigo', value: '#6366f1' },
-    { name: 'Purple', value: '#8b5cf6' },
-    { name: 'Pink', value: '#ec4899' },
-    { name: 'Rose', value: '#f43f5e' },
-  ];
-
-  const highlightColors = [
-    { name: 'Yellow', value: '#fef08a' },
-    { name: 'Green', value: '#bbf7d0' },
-    { name: 'Blue', value: '#bfdbfe' },
-    { name: 'Purple', value: '#e9d5ff' },
-    { name: 'Pink', value: '#fce7f3' },
-    { name: 'Orange', value: '#fed7aa' },
-    { name: 'Red', value: '#fecaca' },
-    { name: 'Gray', value: '#f3f4f6' },
-  ];
-
-  const colors = type === 'highlight' ? highlightColors : textColors;
-
-  const handleColorSelect = (color: string) => {
-    onColorSelect(color);
-    setIsOpen(false);
-  };
-
-  return (
-    <div className="relative">
-      <ToolbarButton
-        icon={type === 'highlight' ? Highlighter : PaintBucket}
-        label={type === 'highlight' ? 'Highlight Color' : 'Text Color'}
-        onClick={() => setIsOpen(!isOpen)}
-        variant="ghost"
-        size="sm"
-      >
-        <div 
-          className="w-3 h-3 rounded-sm ml-1 border border-gray-300 dark:border-gray-600"
-          style={{ backgroundColor: currentColor || (type === 'highlight' ? '#fef08a' : '#000000') }}
-        />
-      </ToolbarButton>
-
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -10 }}
-            className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 z-50"
-          >
-            <div className="grid grid-cols-4 gap-2 min-w-[200px]">
-              {colors.map((color) => (
-                <button
-                  key={color.value}
-                  onClick={() => handleColorSelect(color.value)}
-                  className="group relative w-8 h-8 rounded border-2 border-gray-200 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-400 transition-colors"
-                  style={{ backgroundColor: color.value }}
-                  title={color.name}
-                >
-                  {currentColor === color.value && (
-                    <Check className="w-4 h-4 text-gray-800 absolute inset-0 m-auto" />
-                  )}
-                </button>
-              ))}
-            </div>
-            
-            {/* Custom color input */}
-            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-              <input
-                type="color"
-                onChange={(e) => handleColorSelect(e.target.value)}
-                className="w-full h-8 rounded border border-gray-200 dark:border-gray-700 cursor-pointer"
-                title="Custom color"
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
-// Enhanced Link Editor Modal
-const LinkEditor = ({ 
-  isOpen, 
-  onClose, 
-  onSave, 
-  initialUrl = '', 
-  initialText = '' 
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (url: string, text: string) => void;
-  initialUrl?: string;
-  initialText?: string;
-}) => {
-  const [url, setUrl] = useState(initialUrl);
-  const [text, setText] = useState(initialText);
-
-  useEffect(() => {
-    if (isOpen) {
-      setUrl(initialUrl);
-      setText(initialText);
-    }
-  }, [isOpen, initialUrl, initialText]);
-
-  const handleSave = () => {
-    if (url.trim()) {
-      onSave(url.trim(), text.trim());
-      onClose();
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      handleSave();
-    }
-    if (e.key === 'Escape') {
-      onClose();
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-          {initialUrl ? 'Edit Link' : 'Add Link'}
-        </h3>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              URL
-            </label>
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="https://example.com"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              autoFocus
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Link Text (optional)
-            </label>
-            <input
-              type="text"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Link description"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-        </div>
-        
-        <div className="flex justify-end space-x-3 mt-6">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!url.trim()}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {initialUrl ? 'Update' : 'Add'} Link
-          </button>
-        </div>
-        
-        <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-          Press Ctrl+Enter to save quickly
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
 
 // Simple type for user profile
 interface UserProfile {
@@ -496,58 +229,6 @@ interface UserProfile {
   status?: 'viewing' | 'editing' | 'idle';
 }
 
-// Enhanced helper functions
-const htmlToMarkdown = (html: string): string => {
-  // Enhanced HTML to markdown conversion with better pattern matching
-  return html
-    // Headers
-    .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '\n# $1\n')
-    .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n## $1\n')
-    .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n### $1\n')
-    .replace(/<h4[^>]*>(.*?)<\/h4>/gi, '\n#### $1\n')
-    .replace(/<h5[^>]*>(.*?)<\/h5>/gi, '\n##### $1\n')
-    .replace(/<h6[^>]*>(.*?)<\/h6>/gi, '\n###### $1\n')
-    
-    // Text formatting
-    .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
-    .replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**')
-    .replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
-    .replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*')
-    .replace(/<u[^>]*>(.*?)<\/u>/gi, '<u>$1</u>')
-    .replace(/<s[^>]*>(.*?)<\/s>/gi, '~~$1~~')
-    .replace(/<del[^>]*>(.*?)<\/del>/gi, '~~$1~~')
-    
-    // Links and images
-    .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)')
-    .replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/gi, '![$2]($1)')
-    .replace(/<img[^>]*src="([^"]*)"[^>]*>/gi, '![]($1)')
-    
-    // Lists
-    .replace(/<ul[^>]*>/gi, '\n')
-    .replace(/<\/ul>/gi, '\n')
-    .replace(/<ol[^>]*>/gi, '\n')
-    .replace(/<\/ol>/gi, '\n')
-    .replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n')
-    
-    // Blockquotes and code
-    .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gi, '\n> $1\n')
-    .replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`')
-    .replace(/<pre[^>]*><code[^>]*>(.*?)<\/code><\/pre>/gi, '\n```\n$1\n```\n')
-    .replace(/<pre[^>]*>(.*?)<\/pre>/gi, '\n```\n$1\n```\n')
-    
-    // Paragraphs and breaks
-    .replace(/<p[^>]*>(.*?)<\/p>/gi, '\n$1\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<hr\s*\/?>/gi, '\n---\n')
-    
-    // Clean up remaining HTML tags
-    .replace(/<[^>]*>/g, '')
-    
-    // Clean up extra whitespace
-    .replace(/\n\s*\n\s*\n/g, '\n\n')
-    .replace(/^\s+|\s+$/g, '')
-    .trim();
-};
 
 const autoSaveArticleContent = async (
   articleId: string, 
@@ -580,188 +261,14 @@ interface ArticleEditorProps {
   onOwnershipTransfer?: (newOwnerId: string) => void;
   onAdminNote?: (note: string) => void;
   isAiCopilotOpen?: boolean;
+  onBack?: () => void;
 }
 
 type ViewMode = 'editor' | 'preview' | 'split';
 type FocusMode = 'normal' | 'focused' | 'zen';
 
-// Enhanced Toolbar Button Component with premium design
-const ToolbarButton = ({ 
-  icon: Icon, 
-  label, 
-  isActive = false, 
-  onClick, 
-  disabled = false,
-  variant = 'default',
-  size = 'sm',
-  className = '',
-  badge,
-  children
-}: {
-  icon: any;
-  label: string;
-  isActive?: boolean;
-  onClick: () => void;
-  disabled?: boolean;
-  variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'ghost' | 'outline';
-  size?: 'xs' | 'sm' | 'md' | 'lg';
-  className?: string;
-  badge?: string | number;
-  children?: React.ReactNode;
-}) => {
-  const baseClasses = "relative inline-flex items-center justify-center font-medium transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none";
-  
-  const variantClasses = {
-    default: "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 shadow-sm hover:shadow-md",
-    primary: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm hover:shadow-md border border-primary/20",
-    success: "bg-green-500 text-white hover:bg-green-600 shadow-sm hover:shadow-md border border-green-400/20",
-    warning: "bg-amber-500 text-white hover:bg-amber-600 shadow-sm hover:shadow-md border border-amber-400/20",
-    danger: "bg-red-500 text-white hover:bg-red-600 shadow-sm hover:shadow-md border border-red-400/20",
-    ghost: "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100",
-    outline: "border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-500"
-  };
 
-  const sizeClasses = {
-    xs: 'h-7 px-2 text-xs rounded-md',
-    sm: 'h-8 px-3 text-sm rounded-lg',
-    md: 'h-10 px-4 text-sm rounded-lg',
-    lg: 'h-12 px-6 text-base rounded-xl'
-  };
 
-  const activeClasses = isActive ? 
-    "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/20 scale-[0.98]" : 
-    variantClasses[variant];
-
-  // Enhanced click handler with proper event handling
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    console.log('🔘 Toolbar button clicked:', label);
-    
-    if (!disabled) {
-      try {
-        onClick();
-      } catch (error) {
-        console.error('❌ Error in toolbar button onClick:', error);
-      }
-    }
-  };
-
-  return (
-    <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={handleClick}
-      onMouseDown={(e) => {
-        // Prevent default mousedown behavior that might cause scrolling
-        e.preventDefault();
-      }}
-      disabled={disabled}
-      title={label}
-      type="button"
-      className={`
-        ${baseClasses}
-        ${sizeClasses[size]}
-        ${activeClasses}
-        ${className}
-      `}
-    >
-      <Icon className={`${size === 'xs' ? 'w-3 h-3' : size === 'sm' ? 'w-4 h-4' : size === 'md' ? 'w-5 h-5' : 'w-6 h-6'} ${children ? 'mr-1.5' : ''}`} />
-      {children && <span className="hidden sm:inline">{children}</span>}
-      {badge && (
-        <span className="absolute -top-1 -right-1 h-4 w-4 text-xs bg-red-500 text-white rounded-full flex items-center justify-center">
-          {badge}
-        </span>
-      )}
-    </motion.button>
-  );
-};
-
-// Enhanced Toolbar Separator
-const ToolbarSeparator = () => (
-  <div className="w-px h-6 bg-gradient-to-b from-transparent via-gray-300 dark:via-gray-600 to-transparent mx-1" />
-);
-
-// Enhanced Status Indicator with beautiful animations
-const StatusIndicator = ({ 
-  status, 
-  isAutoSaving, 
-  lastSaved,
-  theme 
-}: { 
-  status: 'saved' | 'saving' | 'error' | null;
-  isAutoSaving: boolean;
-  lastSaved: Date | null;
-  theme: 'light' | 'dark';
-}) => {
-  const getStatusConfig = () => {
-    if (isAutoSaving || status === 'saving') {
-      return {
-        icon: Loader2,
-        text: 'Saving...',
-        className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800',
-        iconClassName: 'animate-spin text-blue-500'
-      };
-    }
-    
-    if (status === 'saved') {
-      return {
-        icon: CheckCircle,
-        text: lastSaved ? `Saved ${formatTimeAgo(lastSaved)}` : 'Saved',
-        className: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800',
-        iconClassName: 'text-green-500'
-      };
-    }
-    
-    if (status === 'error') {
-      return {
-        icon: AlertCircle,
-        text: 'Save failed',
-        className: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800',
-        iconClassName: 'text-red-500'
-      };
-    }
-    
-    return {
-      icon: Save,
-      text: 'Ready',
-      className: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700',
-      iconClassName: 'text-gray-500'
-    };
-  };
-
-  const config = getStatusConfig();
-  const Icon = config.icon;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className={`
-        flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium
-        border backdrop-blur-sm
-        ${config.className}
-      `}
-    >
-      <Icon className={`w-3 h-3 ${config.iconClassName}`} />
-      <span>{config.text}</span>
-    </motion.div>
-  );
-};
-
-const formatTimeAgo = (date: Date): string => {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
-  const diffMins = Math.floor(diffSecs / 60);
-  const diffHours = Math.floor(diffMins / 60);
-
-  if (diffSecs < 60) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return date.toLocaleDateString();
-};
 
 export const ArticleEditor: React.FC<ArticleEditorProps> = ({
   articleId,
@@ -776,8 +283,32 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
   onStatusChange,
   onOwnershipTransfer,
   onAdminNote,
-  isAiCopilotOpen = false
+  isAiCopilotOpen = false,
+  onBack
 }) => {
+  // Layout context for responsive sidebar handling
+  const { layout, setCommentsSidebarVisible } = useLayout();
+  
+  // Get user company for media library access
+  const userCompany = useUserCompany();
+  
+  // Component lifecycle logging
+  useEffect(() => {
+    console.log('🚀 [ARTICLE EDITOR] Component mounted/remounted:', {
+      articleId,
+      initialContentLength: initialContent.length,
+      adminMode,
+      timestamp: new Date().toISOString()
+    });
+    
+    return () => {
+      console.log('🛑 [ARTICLE EDITOR] Component unmounting:', {
+        articleId,
+        adminMode,
+        timestamp: new Date().toISOString()
+      });
+    };
+  }, []); // Empty deps means this runs only on mount/unmount
   // Enhanced theme management
   const { theme } = useTheme();
   
@@ -839,6 +370,15 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
   useEffect(() => {
     commentsRef.current = comments;
   }, [comments]);
+
+  // Sync comments sidebar state with layout context - use useRef to prevent infinite loops
+  const previousShowComments = useRef(showComments);
+  useEffect(() => {
+    if (previousShowComments.current !== showComments) {
+      setCommentsSidebarVisible(showComments);
+      previousShowComments.current = showComments;
+    }
+  }, [showComments, setCommentsSidebarVisible]);
 
   const loadComments = useCallback(async () => {
     if (!articleId) return;
@@ -1151,47 +691,9 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
     },
   }, [getEditorExtensions, theme]); // ✅ FIXED: Removed 'content' from dependencies to prevent editor recreation
 
-  // Update cursor position when editor selection changes
+  // Update user status when actively editing (simplified - no cursor positioning)
   useEffect(() => {
     if (!editor || !isCollaborationReady) return;
-
-    const updateCursorPosition = () => {
-      const selection = editor.state.selection;
-      const from = selection.from;
-      const to = selection.to;
-      
-      // Get the DOM position for the cursor
-      const coords = editor.view.coordsAtPos(from);
-      const editorRect = editorRef.current?.getBoundingClientRect();
-      
-      if (editorRect) {
-        const cursorPosition = {
-          from,
-          to,
-          x: coords.left - editorRect.left,
-          y: coords.top - editorRect.top,
-          selection: from !== to ? { anchor: from, head: to } : undefined
-        };
-        
-        console.log('📍 ArticleEditor cursor position calculated:', {
-          selection: { from, to },
-          coords: { x: coords.left, y: coords.top },
-          editorRect: { left: editorRect.left, top: editorRect.top },
-          finalPosition: cursorPosition
-        });
-        
-        realtimeCollaboration.updateCursorPosition(cursorPosition);
-      }
-    };
-
-    // Listen to selection updates
-    const handleSelectionUpdate = () => {
-      updateCursorPosition();
-      // Update status to editing when user is actively selecting/typing
-      if (articleId) {
-        realtimeCollaboration.updatePresence(articleId, 'editing');
-      }
-    };
 
     const handleTransaction = () => {
       // Update status to editing on any transaction (typing, formatting, etc.)
@@ -1203,12 +705,10 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
     // Add event listeners only if editor exists
     if (!editor) return;
     
-    editor.on('selectionUpdate', handleSelectionUpdate);
     editor.on('transaction', handleTransaction);
 
     return () => {
       if (editor) {
-        editor.off('selectionUpdate', handleSelectionUpdate);
         editor.off('transaction', handleTransaction);
       }
     };
@@ -1424,19 +924,23 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       const shouldUpdateContent = !content;
       
       if (shouldUpdateContent) {
-        console.log('🔄 Setting editor content from loaded article (initial load only):', {
+        console.log('🔄 [ARTICLE EDITOR] Setting editor content from loaded article:', {
           articleId: article.id,
+          articleVersion: article.article_version,
           hasContent: !!article.content,
           adminMode,
-          contentLength: article.content.length
+          contentLength: article.content.length,
+          isInitialLoad: !content,
+          timestamp: new Date().toISOString()
         });
         editor.commands.setContent(article.content);
         setContent(article.content);
       } else {
-        console.log('⏭️ Skipping content update - user has made changes:', {
+        console.log('⏭️ [ARTICLE EDITOR] Skipping content update - user has made changes:', {
           currentContentLength: content.length,
           articleContentLength: article.content.length,
-          hasUserChanges: content !== article.content
+          hasUserChanges: content !== article.content,
+          articleVersion: article.article_version
         });
       }
     }
@@ -1572,24 +1076,29 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
 
   // Render main toolbar
   const renderMainToolbar = () => (
-      <motion.div 
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
+      <div 
         className={`
           ${focusMode === 'zen' ? 'hidden' : 'block'}
           bg-white/95 backdrop-blur-xl border-b border-gray-200/50 px-6 py-4
           ${theme === 'dark' ? 'bg-gray-900/95 border-gray-700/50 dark' : ''}
-          fixed top-20 z-40 shadow-sm
+          sticky top-0 z-40 shadow-sm
         `}
-        style={{
-          width: isAiCopilotOpen ? 'calc(100% - 420px)' : '100%',
-          transition: 'width 0.3s ease'
-        }}
     >
       {/* Top toolbar row */}
-      <div className={`${isAiCopilotOpen ? 'flex flex-wrap items-center gap-2 justify-between' : 'flex items-center justify-between'} mb-4`}>
+      <div className={`${isAiCopilotOpen || layout.screenSize === 'mobile' || showComments ? 'flex flex-wrap items-center gap-2 justify-between' : 'flex items-center justify-between'} mb-4`}>
         {/* Left: File operations */}
         <div className="flex items-center gap-3">
+          {onBack && (
+            <ToolbarButton
+              icon={ArrowLeft}
+              label="Go Back"
+              onClick={onBack}
+              variant="ghost"
+              size="md"
+            >
+              Back
+            </ToolbarButton>
+          )}
           <ToolbarButton
             icon={Save}
             label="Save (Ctrl+S)"
@@ -1655,7 +1164,7 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       </div>
 
       {/* Main formatting toolbar */}
-      <div className={`${isAiCopilotOpen ? 'flex flex-wrap items-center gap-2 justify-between' : 'flex items-center justify-between'}`}>
+      <div className={`${isAiCopilotOpen || layout.screenSize === 'mobile' || showComments ? 'flex flex-wrap items-center gap-2 justify-between' : 'flex items-center justify-between'}`}>
         {/* Left: Primary formatting tools */}
         <div className="flex items-center gap-3">
           {/* Undo/Redo */}
@@ -1847,7 +1356,7 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
 
           {/* Text styling */}
           <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 rounded-xl p-1">
-            <ColorPicker
+            <ArticleColorPicker
               onColorSelect={(color) => {
                 setTextColor(color);
                 setCurrentTextColor(color);
@@ -1855,7 +1364,7 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
               currentColor={currentTextColor}
               type="text"
             />
-            <ColorPicker
+            <ArticleColorPicker
               onColorSelect={(color) => {
                 setHighlight(color);
                 setCurrentHighlightColor(color);
@@ -1883,7 +1392,7 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 
   // Prevent unwanted scrolling behavior
@@ -1920,88 +1429,101 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
   }, [hasUnsavedChanges]);
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className={`
-        ${isFullscreen ? 'fixed inset-0 z-50' : 'relative'}
-        ${className}
-        ${theme === 'dark' ? 'bg-gray-900 dark' : 'bg-gray-50'}
-        w-full flex flex-col
-        ${focusMode === 'zen' ? 'h-screen' : ''}
-      `}
-      style={{
-        ...(focusMode === 'zen' && {
-          overflow: 'auto',
-        })
-      }}
-    >
-      {/* Custom styles for heading hierarchy */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          .article-editor-content h1 {
-            font-size: 2.5rem !important;
-            font-weight: 700 !important;
-            line-height: 1.2 !important;
-            margin-top: 2rem !important;
-            margin-bottom: 1rem !important;
-            color: ${theme === 'dark' ? '#f9fafb' : '#111827'} !important;
-          }
-          .article-editor-content h2 {
-            font-size: 2rem !important;
-            font-weight: 600 !important;
-            line-height: 1.3 !important;
-            margin-top: 1.75rem !important;
-            margin-bottom: 0.875rem !important;
-            color: ${theme === 'dark' ? '#f3f4f6' : '#1f2937'} !important;
-          }
-          .article-editor-content h3 {
-            font-size: 1.5rem !important;
-            font-weight: 600 !important;
-            line-height: 1.4 !important;
-            margin-top: 1.5rem !important;
-            margin-bottom: 0.75rem !important;
-            color: ${theme === 'dark' ? '#e5e7eb' : '#374151'} !important;
-          }
-          .article-editor-content h4 {
-            font-size: 1.25rem !important;
-            font-weight: 600 !important;
-            line-height: 1.5 !important;
-            margin-top: 1.25rem !important;
-            margin-bottom: 0.625rem !important;
-            color: ${theme === 'dark' ? '#d1d5db' : '#4b5563'} !important;
-          }
-          .article-editor-content p {
-            font-size: 1.125rem !important;
-            line-height: 1.7 !important;
-            margin-bottom: 1rem !important;
-            color: ${theme === 'dark' ? '#d1d5db' : '#374151'} !important;
-          }
-        `
-      }} />
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={`
+          ${isFullscreen ? 'fixed inset-0 z-50' : 'relative'}
+          ${className}
+          ${theme === 'dark' ? 'bg-gray-900 dark' : 'bg-gray-50'}
+          w-full flex flex-col
+          ${focusMode === 'zen' ? 'h-screen' : ''}
+        `}
+        style={{
+          ...(focusMode === 'zen' && {
+            overflow: 'auto',
+          })
+        }}
+      >
+        {/* Custom styles for heading hierarchy */}
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            .article-editor-content h1 {
+              font-size: 2.5rem !important;
+              font-weight: 700 !important;
+              line-height: 1.2 !important;
+              margin-top: 2rem !important;
+              margin-bottom: 1rem !important;
+              color: ${theme === 'dark' ? '#f9fafb' : '#111827'} !important;
+            }
+            .article-editor-content h2 {
+              font-size: 2rem !important;
+              font-weight: 600 !important;
+              line-height: 1.3 !important;
+              margin-top: 1.75rem !important;
+              margin-bottom: 0.875rem !important;
+              color: ${theme === 'dark' ? '#f3f4f6' : '#1f2937'} !important;
+            }
+            .article-editor-content h3 {
+              font-size: 1.5rem !important;
+              font-weight: 600 !important;
+              line-height: 1.4 !important;
+              margin-top: 1.5rem !important;
+              margin-bottom: 0.75rem !important;
+              color: ${theme === 'dark' ? '#e5e7eb' : '#374151'} !important;
+            }
+            .article-editor-content h4 {
+              font-size: 1.25rem !important;
+              font-weight: 600 !important;
+              line-height: 1.5 !important;
+              margin-top: 1.25rem !important;
+              margin-bottom: 0.625rem !important;
+              color: ${theme === 'dark' ? '#d1d5db' : '#4b5563'} !important;
+            }
+            .article-editor-content p {
+              font-size: 1.125rem !important;
+              line-height: 1.7 !important;
+              margin-bottom: 1rem !important;
+              color: ${theme === 'dark' ? '#d1d5db' : '#374151'} !important;
+            }
+          `
+        }} />
 
-      {/* Main toolbar - Fixed at top */}
-      <div className="flex-shrink-0 bg-white border-b border-gray-200 shadow-sm">
+        {/* Sticky toolbar */}
         {renderMainToolbar()}
-      </div>
 
-      {/* Main content area with proper layout - Make wider overall */}
-      <div className="flex-1 flex overflow-hidden pt-28" style={{ maxWidth: '100%' }}>
+        {/* Main content area with proper layout - Make wider overall */}
+        <div 
+          className="flex-1 flex overflow-hidden transition-all duration-300" 
+          style={{ 
+            maxWidth: '100%',
+            width: layout.screenSize === 'mobile' && showComments ? 'calc(100% - 300px)' : '100%'
+          }}
+        >
         {/* Editor area - takes most space */}
-        <div className={`flex-1 flex flex-col min-w-0 ${focusMode === 'zen' ? 'overflow-y-auto' : 'overflow-hidden'}`} style={{ minWidth: '60%' }}>
+        <div 
+          className={`flex-1 flex flex-col min-w-0 ${focusMode === 'zen' ? 'overflow-y-auto' : 'overflow-hidden'} transition-all duration-300`} 
+          style={{ 
+            minWidth: layout.screenSize === 'mobile' ? '100%' : showComments ? '60%' : '100%',
+            maxWidth: showComments ? `calc(100% - ${layout.commentsSidebarWidth}px)` : '100%'
+          }}
+        >
           {/* Editor container - properly contained with overflow handling */}
           <div className={`flex-1 ${focusMode === 'zen' ? 'overflow-visible' : 'overflow-y-auto'}`}>
             <div 
               ref={editorRef}
               data-editor="true"
               className={`
-                px-8 pt-8 min-h-full relative
+                px-8 min-h-full relative
                 ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}
                 ${focusMode === 'zen' ? 'prose-2xl max-w-5xl mx-auto' : 'prose-xl max-w-none'}
                 ${isMobile ? 'prose-lg' : ''}
                 w-full leading-relaxed
                 article-editor-content
               `}
+              style={{
+                paddingTop: focusMode === 'zen' ? '32px' : '32px',
+              }}
               onClick={handleEditorContainerClick}
               data-gramm="false"
               data-gramm_editor="false"
@@ -2014,17 +1536,7 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
                 })
               }}
             >
-              {/* Collaborative Cursors Overlay */}
-              {isCollaborationReady && articleId && (
-                <CollaborativeCursors
-                  articleId={articleId}
-                  editorRef={editorRef}
-                  className="absolute inset-0 pointer-events-none z-10"
-                  showNotifications={true}
-                  enableFollowMode={true}
-                  enableSmoothCursors={true}
-                />
-              )}
+              {/* Collaborative Cursors Overlay removed per user request */}
               
               <EditorContent 
                 editor={editor} 
@@ -2148,7 +1660,14 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
 
         {/* Comments area - wider and properly constrained for scrolling */}
         {showComments && articleId && (
-          <div className="flex-shrink-0 border-l border-gray-200 bg-gray-50" style={{ width: '420px', maxWidth: '420px' }}>
+          <div 
+            className="flex-shrink-0 border-l border-gray-200 bg-gray-50 transition-all duration-300" 
+            style={{ 
+              width: layout.screenSize === 'mobile' ? '300px' : `${layout.commentsSidebarWidth}px`,
+              maxWidth: layout.screenSize === 'mobile' ? '300px' : `${layout.commentsSidebarWidth}px`,
+              minWidth: layout.screenSize === 'mobile' ? '300px' : `${layout.commentsSidebarWidth}px`
+            }}
+          >
             <CommentingSystem
               key={`comments-${articleId}`}
               articleId={articleId}
@@ -2198,22 +1717,12 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
 
       {/* Image Upload Modal */}
       {showImageUpload && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <ImageUpload
-              onImageInsert={handleImageInsert}
-              articleId={articleId}
-            />
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={() => setShowImageUpload(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        <MediaLibrarySelector
+          onImageInsert={handleImageInsert}
+          onClose={() => setShowImageUpload(false)}
+          articleId={articleId}
+          companyName={adminUser?.company_name || userCompany}
+        />
       )}
 
       {/* Link Tooltip */}
@@ -2227,6 +1736,6 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
           onClose={() => setShowLinkTooltip(false)}
         />
       )}
-    </motion.div>
+      </motion.div>
   );
 };

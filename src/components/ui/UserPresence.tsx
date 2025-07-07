@@ -35,7 +35,7 @@ export const UserPresence: React.FC<UserPresenceProps> = ({
 }) => {
   const [activeUsers, setActiveUsers] = useState<PresenceUser[]>([]);
   const [cursors, setCursors] = useState<CursorDisplay[]>([]);
-  const [isExpanded, setIsExpanded] = useState(!compact);
+  const [isExpanded, setIsExpanded] = useState(false); // Always start collapsed
   const [isJoined, setIsJoined] = useState(false);
   const [settings, setSettings] = useState<UserPresenceSettings>({
     showAvatars: true,
@@ -521,13 +521,7 @@ export const UserPresence: React.FC<UserPresenceProps> = ({
                 {user.status === 'editing' && (
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Currently editing" />
                 )}
-                {user.cursor_position && (
-                  <div 
-                    className="w-2 h-2 rounded-full" 
-                    style={{ backgroundColor: user.user_metadata.color }} 
-                    title="Active cursor"
-                  />
-                )}
+                {/* Cursor position indicator removed per user request */}
               </div>
             </div>
           );
@@ -568,8 +562,8 @@ export const UserPresence: React.FC<UserPresenceProps> = ({
       {/* Settings Panel */}
       {showSettings && renderSettingsPanel()}
 
-      {/* Render Cursors (These would be positioned relative to the editor) */}
-      {cursors.map(renderCursor)}
+      {/* Cursor positioning feature removed per user request */}
+      {/* {cursors.map(renderCursor)} */}
     </div>
   );
 };

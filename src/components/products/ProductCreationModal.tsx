@@ -1,11 +1,11 @@
-import React, { Fragment, useState, useEffect } from 'react';
-import { Dialog, Transition } from '@headlessui/react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Product } from '../../types';
-import { XIcon, BriefcaseIcon } from 'lucide-react'; // Using lucide-react for icons
-import { useAuth } from '../../lib/auth'; // To get user ID
-import { OpenAIVectorStoreService } from '../../services/OpenAIVectorStoreService'; // Added import
-import toast from 'react-hot-toast'; // Added import
+import { BriefcaseIcon } from 'lucide-react';
+import { useAuth } from '../../lib/auth';
+import { OpenAIVectorStoreService } from '../../services/OpenAIVectorStoreService';
+import toast from 'react-hot-toast';
+import { BaseModal } from '../ui/BaseModal';
 
 interface ProductCreationModalProps {
   isOpen: boolean;
@@ -114,102 +114,75 @@ const ProductCreationModal: React.FC<ProductCreationModalProps> = ({ isOpen, onC
   };
 
   return (
-    <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
-        <Transition.Child
-          as={Fragment}
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm" />
-        </Transition.Child>
-
-        <div className="fixed inset-0 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4 text-center">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-secondary-800 p-6 text-left align-middle shadow-xl transition-all border border-secondary-700">
-                <Dialog.Title
-                  as="h3"
-                  className="text-lg font-medium leading-6 text-primary-300 flex items-center justify-between mb-4"
-                >
-                  <span className='flex items-center text-white'><BriefcaseIcon className='h-5 w-5 mr-2 text-primary-400'/>Create New Product</span>
-                  <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
-                    <XIcon className="h-5 w-5" />
-                  </button>
-                </Dialog.Title>
-                
-                <form onSubmit={handleSubmit}>
-                  <div className="mb-4">
-                    <label htmlFor="productName" className="block text-sm font-medium text-gray-100 mb-1">
-                      Product Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      id="productName"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                      className="mt-1 block w-full rounded-md bg-secondary-700 border-secondary-600 text-black shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50 py-2 px-3"
-                      placeholder="Enter product name"
-                    />
-                  </div>
-
-                  <div className="mb-6">
-                    <label htmlFor="productDescription" className="block text-sm font-medium text-gray-100 mb-1">
-                      Product Description (Optional)
-                    </label>
-                    <textarea
-                      id="productDescription"
-                      rows={4}
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      className="mt-1 block w-full rounded-md bg-secondary-700 border-secondary-600 text-black shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50 py-2 px-3"
-                      placeholder="Enter product description (optional)"
-                    />
-                  </div>
-
-                  {error && (
-                    <div className="mb-4 p-3 rounded-md bg-red-900/30 text-red-400 border border-red-700">
-                      <p className="text-sm">{error}</p>
-                    </div>
-                  )}
-
-                  <div className="mt-6 flex justify-end space-x-3">
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      disabled={isLoading}
-                      className="px-4 py-2 text-sm font-medium text-gray-300 bg-secondary-700 rounded-md hover:bg-secondary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-secondary-800 focus-visible:ring-primary-500 disabled:opacity-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-secondary-800 focus-visible:ring-primary-500 disabled:opacity-50 disabled:bg-primary-800"
-                    >
-                      {isLoading ? 'Creating...' : 'Create Product'}
-                    </button>
-                  </div>
-                </form>
-              </Dialog.Panel>
-            </Transition.Child>
-          </div>
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Create New Product"
+      size="md"
+      theme="dark"
+      contentClassName="bg-secondary-800 border border-secondary-700"
+    >
+      {/* Custom header with icon to match original design */}
+      <div className="flex items-center mb-4 px-6 pt-2">
+        <BriefcaseIcon className='h-5 w-5 mr-2 text-primary-400'/>
+        <h3 className="text-lg font-medium text-white">Create New Product</h3>
+      </div>
+      
+      <form onSubmit={handleSubmit} className="px-6 pb-6">
+        <div className="mb-4">
+          <label htmlFor="productName" className="block text-sm font-medium text-gray-100 mb-1">
+            Product Name <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            id="productName"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            className="mt-1 block w-full rounded-md bg-secondary-700 border-secondary-600 text-black shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50 py-2 px-3"
+            placeholder="Enter product name"
+          />
         </div>
-      </Dialog>
-    </Transition>
+
+        <div className="mb-6">
+          <label htmlFor="productDescription" className="block text-sm font-medium text-gray-100 mb-1">
+            Product Description (Optional)
+          </label>
+          <textarea
+            id="productDescription"
+            rows={4}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="mt-1 block w-full rounded-md bg-secondary-700 border-secondary-600 text-black shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50 py-2 px-3"
+            placeholder="Enter product description (optional)"
+          />
+        </div>
+
+        {error && (
+          <div className="mb-4 p-3 rounded-md bg-red-900/30 text-red-400 border border-red-700">
+            <p className="text-sm">{error}</p>
+          </div>
+        )}
+
+        <div className="mt-6 flex justify-end space-x-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isLoading}
+            className="px-4 py-2 text-sm font-medium text-gray-300 bg-secondary-700 rounded-md hover:bg-secondary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-secondary-800 focus-visible:ring-primary-500 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-secondary-800 focus-visible:ring-primary-500 disabled:opacity-50 disabled:bg-primary-800"
+          >
+            {isLoading ? 'Creating...' : 'Create Product'}
+          </button>
+        </div>
+      </form>
+    </BaseModal>
   );
 };
 

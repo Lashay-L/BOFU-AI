@@ -8,7 +8,6 @@ import { BlogLinkInput } from './components/BlogLinkInput';
 import { ProductLineInput } from './components/ProductLineInput';
 import { SubmitSection } from './components/SubmitSection';
 import { Header } from './components/Header';
-import { MainHeader } from './components/MainHeader';
 import { ProcessingModal } from './components/ProcessingModal';
 import ProductResultsPage from './components/ProductResultsPage';
 import { ResearchHistory } from './components/ResearchHistory';
@@ -36,11 +35,12 @@ import ArticleEditorPage from './pages/ArticleEditorPage';
 import { AdminContextProvider } from './contexts/AdminContext';
 import { AdminRoute } from './components/admin/AdminRoute';
 import UnifiedArticleEditor from './components/UnifiedArticleEditor';
+import { LayoutProvider } from './contexts/LayoutContext';
 
 // Lazy load admin and heavy components
 const GeneratedArticlesPage = lazy(() => import('./pages/GeneratedArticlesPage'));
 const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage'));
-const AdminArticleEditorPage = lazy(() => import('./pages/AdminArticleEditorPage'));
+const ImageRepositoryPage = lazy(() => import('./components/media/ImageRepositoryPage'));
 const UserSelectorTest = lazy(() => import('./components/admin/UserSelectorTest').then(m => ({ default: m.UserSelectorTest })));
 const AdminArticleListTest = lazy(() => import('./components/admin/AdminArticleListTest').then(m => ({ default: m.AdminArticleListTest })));
 const ArticleEditorAdminTest = lazy(() => import('./components/admin/ArticleEditorAdminTest').then(m => ({ default: m.ArticleEditorAdminTest })));
@@ -549,7 +549,7 @@ function App() {
         </div>
       ) : (
         <div className="min-h-screen bg-secondary-900">
-          <MainHeader 
+          <Header 
             user={user} 
             onShowAuthModal={() => setShowAuthModal(true)} 
             showHistory={isHistoryPath}
@@ -584,13 +584,13 @@ function App() {
     if (isHistoryPath) {
       return (
         <div className="min-h-screen text-white" style={{ background: 'linear-gradient(to bottom right, #111827, #1f2937)' }}>
-          <MainHeader 
+          <Header 
             user={user} 
             onShowAuthModal={() => setShowAuthModal(true)} 
             showHistory={true}
             setShowHistory={(show) => {
               if (!show) {
-                navigate('/', { replace: true });
+                navigate('/history', { replace: true });
                 resetForm();
               }
             }}
@@ -693,7 +693,7 @@ function App() {
     if (isAppRoute) {
       return (
         <div className="min-h-screen text-white" style={{ backgroundColor: '#1f2937' }}>
-          <MainHeader 
+          <Header 
             user={user} 
             onShowAuthModal={() => setShowAuthModal(true)}
             showHistory={false} // This might need to be dynamic based on /app's sub-routes if any evolve
@@ -706,7 +706,7 @@ function App() {
           />
           
           <div className="container mx-auto px-4 py-8">
-            <Header /> {/* This is the BOFU AI Research Assistant header, specific to this page */}
+            
             
             <div className="max-w-3xl mx-auto space-y-10">
               <DocumentUploader onDocumentsProcessed={handleDocumentsProcessed} />
@@ -746,8 +746,9 @@ function App() {
   return (
     <ProfileContextProvider user={user}>
       <AdminContextProvider user={user}>
-        <ToastProvider>
-          <ErrorBoundary>
+        <LayoutProvider>
+          <ToastProvider>
+            <ErrorBoundary>
             <div className="App">
             <Toaster
             position="top-center"
@@ -810,18 +811,18 @@ function App() {
               } />
               <Route path="/history" element={user ? (
                 <div className="min-h-screen text-white" style={{ background: 'linear-gradient(to bottom right, #111827, #1f2937)' }}>
-                  <MainHeader 
-                    user={user} 
-                    onShowAuthModal={() => setShowAuthModal(true)} 
-                    showHistory={true}
-                    setShowHistory={(show) => {
-                      if (!show) {
-                        navigate('/', { replace: true });
-                        resetForm();
-                      }
-                    }}
-                    onSignOut={handleSignOut}
-                  />
+          <Header 
+            user={user} 
+            onShowAuthModal={() => setShowAuthModal(true)} 
+            showHistory={true}
+            setShowHistory={(show) => {
+              if (!show) {
+                navigate('/history', { replace: true });
+                resetForm();
+              }
+            }}
+            onSignOut={handleSignOut}
+          />
                   
                   <div className="container mx-auto px-4 py-8">
                     <h1 className="text-2xl font-bold text-primary-400 mb-6">Your Research History</h1>
@@ -966,6 +967,22 @@ function App() {
                   <Navigate to="/" replace />
                 )
               } />
+              <Route path="/dashboard/media-library" element={
+                isAuthLoading ? (
+                  <div className="min-h-screen bg-secondary-900 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500 mx-auto mb-4"></div>
+                      <p className="text-white">Loading...</p>
+                    </div>
+                  </div>
+                ) : user ? (
+                  <Suspense fallback={<PageLoading />}>
+                    <ImageRepositoryPage />
+                  </Suspense>
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              } />
 
               <Route path="/admin" element={
                 isAuthLoading ? (
@@ -977,6 +994,23 @@ function App() {
                   </div>
                 ) : user ? (
                   <AdminRoute user={user} onLogout={handleSignOut} />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              } />
+              
+              <Route path="/admin/media-library" element={
+                isAuthLoading ? (
+                  <div className="min-h-screen bg-secondary-900 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500 mx-auto mb-4"></div>
+                      <p className="text-white">Loading...</p>
+                    </div>
+                  </div>
+                ) : user ? (
+                  <Suspense fallback={<PageLoading />}>
+                    <ImageRepositoryPage isAdminView={true} />
+                  </Suspense>
                 ) : (
                   <Navigate to="/" replace />
                 )
@@ -1095,6 +1129,7 @@ function App() {
         </div>
         </ErrorBoundary>
         </ToastProvider>
+        </LayoutProvider>
       </AdminContextProvider>
     </ProfileContextProvider>
   );

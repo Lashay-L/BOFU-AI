@@ -9,8 +9,9 @@ import { SaveStatusIndicator } from './SaveStatusIndicator';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { CompetitorAnalysis } from './CompetitorAnalysis';
 import { ImageUploader } from '../ui/ImageUploader';
+import { getUserCompanyName } from '../../utils/mediaLibraryUtils';
 import { useAuth } from '../../lib/auth';
-import { deleteCapabilityImage, UploadResult } from '../../lib/storage';
+import { UploadResult } from '../../lib/storage';
 import { X, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 
 // Premium Collapsible Section Component
@@ -1034,11 +1035,13 @@ export function ProductCardContent({
                             </label>
                           </div>
                           
-                          {/* Image Uploader */}
+                          {/* Image Uploader - Now using unified media library */}
                           {enableEditing && user && (
                             <div className="mb-4">
                               <ImageUploader
                                 onUpload={async (result: UploadResult) => {
+                                  console.log('🖼️ ProductCardContent: Image upload completed:', result);
+                                  
                                   if (result.url && !result.error) {
                                     const updatedCapabilities = [...(editableProduct.capabilities || [])];
                                     const currentImages = updatedCapabilities[index].images || [];
@@ -1054,7 +1057,7 @@ export function ProductCardContent({
                                     if (onUpdateSection) {
                                       try {
                                         await onUpdateSection(index ?? 0, 'capabilities', updatedCapabilities);
-                                        console.log('Image upload: Successfully updated capabilities in parent');
+                                        console.log('✅ Image upload: Successfully updated capabilities in parent');
                                       } catch (error) {
                                         console.error('Image upload: Failed to update capabilities in parent:', error);
                                       }
@@ -1063,6 +1066,7 @@ export function ProductCardContent({
                                 }}
                                 userId={user.id}
                                 capabilityId={`${editableProduct.research_result_id || editableProduct.companyName || 'temp'}-capability-${index}`}
+                                companyName={userCompanyName}
                                 disabled={!enableEditing}
                                 maxFiles={5}
                                 currentImages={capability.images || []}
@@ -1091,19 +1095,8 @@ export function ProductCardContent({
                                   {enableEditing && (
                                     <button
                                       onClick={async () => {
-                                        // If this is a storage URL, try to delete from storage
-                                        if (imageUrl.includes('supabase') && imageUrl.includes('capability-images')) {
-                                          try {
-                                            const urlParts = imageUrl.split('/');
-                                            const bucketIndex = urlParts.findIndex(part => part === 'capability-images');
-                                            if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
-                                              const filePath = urlParts.slice(bucketIndex + 1).join('/');
-                                              await deleteCapabilityImage(filePath);
-                                            }
-                                          } catch (error) {
-                                            console.error('Failed to delete image from storage:', error);
-                                          }
-                                        }
+                                        // Note: Image deletion from storage should be handled separately
+                                        // This only removes the image reference from the UI
                                         
                                         // Remove from UI
                                         const updatedCapabilities = [...(editableProduct.capabilities || [])];
