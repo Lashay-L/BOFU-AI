@@ -7,7 +7,7 @@ import { getBriefById } from '../../lib/contentBriefs';
 
 interface ContentBriefEditorSimpleProps {
   initialContent: string;
-  onUpdate: (content: string, links: string[], titles: string[]) => void;
+  onUpdate: (content: string, links: string[], titles: string[], keywords?: string[]) => void;
   briefId?: string;
   researchResultId?: string; // Added for pain points dropdown
 }
@@ -380,7 +380,15 @@ export function ContentBriefEditorSimple({ initialContent, onUpdate, briefId, re
     if (!briefId) {
       // Just update via the onUpdate callback if no briefId
       const cleanedContent = cleanContent(currentContent);
-      onUpdate(cleanedContent, currentInternalLinks || [], currentSuggestedTitles || []);
+      // Extract keywords from content
+      let keywords: string[] = [];
+      try {
+        const parsed = JSON.parse(cleanedContent);
+        keywords = parsed.keywords || [];
+      } catch (e) {
+        // Content is not JSON
+      }
+      onUpdate(cleanedContent, currentInternalLinks || [], currentSuggestedTitles || [], keywords);
       return;
     }
     
@@ -425,7 +433,9 @@ export function ContentBriefEditorSimple({ initialContent, onUpdate, briefId, re
       // The parent (EditContentBrief) will handle the actual API save.
       // This component's responsibility is to provide the latest, cleaned data.
       console.log('ContentBriefEditorSimple: Calling onUpdate with prepared data.');
-      onUpdate(cleanedContent, currentInternalLinks || [], currentSuggestedTitles || []);
+      // Extract keywords from briefObject if available
+      const keywords = briefObject?.keywords || [];
+      onUpdate(cleanedContent, currentInternalLinks || [], currentSuggestedTitles || [], keywords);
       
       // Success/error handling (toast) is now managed by the parent component that calls the actual API.
 

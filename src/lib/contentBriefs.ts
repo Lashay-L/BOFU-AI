@@ -49,6 +49,7 @@ export async function getBriefById(briefId: string) {
       possible_article_titles,
       suggested_content_frameworks,
       product_name,
+      title,
       created_at,
       updated_at,
       research_result_id
@@ -130,20 +131,45 @@ export async function getBriefById(briefId: string) {
   console.log('[getBriefById] Parsed internal links:', parsedInternalLinks);
   console.log('[getBriefById] Parsed article titles:', parsedArticleTitles);
 
-  // Generate title using keywords instead of product_name
-  const generateTitle = () => {
-    if (keywords && keywords.length > 0) {
-      // Use the first keyword for the title
-      return `${keywords[0]} - Content Brief`;
+  // Generate unique title for this specific brief
+  const generateUniqueTitle = () => {
+    // If we already have a stored title, use it
+    if (data.title && data.title.trim()) {
+      return data.title;
     }
-    // Fallback to product_name if no keywords available
-    return data.product_name || 'Untitled Brief';
+    
+    // Generate a unique title based on multiple factors
+    const briefDate = new Date(data.created_at).toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+    
+    let baseTitle = '';
+    
+    // Try to use keywords from approved product data
+    if (keywords && keywords.length > 0) {
+      // Use first keyword but make it unique with brief ID
+      const shortId = briefId.substring(0, 8);
+      baseTitle = `${keywords[0]} Analysis - Brief ${shortId}`;
+    } 
+    // Fall back to product name if available
+    else if (data.product_name && data.product_name.trim()) {
+      baseTitle = `${data.product_name} - Content Brief`;
+    }
+    // Final fallback with date and brief ID
+    else {
+      const shortId = briefId.substring(0, 8);
+      baseTitle = `Content Brief ${shortId} - ${briefDate}`;
+    }
+    
+    return baseTitle;
   };
 
   const transformedData: ContentBrief = {
     ...data,
     status: 'draft',
-    title: generateTitle(),
+    title: generateUniqueTitle(),
     framework: Array.isArray(data.suggested_content_frameworks) ? data.suggested_content_frameworks.join('\n') : '',
     suggested_links: parsedInternalLinks.map((url: string) => ({
       url,
@@ -156,7 +182,7 @@ export async function getBriefById(briefId: string) {
   return transformedData;
 }
 
-export async function updateBrief(id: string, updates: { brief_content?: string; product_name?: string; status?: ContentBrief['status']; internal_links?: string[] | string; possible_article_titles?: string[] | string; suggested_content_frameworks?: string; }) {
+export async function updateBrief(id: string, updates: { brief_content?: string; product_name?: string; title?: string; status?: ContentBrief['status']; internal_links?: string[] | string; possible_article_titles?: string[] | string; suggested_content_frameworks?: string; }) {
   // DEBUG: Log incoming updates
   console.log('[updateBrief] Incoming updates:', JSON.stringify(updates, null, 2));
   if (updates.internal_links) {
@@ -169,7 +195,7 @@ export async function updateBrief(id: string, updates: { brief_content?: string;
   // CRITICAL: First get the current brief data to ensure we don't lose existing values
   const { data: currentBrief, error: fetchError } = await supabase
     .from('content_briefs')
-    .select('internal_links, possible_article_titles, brief_content')
+    .select('internal_links, possible_article_titles, brief_content, title')
     .eq('id', id)
     .single();
   
@@ -282,11 +308,14 @@ export async function updateBrief(id: string, updates: { brief_content?: string;
   
   console.log('FINAL UPDATE PAYLOAD to Supabase:', preservedUpdates);
   
+  // CRITICAL: Remove 'id' from update payload to prevent accidental ID changes
+  const { id: excludedId, created_at: excludedCreatedAt, ...safeUpdates } = preservedUpdates;
+  
   // Now perform the update with the preserved data
   const { data, error } = await supabase
     .from('content_briefs')
     .update({
-      ...preservedUpdates,
+      ...safeUpdates,
       updated_at: new Date().toISOString()
     })
     .eq('id', id)

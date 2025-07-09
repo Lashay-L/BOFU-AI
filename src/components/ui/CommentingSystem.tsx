@@ -9,7 +9,8 @@ import {
   bulkUpdateCommentStatus,
   getCommentsWithMetrics,
   createComment,
-  createCommentWithMentions
+  createCommentWithMentions,
+  updateComment
 } from '../../lib/commentApi';
 import { CommentMarker } from './CommentMarker';
 import { CommentPopover } from './CommentPopover';
@@ -416,11 +417,26 @@ const CommentingSystemComponent = React.memo(({
     onHighlightComment(null);
   };
 
-  const handleCommentSubmit = async (content: string) => {
-    console.log('📝 Submitting comment:', { content, selectedText, selectedComment });
+  const handleCommentSubmit = async (content: string, isEdit: boolean = false) => {
+    console.log('📝 Submitting comment:', { content, selectedText, selectedComment, isEdit });
     
     try {
-      if (selectedText && !selectedComment) {
+      if (isEdit && selectedComment) {
+        // Updating an existing comment
+        console.log('✏️ Updating existing comment:', selectedComment.id);
+        
+        const result = await updateComment(selectedComment.id, {
+          content: content.trim()
+        });
+        
+        if (result) {
+          console.log('✅ Comment updated successfully:', result);
+          await loadComments(); // Refresh comments
+          handleClosePopover();
+        } else {
+          console.error('❌ Failed to update comment');
+        }
+      } else if (selectedText && !selectedComment) {
         // Creating a new comment with mention support
         console.log('🆕 Creating new comment with coordinates:', {
           articleId,
@@ -847,7 +863,7 @@ const CommentingSystemComponent = React.memo(({
             selectedText={selectedText}
             selectedComment={selectedComment}
             onClose={handleClosePopover}
-            onSubmit={handleCommentSubmit}
+            onSubmit={(content: string, isEdit?: boolean) => handleCommentSubmit(content, isEdit)}
             onCommentCreated={async (comment) => {
               console.log('✅ Comment created with image/mentions:', comment);
               await loadComments(); // Refresh comments to show the new comment with image

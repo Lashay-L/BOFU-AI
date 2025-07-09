@@ -75,7 +75,56 @@ export default function ApprovedContent() {
         data.map(async (brief) => {
           // Helper function to generate title using keywords instead of product_name
           const generateTitle = async () => {
-            // First try to get keywords from approved product data if research_result_id exists
+            // First try to get keywords from the content brief's own content
+            if (brief.brief_content) {
+              try {
+                let briefContent = brief.brief_content as any;
+                
+                // Handle case where brief_content is stored as a JSON string
+                if (typeof briefContent === 'string') {
+                  briefContent = JSON.parse(briefContent);
+                }
+                
+                // Check for keywords array in the parsed content - this is the primary source
+                if (briefContent.keywords && Array.isArray(briefContent.keywords) && briefContent.keywords.length > 0) {
+                  const briefShortId = brief.id.substring(0, 8);
+                  // Extract the first keyword and clean it from backticks and quotes
+                  const firstKeyword = briefContent.keywords[0].replace(/[`'"]/g, '').trim();
+                  // Remove any URL patterns that might be in the keyword
+                  const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
+                  return `${cleanKeyword} - Content Brief ${briefShortId}`;
+                }
+                
+                // Handle case where keywords is stored as a JSON string
+                if (briefContent.keywords && typeof briefContent.keywords === 'string') {
+                  try {
+                    const parsedKeywords = JSON.parse(briefContent.keywords);
+                    if (Array.isArray(parsedKeywords) && parsedKeywords.length > 0) {
+                      const briefShortId = brief.id.substring(0, 8);
+                      const firstKeyword = parsedKeywords[0].replace(/[`'"]/g, '').trim();
+                      const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
+                      return `${cleanKeyword} - Content Brief ${briefShortId}`;
+                    }
+                  } catch (error) {
+                    console.warn('Could not parse keywords string:', error);
+                  }
+                }
+                
+                // Try to get primary keyword from SEO Strategy as fallback
+                const seoStrategy = briefContent['4. SEO Strategy'];
+                if (seoStrategy && seoStrategy['Primary Keyword']) {
+                  const primaryKeyword = seoStrategy['Primary Keyword'].replace(/[`'"]/g, '').trim();
+                  if (primaryKeyword) {
+                    const briefShortId = brief.id.substring(0, 8);
+                    return `${primaryKeyword} - Content Brief ${briefShortId}`;
+                  }
+                }
+              } catch (error) {
+                console.warn('Could not extract keywords from brief content:', error);
+              }
+            }
+            
+            // Fallback: try to get keywords from approved product data if research_result_id exists
             if (brief.research_result_id) {
               try {
                 const { data: approvedProduct, error: productError } = await supabase
@@ -91,8 +140,9 @@ export default function ApprovedContent() {
                     : approvedProduct.product_data;
                   
                   if (productData.keywords && Array.isArray(productData.keywords) && productData.keywords.length > 0) {
-                    // Use the first keyword for the title
-                    return `${productData.keywords[0]} - Content Brief`;
+                    // Use the first keyword for the title, but make it unique per brief
+                    const briefShortId = brief.id.substring(0, 8);
+                    return `${productData.keywords[0]} - Content Brief ${briefShortId}`;
                   }
                 }
               } catch (productError) {

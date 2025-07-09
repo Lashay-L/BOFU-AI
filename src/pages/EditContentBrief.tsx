@@ -296,8 +296,8 @@ export default function EditContentBrief() {
 
   const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
-    setBrief(prev => prev ? { ...prev, product_name: newTitle } : null);
-    handleAutoSave({ brief_content: editor?.getHTML(), product_name: newTitle });
+    setBrief(prev => prev ? { ...prev, title: newTitle } : null);
+    handleAutoSave({ brief_content: editor?.getHTML(), title: newTitle });
   }, [handleAutoSave, editor]);
 
   // Handle approval success
@@ -424,7 +424,7 @@ export default function EditContentBrief() {
                           <Package className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                          <h2 className="text-2xl font-bold text-white">{brief.product_name}</h2>
+                          <h2 className="text-2xl font-bold text-white">{brief.title || brief.product_name}</h2>
                           <p className="text-blue-100 font-medium">Content Brief Editor</p>
                         </div>
                       </div>
@@ -434,6 +434,28 @@ export default function EditContentBrief() {
                           briefId={id || ''}
                           onSuccess={handleApprovalSuccess}
                         />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Title Editor Section */}
+                  <div className="px-8 py-6 border-b border-gray-200/50">
+                    <div className="flex items-start space-x-3">
+                      <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-lg mt-1">
+                        <Edit3 className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 mb-2">Brief Title</h3>
+                        <input
+                          type="text"
+                          value={brief.title || ''}
+                          onChange={handleTitleChange}
+                          placeholder="Enter a descriptive title for this content brief"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        />
+                        <p className="text-sm text-gray-500 mt-1">
+                          This title will be used to identify your content brief in the dashboard
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -476,10 +498,33 @@ export default function EditContentBrief() {
                   <div className="p-8">
                     <ContentBriefEditorSimple
                       initialContent={brief?.brief_content_text || brief?.brief_content || ''}
-                      onUpdate={(content: string, links: string[], titles: string[]) => {
+                      onUpdate={(content: string, links: string[], titles: string[], keywords?: string[]) => {
                         console.log('ContentBriefEditorSimple onUpdate called with titles:', titles, 'isEmpty:', titles.length === 0);
-                        setBrief(prev => prev ? { ...prev, brief_content: content, internal_links: links, possible_article_titles: titles } : null);
-                        handleAutoSave({ brief_content: content, internal_links: links, possible_article_titles: titles });
+                        
+                        // Parse content to check for keywords
+                        let parsedContent: any = {};
+                        try {
+                          if (typeof content === 'string') {
+                            parsedContent = JSON.parse(content);
+                          }
+                        } catch (e) {
+                          console.log('Could not parse content as JSON');
+                        }
+                        
+                        // Extract keywords from parsed content
+                        const extractedKeywords = parsedContent.keywords || keywords || [];
+                        
+                        // Update title based on first keyword
+                        let newTitle = brief?.title || '';
+                        if (extractedKeywords && extractedKeywords.length > 0) {
+                          const firstKeyword = extractedKeywords[0].replace(/[`'"]/g, '').trim();
+                          const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
+                          const briefShortId = (id || '').substring(0, 8);
+                          newTitle = `${cleanKeyword} - Content Brief ${briefShortId}`;
+                        }
+                        
+                        setBrief(prev => prev ? { ...prev, brief_content: content, internal_links: links, possible_article_titles: titles, title: newTitle } : null);
+                        handleAutoSave({ brief_content: content, internal_links: links, possible_article_titles: titles, title: newTitle });
                       }}
                       briefId={id || ''}
                       researchResultId={brief?.research_result_id}

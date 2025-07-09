@@ -19,7 +19,7 @@ interface CommentPopoverProps {
   selectedText?: TextSelection | null;
   selectedComment?: ArticleComment | null;
   onClose: () => void;
-  onSubmit: (content: string) => void;
+  onSubmit: (content: string, isEdit?: boolean) => void;
   onCommentCreated?: (comment: ArticleComment) => void;
 }
 
@@ -86,8 +86,8 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
     setIsSubmitting(true);
     try {
       if (viewMode === 'edit') {
-        // Handle edit mode - use existing onSubmit for now
-        await onSubmit(commentContent);
+        // Handle edit mode - pass isEdit flag to parent
+        await onSubmit(commentContent, true);
         setViewMode('view');
       } else {
         // Handle new comment creation with proper image and mention support
@@ -251,7 +251,7 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
              viewMode === 'reply' ? 'Reply to Comment' :
              viewMode === 'edit' ? 'Edit Comment' : 'Comment Details'}
       size="lg"
-      theme="dark"
+      theme="light"
     >
       <div className="max-h-[80vh] overflow-y-auto">
         {/* Selected text display with enhanced design */}
@@ -502,10 +502,33 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
               onImageSelect={handleImageSelect}
               onImageRemove={handleImageRemove}
               showImageUpload={true}
-              showSubmitButton={true}
-              commentType={commentType}
-              onCommentTypeChange={setCommentType}
+              articleId={articleId}
             />
+            
+            {/* Submit Button Area - Original Design */}
+            <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+              <div className="text-sm text-gray-500">
+                Cmd+Enter to send • Esc to cancel
+              </div>
+              
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                
+                <button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || (!commentContent.trim() && !selectedImage)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>{isSubmitting ? 'Sending...' : (viewMode === 'edit' ? 'Update' : 'Comment')}</span>
+                </button>
+              </div>
+            </div>
           </motion.div>
         )}
       </div>

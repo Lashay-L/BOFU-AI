@@ -139,12 +139,59 @@ export default function UserContentBriefs() {
       
       if (error) throw error;
       
-      // Process each brief to generate keyword-based titles
+      // Process each brief to use stored titles or generate fallback titles
       const transformedBriefs: EnhancedContentBrief[] = await Promise.all(
         data.map(async (brief) => {
-          // Helper function to generate title using keywords instead of product_name
-          const generateTitle = async () => {
-            // First try to get keywords from approved product data if research_result_id exists
+          // Helper function to get title - prioritize stored title
+          const getTitle = async () => {
+            // If we already have a stored title, use it
+            if (brief.title && brief.title.trim()) {
+              console.log('Using stored title for brief', brief.id, ':', brief.title);
+              return brief.title;
+            }
+            
+            // Generate a fallback title for existing briefs without stored titles
+            const briefDate = new Date(brief.created_at).toLocaleDateString('en-US', { 
+              month: 'short', 
+              day: 'numeric', 
+              year: 'numeric' 
+            });
+            
+            // First try to get keywords from the content brief's own content
+            if (brief.brief_content) {
+              try {
+                let briefContent = brief.brief_content as any;
+                
+                // Handle case where brief_content is stored as a JSON string
+                if (typeof briefContent === 'string') {
+                  briefContent = JSON.parse(briefContent);
+                }
+                
+                // Check for keywords array in the parsed content
+                if (briefContent.keywords && Array.isArray(briefContent.keywords) && briefContent.keywords.length > 0) {
+                  const shortId = brief.id.substring(0, 8);
+                  // Extract the first keyword and clean it from backticks and quotes
+                  const firstKeyword = briefContent.keywords[0].replace(/[`'"]/g, '').trim();
+                  // Remove any URL patterns that might be in the keyword
+                  const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
+                  return `${cleanKeyword} - Content Brief ${shortId}`;
+                }
+                
+                // Try to get primary keyword from SEO Strategy
+                const seoStrategy = briefContent['4. SEO Strategy'];
+                if (seoStrategy && seoStrategy['Primary Keyword']) {
+                  const primaryKeyword = seoStrategy['Primary Keyword'].replace(/[`'"]/g, '').trim();
+                  if (primaryKeyword) {
+                    const shortId = brief.id.substring(0, 8);
+                    return `${primaryKeyword} - Brief ${shortId}`;
+                  }
+                }
+              } catch (error) {
+                console.warn('Could not extract keywords from brief content:', error);
+              }
+            }
+            
+            // Fallback: try to get keywords from approved product data if research_result_id exists
             if (brief.research_result_id) {
               try {
                 const { data: approvedProduct, error: productError } = await supabase
@@ -160,8 +207,9 @@ export default function UserContentBriefs() {
                     : approvedProduct.product_data;
                   
                   if (productData.keywords && Array.isArray(productData.keywords) && productData.keywords.length > 0) {
-                    // Use the first keyword for the title
-                    return `${productData.keywords[0]} - Content Brief`;
+                    // Use first keyword but make it unique with brief ID
+                    const shortId = brief.id.substring(0, 8);
+                    return `${productData.keywords[0]} Analysis - Brief ${shortId}`;
                   }
                 }
               } catch (productError) {
@@ -169,11 +217,31 @@ export default function UserContentBriefs() {
               }
             }
             
-            // Fallback to product_name if no keywords available
-            return brief.product_name || 'Untitled Brief';
+            // Fallback to product_name if available
+            if (brief.product_name && brief.product_name.trim()) {
+              const shortId = brief.id.substring(0, 8);
+              return `${brief.product_name} - Content Brief ${shortId}`;
+            }
+            
+            // Final fallback with date and brief ID
+            const shortId = brief.id.substring(0, 8);
+            return `Content Brief ${shortId} - ${briefDate}`;
           };
 
-          const title = await generateTitle();
+          const title = await getTitle();
+          
+          // If we generated a new title (not from stored data), persist it to the database
+          if (!brief.title || !brief.title.trim()) {
+            try {
+              await supabase
+                .from('content_briefs')
+                .update({ title })
+                .eq('id', brief.id);
+              console.log(`Persisted title for brief ${brief.id}:`, title);
+            } catch (updateError) {
+              console.warn('Could not persist title to database:', updateError);
+            }
+          }
           
           return {
             ...brief,

@@ -58,9 +58,10 @@ export const useBriefAutoSave = (id: string | undefined, brief: ContentBrief | n
       };
       
       // CRITICAL: Filter out client-side only fields that don't exist in Supabase
+      // IMPORTANT: Never include 'id' or 'created_at' in updates - they should never be changed
       const validDatabaseFields = [
-        'id', 'user_id', 'brief_content', 'brief_content_text', 'product_name',
-        'internal_links', 'possible_article_titles', 'created_at', 'updated_at',
+        'user_id', 'brief_content', 'brief_content_text', 'product_name', 'title',
+        'internal_links', 'possible_article_titles', 'updated_at',
         'suggested_content_frameworks', 'status', 'research_result_id',
         // Parsed content fields (if they exist in DB)
         'pain_points', 'usps', 'capabilities', 'competitors', 'target_audience',

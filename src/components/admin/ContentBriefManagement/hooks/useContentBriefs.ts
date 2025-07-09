@@ -14,7 +14,43 @@ export function useContentBriefs() {
   const generateKeywordTitle = async (brief: ContentBrief) => {
     console.log('🔍 TITLE_DEBUG: Starting title generation for brief:', brief.id);
     
-    // First try to get keywords from approved product data if research_result_id exists
+    // First try to get keywords from the content brief's own content
+    if (brief.brief_content) {
+      try {
+        let briefContent = brief.brief_content as any;
+        
+        // Handle case where brief_content is stored as a JSON string
+        if (typeof briefContent === 'string') {
+          briefContent = JSON.parse(briefContent);
+        }
+        
+        // Check for keywords array in the parsed content - this is the primary source
+        if (briefContent.keywords && Array.isArray(briefContent.keywords) && briefContent.keywords.length > 0) {
+          const briefShortId = brief.id.substring(0, 8);
+          // Extract the first keyword and clean it from backticks and quotes
+          const firstKeyword = briefContent.keywords[0].replace(/[`'"]/g, '').trim();
+          // Remove any URL patterns that might be in the keyword
+          const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
+          console.log('🔍 TITLE_DEBUG: Using first keyword from brief content:', cleanKeyword);
+          return `${cleanKeyword} - Content Brief ${briefShortId}`;
+        }
+        
+        // Try to get primary keyword from SEO Strategy as fallback
+        const seoStrategy = briefContent['4. SEO Strategy'];
+        if (seoStrategy && seoStrategy['Primary Keyword']) {
+          const primaryKeyword = seoStrategy['Primary Keyword'].replace(/[`'"]/g, '').trim();
+          if (primaryKeyword) {
+            const briefShortId = brief.id.substring(0, 8);
+            console.log('🔍 TITLE_DEBUG: Using primary keyword from SEO strategy:', primaryKeyword);
+            return `${primaryKeyword} - Content Brief ${briefShortId}`;
+          }
+        }
+      } catch (error) {
+        console.warn('Could not extract keywords from brief content:', error);
+      }
+    }
+    
+    // Fallback: try to get keywords from approved product data if research_result_id exists
     if (brief.research_result_id) {
       try {
         const { data: approvedProduct, error: productError } = await supabase
@@ -29,7 +65,8 @@ export function useContentBriefs() {
             : approvedProduct.product_data;
           
           if (productData.keywords && Array.isArray(productData.keywords) && productData.keywords.length > 0) {
-            return `${productData.keywords[0]} - Content Brief`;
+            const briefShortId = brief.id.substring(0, 8);
+            return `${productData.keywords[0]} - Content Brief ${briefShortId}`;
           }
         }
       } catch (error) {
@@ -51,7 +88,8 @@ export function useContentBriefs() {
             : approvedProducts[0].product_data;
           
           if (productData.keywords && Array.isArray(productData.keywords) && productData.keywords.length > 0) {
-            return `${productData.keywords[0]} - Content Brief`;
+            const briefShortId = brief.id.substring(0, 8);
+            return `${productData.keywords[0]} - Content Brief ${briefShortId}`;
           }
         }
       } catch (error) {
