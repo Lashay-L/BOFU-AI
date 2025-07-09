@@ -59,9 +59,10 @@ export function AdminAuthModal({ isOpen, onClose, onAdminAuthenticated }: AdminA
       title="Admin Login"
       size="md"
       theme="dark"
-      contentClassName="bg-secondary-900 border-2 border-primary-500/20 shadow-glow"
+      overlayClassName="bg-black bg-opacity-75"
+      contentClassName="bg-gray-900 border-2 border-gray-600 shadow-2xl"
     >
-      <div className="p-6">
+      <div className="p-6 bg-gray-900">
         <div className="mb-4">
           <p className="text-sm text-gray-400">
             Please enter your admin credentials to access the dashboard.
