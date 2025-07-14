@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { 
   Calendar,
   Edit3,
-  Eye,
   ExternalLink,
   CalendarDays,
   Trash2,
@@ -13,7 +12,6 @@ import type { ArticleListItem } from '../../types/adminApi';
 
 interface ArticleCardProps {
   article: ArticleListItem & { content?: string };
-  onArticleSelect?: (article: ArticleListItem) => void;
   onEditArticle?: (article: ArticleListItem) => void;
   onDeleteArticle?: (article: ArticleListItem) => void;
   className?: string;
@@ -38,7 +36,6 @@ const STATUS_LABELS = {
 
 export const ArticleCard: React.FC<ArticleCardProps> = ({
   article,
-  onArticleSelect,
   onEditArticle,
   onDeleteArticle,
   className = '',
@@ -100,19 +97,11 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({
       {/* Action buttons */}
       <div className="bg-gray-50 border-t border-gray-200 p-3 space-y-2">
         <button
-          onClick={() => onArticleSelect?.(article)}
+          onClick={() => onEditArticle?.(article)}
           className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200"
         >
-          <Eye size={16} />
-          View Article
-        </button>
-        
-        <button
-          onClick={() => onEditArticle?.(article)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors duration-200"
-        >
           <Edit3 size={16} />
-          Edit Article
+          Edit Article (New Editor)
         </button>
 
         {article.google_doc_url && (
@@ -130,7 +119,7 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({
           className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100 transition-colors duration-200"
         >
           <Trash2 size={16} />
-          Delete Article
+          Clear All Article Data
         </button>
       </div>
     </motion.div>
