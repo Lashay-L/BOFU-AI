@@ -37,6 +37,7 @@ import { User } from '@supabase/supabase-js';
 import { useAdminContext } from '../contexts/AdminContext';
 import { BaseModal } from '../components/ui/BaseModal';
 
+
 // Define props for the page
 interface AdminArticleManagementPageProps {
   user?: User | null; // Authenticated Supabase user (optional since we'll use AdminContext)

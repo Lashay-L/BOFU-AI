@@ -33,6 +33,8 @@ import type {
 } from '../../types/adminApi';
 import { toast } from 'react-hot-toast';
 import { ArticleCard } from './ArticleCard';
+import { deleteArticle } from '../../lib/articleApi';
+import { ConfirmationDialog } from '../ui/ConfirmationDialog';
 
 interface EnhancedArticleListProps {
   selectedUser?: UserProfile | null;
@@ -97,6 +99,11 @@ export const EnhancedArticleList: React.FC<EnhancedArticleListProps> = ({
   const [showFilters, setShowFilters] = useState(false);
   const [pageSize, setPageSize] = useState(12); // Optimized for grid layout
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  
+  // Delete functionality state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [articleToDelete, setArticleToDelete] = useState<ArticleListItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch articles function
   const fetchArticles = useCallback(async () => {
@@ -200,6 +207,43 @@ export const EnhancedArticleList: React.FC<EnhancedArticleListProps> = ({
     setSortField('last_edited_at');
     setSortOrder('desc');
     setCurrentPage(1);
+  };
+
+  // Delete handlers
+  const handleDeleteClick = (article: ArticleListItem) => {
+    setArticleToDelete(article);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!articleToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const result = await deleteArticle(articleToDelete.id);
+      
+      if (result.success) {
+        // Remove the article from the local state
+        setArticles(prev => prev.filter(article => article.id !== articleToDelete.id));
+        toast.success(`Article "${articleToDelete.title}" has been deleted`);
+        setDeleteConfirmOpen(false);
+        setArticleToDelete(null);
+        // Refresh the list to get updated counts
+        fetchArticles();
+      } else {
+        toast.error(result.error || 'Failed to delete article');
+      }
+    } catch (error) {
+      console.error('Error deleting article:', error);
+      toast.error('An unexpected error occurred while deleting the article');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirmOpen(false);
+    setArticleToDelete(null);
   };
 
   // Get status counts (mock for now)
@@ -487,6 +531,7 @@ export const EnhancedArticleList: React.FC<EnhancedArticleListProps> = ({
                   article={article}
                   onArticleSelect={onArticleSelect}
                   onEditArticle={onEditArticle}
+                  onDeleteArticle={handleDeleteClick}
                   className={viewMode === 'list' ? 'max-w-none' : ''}
                   index={index}
                 />
@@ -546,6 +591,23 @@ export const EnhancedArticleList: React.FC<EnhancedArticleListProps> = ({
           </>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={deleteConfirmOpen}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Article"
+        message={
+          articleToDelete
+            ? `Are you sure you want to delete the article "${articleToDelete.title}"? This action cannot be undone.`
+            : ''
+        }
+        confirmText="Delete Article"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }; 

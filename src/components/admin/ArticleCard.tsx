@@ -4,7 +4,8 @@ import {
   Edit3,
   Eye,
   ExternalLink,
-  CalendarDays
+  CalendarDays,
+  Trash2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { ArticleListItem } from '../../types/adminApi';
@@ -13,6 +14,7 @@ interface ArticleCardProps {
   article: ArticleListItem & { content?: string };
   onArticleSelect?: (article: ArticleListItem) => void;
   onEditArticle?: (article: ArticleListItem) => void;
+  onDeleteArticle?: (article: ArticleListItem) => void;
   className?: string;
   index?: number;
 }
@@ -37,6 +39,7 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({
   article,
   onArticleSelect,
   onEditArticle,
+  onDeleteArticle,
   className = '',
   index = 0
 }) => {
@@ -66,14 +69,14 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({
           <span className="text-xs text-gray-400">v{article.article_version}</span>
         </div>
 
-        {/* Product name badge */}
+        {/* Product name badge - smaller and less prominent */}
         {article.product_name && (
-          <span className="inline-block bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 py-0.5 rounded-full mb-2">
+          <span className="inline-block bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full mb-2">
             {article.product_name}
           </span>
         )}
 
-        {/* Title */}
+        {/* Article Title - more prominent */}
         <h2 className="text-lg font-semibold text-gray-800 mb-2 min-h-[2.5em] leading-tight group-hover:text-blue-600 transition-colors duration-200">
           {article.title || 'Untitled Article'}
         </h2>
@@ -109,6 +112,14 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({
         >
           <Edit3 size={16} />
           Edit Article
+        </button>
+
+        <button
+          onClick={() => onDeleteArticle?.(article)}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100 transition-colors duration-200"
+        >
+          <Trash2 size={16} />
+          Delete Article
         </button>
       </div>
     </motion.div>
