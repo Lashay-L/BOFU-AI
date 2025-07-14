@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, Loader2, ChevronDown, ChevronRight, Crown, Edit, Trash2 } from 'lucide-react';
-import { ContentBriefsSection as ContentBriefsSectionProps } from './types';
+import { ContentBriefsSectionProps, UserProfile } from './types';
+import { ContentBrief } from '../../../types/contentBrief';
 import { ContentBriefEditorSimple } from '../../content-brief/ContentBriefEditorSimple';
 import { ResponsiveApprovalButton } from '../../common/ResponsiveApprovalButton';
 import { updateBrief } from '../../../lib/contentBriefs';
@@ -41,11 +42,11 @@ export function ContentBriefsSection({
         </div>
       ) : contentBriefs.length > 0 ? (
         <div className="space-y-6">
-          {contentBriefs.map((brief) => {
+          {contentBriefs.map((brief: ContentBrief) => {
             // Find which user created this brief
             const briefCreator = companyGroup.main_account.id === brief.user_id 
               ? companyGroup.main_account 
-              : companyGroup.sub_accounts.find(sub => sub.id === brief.user_id);
+              : companyGroup.sub_accounts.find((sub: UserProfile) => sub.id === brief.user_id);
             
             const isCollapsed = collapsedContentBriefs.has(brief.id);
             
@@ -71,7 +72,30 @@ export function ContentBriefsSection({
                       >
                         <div className="flex items-center gap-3 mb-2">
                           <h4 className="text-xl font-bold text-white leading-tight">
-                            {brief.title || brief.product_name || `Content Brief - ${new Date(brief.created_at).toLocaleDateString()}`}
+                            {(() => {
+                              // Use the same clean title logic as user dashboard
+                              if (brief.title && brief.title.trim()) {
+                                return brief.title;
+                              }
+                              // Extract first keyword from brief content if available
+                              if (brief.brief_content) {
+                                try {
+                                  let briefContent = brief.brief_content as any;
+                                  if (typeof briefContent === 'string') {
+                                    briefContent = JSON.parse(briefContent);
+                                  }
+                                  if (briefContent.keywords && Array.isArray(briefContent.keywords) && briefContent.keywords.length > 0) {
+                                    const firstKeyword = briefContent.keywords[0].replace(/[`'"]/g, '').trim();
+                                    const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
+                                    return cleanKeyword;
+                                  }
+                                } catch (error) {
+                                  console.warn('Could not extract keywords from brief content:', error);
+                                }
+                              }
+                              // Fallback to product name only (no ID)
+                              return brief.product_name || `Content Brief - ${new Date(brief.created_at).toLocaleDateString()}`;
+                            })()}
                           </h4>
                           <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-full border border-green-500/30">
                             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>

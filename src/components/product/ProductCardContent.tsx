@@ -404,10 +404,10 @@ export function ProductCardContent({
   // Add state for controlling all sections based on isExpanded prop
   const [sectionsExpanded, setSectionsExpanded] = useState(false);
 
-  // Update sectionsExpanded when isExpanded prop changes
-  React.useEffect(() => {
-    setSectionsExpanded(isExpanded);
-  }, [isExpanded]);
+  // Don't override sectionsExpanded with isExpanded prop - keep sections collapsed by default
+  // React.useEffect(() => {
+  //   setSectionsExpanded(isExpanded);
+  // }, [isExpanded]);
 
   // Update editable product when the original product changes
   React.useEffect(() => {

@@ -220,7 +220,30 @@ export function UserDetailView({
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <h4 className="text-xl font-bold text-white leading-tight mb-2">
-                        {brief.title || brief.product_name || `Content Brief - ${new Date(brief.created_at).toLocaleDateString()}`}
+                        {(() => {
+                          // Use the same clean title logic as user dashboard
+                          if (brief.title && brief.title.trim()) {
+                            return brief.title;
+                          }
+                          // Extract first keyword from brief content if available
+                          if (brief.brief_content) {
+                            try {
+                              let briefContent = brief.brief_content as any;
+                              if (typeof briefContent === 'string') {
+                                briefContent = JSON.parse(briefContent);
+                              }
+                              if (briefContent.keywords && Array.isArray(briefContent.keywords) && briefContent.keywords.length > 0) {
+                                const firstKeyword = briefContent.keywords[0].replace(/[`'"]/g, '').trim();
+                                const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
+                                return cleanKeyword;
+                              }
+                            } catch (error) {
+                              console.warn('Could not extract keywords from brief content:', error);
+                            }
+                          }
+                          // Fallback to product name only (no ID)
+                          return brief.product_name || `Content Brief - ${new Date(brief.created_at).toLocaleDateString()}`;
+                        })()}
                       </h4>
                       <div className="flex items-center gap-4 text-sm">
                         <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-600/30 rounded-lg">
