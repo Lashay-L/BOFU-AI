@@ -138,29 +138,28 @@ export async function getBriefById(briefId: string) {
       return data.title;
     }
     
-    // Generate a unique title based on multiple factors
-    const briefDate = new Date(data.created_at).toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-    
+    // Generate a clean title based on keywords or product name
     let baseTitle = '';
     
     // Try to use keywords from approved product data
     if (keywords && keywords.length > 0) {
-      // Use first keyword but make it unique with brief ID
-      const shortId = briefId.substring(0, 8);
-      baseTitle = `${keywords[0]} Analysis - Brief ${shortId}`;
+      // Extract the first keyword and clean it
+      const firstKeyword = keywords[0].replace(/[`'"]/g, '').trim();
+      const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
+      baseTitle = cleanKeyword;
     } 
     // Fall back to product name if available
     else if (data.product_name && data.product_name.trim()) {
-      baseTitle = `${data.product_name} - Content Brief`;
+      baseTitle = data.product_name;
     }
-    // Final fallback with date and brief ID
+    // Final fallback with date
     else {
-      const shortId = briefId.substring(0, 8);
-      baseTitle = `Content Brief ${shortId} - ${briefDate}`;
+      const briefDate = new Date(data.created_at).toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+      baseTitle = `Content Brief - ${briefDate}`;
     }
     
     return baseTitle;
@@ -308,8 +307,8 @@ export async function updateBrief(id: string, updates: { brief_content?: string;
   
   console.log('FINAL UPDATE PAYLOAD to Supabase:', preservedUpdates);
   
-  // CRITICAL: Remove 'id' from update payload to prevent accidental ID changes
-  const { id: excludedId, created_at: excludedCreatedAt, ...safeUpdates } = preservedUpdates;
+  // Use preservedUpdates directly since the updates type doesn't include id or created_at
+  const safeUpdates = preservedUpdates;
   
   // Now perform the update with the preserved data
   const { data, error } = await supabase
