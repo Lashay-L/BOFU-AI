@@ -73,9 +73,17 @@ export function ContentBriefsSection({
                         <div className="flex items-center gap-3 mb-2">
                           <h4 className="text-xl font-bold text-white leading-tight">
                             {(() => {
-                              // Use the same clean title logic as user dashboard
+                              // Clean title logic - remove any ID suffixes
                               if (brief.title && brief.title.trim()) {
-                                return brief.title;
+                                // Remove any "- Brief [ID]" or "- Content Brief [ID]" suffixes
+                                const cleanTitle = brief.title
+                                  .replace(/\s*-\s*Brief\s+[a-z0-9]{8,}$/i, '')
+                                  .replace(/\s*-\s*Content Brief\s+[a-z0-9]{8,}$/i, '')
+                                  .replace(/\s*-\s*Content Brief$/i, '')
+                                  .trim();
+                                if (cleanTitle) {
+                                  return cleanTitle;
+                                }
                               }
                               // Extract first keyword from brief content if available
                               if (brief.brief_content) {
