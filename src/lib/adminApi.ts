@@ -227,16 +227,32 @@ export const adminArticlesApi = {
           
           // Parse article title from possible_article_titles (same logic as user dashboard)
           let parsedTitle = `Untitled Article ${article.id.substring(0, 4)}`;
+          console.log('DEBUG TITLE PARSING:', {
+            articleId: article.id,
+            possible_article_titles: article.possible_article_titles,
+            type: typeof article.possible_article_titles,
+            product_name: article.product_name
+          });
+          
           if (typeof article.possible_article_titles === 'string' && article.possible_article_titles.trim() !== '') {
             const titlesString = article.possible_article_titles;
+            console.log('DEBUG: Parsing titles string:', titlesString);
             const match = titlesString.match(/^1\\.s*(.*?)(?:\\n2\\.|$)/s);
+            console.log('DEBUG: Regex match result:', match);
             if (match && match[1]) {
               parsedTitle = match[1].trim();
+              console.log('DEBUG: Using regex match:', parsedTitle);
             } else {
               const firstLine = titlesString.split('\n')[0].trim();
-              if (firstLine) parsedTitle = firstLine;
+              if (firstLine) {
+                parsedTitle = firstLine;
+                console.log('DEBUG: Using first line:', parsedTitle);
+              }
             }
+          } else {
+            console.log('DEBUG: No valid possible_article_titles, using default title');
           }
+          console.log('DEBUG: Final parsed title:', parsedTitle);
           
           return {
             id: article.id,
