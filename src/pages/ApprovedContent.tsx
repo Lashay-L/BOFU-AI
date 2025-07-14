@@ -87,12 +87,11 @@ export default function ApprovedContent() {
                 
                 // Check for keywords array in the parsed content - this is the primary source
                 if (briefContent.keywords && Array.isArray(briefContent.keywords) && briefContent.keywords.length > 0) {
-                  const briefShortId = brief.id.substring(0, 8);
                   // Extract the first keyword and clean it from backticks and quotes
                   const firstKeyword = briefContent.keywords[0].replace(/[`'"]/g, '').trim();
                   // Remove any URL patterns that might be in the keyword
                   const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
-                  return `${cleanKeyword} - Content Brief ${briefShortId}`;
+                  return cleanKeyword;
                 }
                 
                 // Handle case where keywords is stored as a JSON string
@@ -100,10 +99,9 @@ export default function ApprovedContent() {
                   try {
                     const parsedKeywords = JSON.parse(briefContent.keywords);
                     if (Array.isArray(parsedKeywords) && parsedKeywords.length > 0) {
-                      const briefShortId = brief.id.substring(0, 8);
                       const firstKeyword = parsedKeywords[0].replace(/[`'"]/g, '').trim();
                       const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
-                      return `${cleanKeyword} - Content Brief ${briefShortId}`;
+                      return cleanKeyword;
                     }
                   } catch (error) {
                     console.warn('Could not parse keywords string:', error);
@@ -115,8 +113,7 @@ export default function ApprovedContent() {
                 if (seoStrategy && seoStrategy['Primary Keyword']) {
                   const primaryKeyword = seoStrategy['Primary Keyword'].replace(/[`'"]/g, '').trim();
                   if (primaryKeyword) {
-                    const briefShortId = brief.id.substring(0, 8);
-                    return `${primaryKeyword} - Content Brief ${briefShortId}`;
+                    return primaryKeyword;
                   }
                 }
               } catch (error) {
@@ -140,9 +137,10 @@ export default function ApprovedContent() {
                     : approvedProduct.product_data;
                   
                   if (productData.keywords && Array.isArray(productData.keywords) && productData.keywords.length > 0) {
-                    // Use the first keyword for the title, but make it unique per brief
-                    const briefShortId = brief.id.substring(0, 8);
-                    return `${productData.keywords[0]} - Content Brief ${briefShortId}`;
+                    // Use the first keyword for the title
+                    const firstKeyword = productData.keywords[0].replace(/[`'"]/g, '').trim();
+                    const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
+                    return cleanKeyword;
                   }
                 }
               } catch (productError) {
