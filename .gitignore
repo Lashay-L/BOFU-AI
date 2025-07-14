@@ -42,3 +42,4 @@ tasks/
 .mcp.json
 .gemini/settings.json
 .cursor/mcp.json
+bofu11-complete.tar.gz
