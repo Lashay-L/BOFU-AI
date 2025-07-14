@@ -6,7 +6,7 @@ export interface AdminActivityItem {
   id: string;
   title: string;
   time: string;
-  type: 'comment' | 'article' | 'user' | 'content_brief' | 'system';
+  type: 'comment' | 'article' | 'user' | 'content_brief' | 'research' | 'approved_product' | 'system';
   user?: string;
   details?: string;
 }
@@ -23,115 +23,172 @@ export const useAdminActivity = (maxItems: number = 10): AdminActivityData => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const formatTimeAgo = (timestamp: string) => {
+  const formatTime = (dateString: string): string => {
+    const date = new Date(dateString);
     const now = new Date();
-    const past = new Date(timestamp);
-    const diffMs = now.getTime() - past.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-    return past.toLocaleDateString();
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
+    if (diffInHours < 24) return `${diffInHours} hours ago`;
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    
+    return date.toLocaleDateString();
   };
 
-  const fetchAdminActivity = async () => {
+  const fetchActivities = async () => {
     try {
       setIsLoading(true);
       setError(null);
-
       const allActivities: AdminActivityItem[] = [];
 
-      // Fetch recent comments
+      // 1. Fetch comment activities
+      console.log('💬 Fetching comment activities...');
       try {
-        const commentActivity = await getRealtimeCommentActivity();
-        const recentComments = commentActivity.recentComments.slice(0, 5);
+        const commentActivityData = await getRealtimeCommentActivity();
+        console.log('💬 Comment activity data:', commentActivityData);
         
-        recentComments.forEach((comment: any) => {
-          const userEmail = comment.user?.email || 'Unknown user';
-          const userName = comment.user?.raw_user_meta_data?.name || userEmail;
-          const productName = comment.content_briefs?.product_name || 'Unknown article';
-          
-          allActivities.push({
+        if (commentActivityData && commentActivityData.recentComments && commentActivityData.recentComments.length > 0) {
+          const commentActivities: AdminActivityItem[] = commentActivityData.recentComments.slice(0, 3).map((comment: any) => ({
             id: `comment-${comment.id}`,
-            title: `New comment on ${productName}`,
-            time: formatTimeAgo(comment.created_at),
-            type: 'comment',
-            user: userName,
-            details: comment.content.substring(0, 100) + (comment.content.length > 100 ? '...' : '')
-          });
-        });
+            title: 'New comment posted',
+            time: formatTime(comment.created_at),
+            type: 'comment' as const,
+            user: comment.user?.email || comment.userEmail || 'Unknown user',
+            details: `Comment on article: ${comment.content?.substring(0, 50)}...` || 'New comment added'
+          }));
+          allActivities.push(...commentActivities);
+        }
       } catch (commentError) {
-        console.warn('Failed to fetch comment activity:', commentError);
+        console.error('❌ Failed to fetch comment activity:', commentError);
       }
 
-      // Fetch recent articles
+      // 2. Fetch research results activities
+      console.log('🔬 Fetching research activities...');
       try {
-        const { data: recentArticles, error: articlesError } = await supabase
-          .from('articles')
+        const { data: research, error: researchError } = await supabase
+          .from('research_results')
           .select(`
             id,
-            title,
-            possible_article_titles,
+            product_name,
             created_at,
             updated_at,
-            user_profiles:user_id (
-              email,
-              company_name
-            )
+            user_profiles!inner(email, company_name)
           `)
-          .order('updated_at', { ascending: false })
-          .limit(5);
-
-        if (articlesError) throw articlesError;
-
-        recentArticles?.forEach((article: any) => {
-          const userEmail = article.user_profiles?.email || 'Unknown user';
-          const articleTitle = article.possible_article_titles?.split('\n')[0] || article.title || 'Untitled Article';
-          
-          allActivities.push({
-            id: `article-${article.id}`,
-            title: `Article updated: ${articleTitle.substring(0, 50)}${articleTitle.length > 50 ? '...' : ''}`,
-            time: formatTimeAgo(article.updated_at),
-            type: 'article',
-            user: userEmail,
-            details: `Last modified by ${userEmail}`
-          });
-        });
-      } catch (articleError) {
-        console.warn('Failed to fetch article activity:', articleError);
-      }
-
-      // Fetch recent user registrations
-      try {
-        const { data: recentUsers, error: usersError } = await supabase
-          .from('user_profiles')
-          .select('id, email, company_name, created_at')
           .order('created_at', { ascending: false })
           .limit(3);
 
-        if (usersError) throw usersError;
-
-        recentUsers?.forEach((user: any) => {
-          allActivities.push({
-            id: `user-${user.id}`,
-            title: `New user registered${user.company_name ? ` from ${user.company_name}` : ''}`,
-            time: formatTimeAgo(user.created_at),
-            type: 'user',
-            user: user.email,
-            details: `Email: ${user.email}`
+        if (researchError) {
+          console.error('❌ Research query error:', researchError);
+        } else if (research && research.length > 0) {
+          console.log('🔬 Research data found:', research);
+          const researchActivities: AdminActivityItem[] = research.map((research: any) => {
+            const userEmail = research.user_profiles?.email || 'Unknown user';
+            const companyName = research.user_profiles?.company_name;
+            return {
+              id: `research-${research.id}`,
+              title: 'Research completed',
+              time: formatTime(research.created_at),
+              type: 'research' as const,
+              user: userEmail,
+              details: `Product research: ${research.product_name}${companyName ? ` from ${companyName}` : ''}`
+            };
           });
-        });
-      } catch (userError) {
-        console.warn('Failed to fetch user activity:', userError);
+          allActivities.push(...researchActivities);
+        } else {
+          console.log('🔬 No research data found');
+        }
+      } catch (researchError) {
+        console.error('❌ Failed to fetch research activity:', researchError);
       }
 
-      // Fetch recent content briefs
+      // 3. Fetch approved products activities
+      console.log('✅ Fetching approved products...');
       try {
-        const { data: recentBriefs, error: briefsError } = await supabase
+        const { data: approvals, error: approvalsError } = await supabase
+          .from('approved_products')
+          .select(`
+            id,
+            product_name,
+            created_at,
+            updated_at,
+            user_profiles!inner(email, company_name)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(3);
+
+        if (approvalsError) {
+          console.error('❌ Approved products query error:', approvalsError);
+        } else if (approvals && approvals.length > 0) {
+          console.log('✅ Approved products data found:', approvals);
+          const approvalActivities: AdminActivityItem[] = approvals.map((approval: any) => {
+            const userEmail = approval.user_profiles?.email || 'Unknown user';
+            const companyName = approval.user_profiles?.company_name;
+            return {
+              id: `approval-${approval.id}`,
+              title: 'Product approved',
+              time: formatTime(approval.created_at),
+              type: 'approved_product' as const,
+              user: userEmail,
+              details: `Product approved: ${approval.product_name}${companyName ? ` from ${companyName}` : ''}`
+            };
+          });
+          allActivities.push(...approvalActivities);
+        } else {
+          console.log('✅ No approved products found');
+        }
+      } catch (approvalsError) {
+        console.error('❌ Failed to fetch approved products activity:', approvalsError);
+      }
+
+      // 4. Fetch article activities
+      console.log('📄 Fetching article activities...');
+      try {
+        const { data: articles, error: articlesError } = await supabase
+          .from('content_briefs')
+          .select(`
+            id,
+            title,
+            created_at,
+            updated_at,
+            status,
+            user_profiles!inner(email, company_name)
+          `)
+          .eq('status', 'approved')
+          .order('updated_at', { ascending: false })
+          .limit(3);
+
+        if (articlesError) {
+          console.error('❌ Articles query error:', articlesError);
+        } else if (articles && articles.length > 0) {
+          console.log('📄 Articles data found:', articles);
+          const articleActivities: AdminActivityItem[] = articles.map((article: any) => {
+            const userEmail = article.user_profiles?.email || 'Unknown user';
+            const companyName = article.user_profiles?.company_name;
+            return {
+              id: `article-${article.id}`,
+              title: 'Article approved',
+              time: formatTime(article.updated_at),
+              type: 'article' as const,
+              user: userEmail,
+              details: `Article: ${article.title || 'Untitled'}${companyName ? ` from ${companyName}` : ''}`
+            };
+          });
+          allActivities.push(...articleActivities);
+        } else {
+          console.log('📄 No approved articles found');
+        }
+      } catch (articlesError) {
+        console.error('❌ Failed to fetch article activity:', articlesError);
+      }
+
+      // 5. Fetch content brief activities
+      console.log('📋 Fetching content brief activities...');
+      try {
+        const { data: briefs, error: briefsError } = await supabase
           .from('content_briefs')
           .select(`
             id,
@@ -139,65 +196,93 @@ export const useAdminActivity = (maxItems: number = 10): AdminActivityData => {
             approval_status,
             created_at,
             updated_at,
-            user_profiles:user_id (
-              email,
-              company_name
-            )
+            user_profiles!inner(email, company_name)
           `)
           .order('updated_at', { ascending: false })
           .limit(3);
 
-        if (briefsError) throw briefsError;
-
-        recentBriefs?.forEach((brief: any) => {
-          const userEmail = brief.user_profiles?.email || 'Unknown user';
-          const action = brief.approval_status === 'approved' ? 'approved' : 'submitted';
-          
-          allActivities.push({
-            id: `brief-${brief.id}`,
-            title: `Content brief ${action}: ${brief.title}`,
-            time: formatTimeAgo(brief.updated_at),
-            type: 'content_brief',
-            user: userEmail,
-            details: `Status: ${brief.approval_status}`
+        if (briefsError) {
+          console.error('❌ Content briefs query error:', briefsError);
+        } else if (briefs && briefs.length > 0) {
+          console.log('📋 Content briefs data found:', briefs);
+          const briefActivities: AdminActivityItem[] = briefs.map((brief: any) => {
+            const userEmail = brief.user_profiles?.email || 'Unknown user';
+            const companyName = brief.user_profiles?.company_name;
+            const statusText = brief.approval_status === 'approved' ? 'approved' : 'submitted';
+            return {
+              id: `brief-${brief.id}`,
+              title: `Content brief ${statusText}`,
+              time: formatTime(brief.updated_at),
+              type: 'content_brief' as const,
+              user: userEmail,
+              details: `Brief: ${brief.title || 'Untitled'}${companyName ? ` from ${companyName}` : ''}`
+            };
           });
-        });
-      } catch (briefError) {
-        console.warn('Failed to fetch content brief activity:', briefError);
+          allActivities.push(...briefActivities);
+        } else {
+          console.log('📋 No content briefs found');
+        }
+      } catch (briefsError) {
+        console.error('❌ Failed to fetch content brief activity:', briefsError);
       }
 
-      // Sort all activities by time (most recent first) and limit
+      // 6. Fetch user registrations
+      console.log('👥 Fetching user registrations...');
+      try {
+        const { data: users, error: usersError } = await supabase
+          .from('user_profiles')
+          .select('id, email, company_name, created_at')
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (usersError) {
+          console.error('❌ Users query error:', usersError);
+        } else if (users && users.length > 0) {
+          console.log('👥 Users data found:', users);
+          const userActivities: AdminActivityItem[] = users.map((user: any) => ({
+            id: `user-${user.id}`,
+            title: 'New user registered',
+            time: formatTime(user.created_at),
+            type: 'user' as const,
+            user: user.email,
+            details: `Email: ${user.email}${user.company_name ? `, New user registered from ${user.company_name}` : ''}`
+          }));
+          allActivities.push(...userActivities);
+        } else {
+          console.log('👥 No user registrations found');
+        }
+      } catch (usersError) {
+        console.error('❌ Failed to fetch user activity:', usersError);
+      }
+
+      // Sort all activities by time and limit to maxItems
       allActivities.sort((a, b) => {
-        // Parse the time strings to compare properly
-        const parseTime = (timeStr: string) => {
-          if (timeStr === 'Just now') return 0;
-          const match = timeStr.match(/(\d+)\s+(minute|hour|day)s?\s+ago/);
-          if (!match) return 999999; // Put dates at the end
-          const [, num, unit] = match;
-          const multipliers = { minute: 1, hour: 60, day: 1440 };
-          return parseInt(num) * multipliers[unit as keyof typeof multipliers];
-        };
-        
-        return parseTime(a.time) - parseTime(b.time);
+        const timeA = new Date(a.time === 'Just now' ? Date.now() : a.time).getTime();
+        const timeB = new Date(b.time === 'Just now' ? Date.now() : b.time).getTime();
+        return timeB - timeA;
       });
 
-      setActivities(allActivities.slice(0, maxItems));
-    } catch (err) {
-      console.error('Error fetching admin activity:', err);
-      setError('Failed to load activity data');
+      const limitedActivities = allActivities.slice(0, maxItems);
+      console.log(`🎯 Total activities found: ${allActivities.length}, showing top ${limitedActivities.length}`);
+
+      setActivities(limitedActivities);
+
+    } catch (error) {
+      console.error('❌ Error fetching admin activities:', error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch activities');
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAdminActivity();
+    fetchActivities();
   }, [maxItems]);
 
   return {
     activities,
     isLoading,
     error,
-    refresh: fetchAdminActivity
+    refresh: fetchActivities
   };
 }; 

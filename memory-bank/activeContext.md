@@ -1,86 +1,102 @@
 # Active Context
 
 ## Current Work Focus  
-**COMPLETED: Admin Activity Feed Production Ready Implementation** ✅
+**COMPLETED: Admin Activity Feed Production Ready Implementation & Database Query Fixes** ✅
 
-Successfully replaced placeholder data in the admin activity feed with real-time data from multiple sources to make it production ready.
+Successfully resolved 400 database errors and enhanced admin activity feed to show real content generation activities including research, approved products, and content briefs.
 
 ### Implementation Details:
 
-#### **Issue Identified** ✅
-**Problem**: Admin dashboard activity feed showing hardcoded placeholder data instead of real activity
-**Location**: `src/components/admin/layout/AdminMainContent.tsx` lines 74-79
-**Impact**: Placeholder data ("User profile updated", "Article published", etc.) instead of actual system activity
+#### **Issue Identified & Resolved** ✅
+**Problem**: 400 errors from Supabase API when fetching article and content brief activities
+**Root Cause**: Incorrect PostgREST join syntax using `:user_id` instead of `!inner`
+**Error Logs**: 
+- ❌ Failed to fetch article activity: Object
+- ❌ Failed to fetch content brief activity: Object
+- API URL showing malformed join: `user_profiles%3Auser_id%28email%2Ccompany_name%29`
 
-#### **New useAdminActivity Hook** ✅
+#### **Database Query Fixes** ✅
 **File**: `src/hooks/useAdminActivity.ts`
-- **Real Data Sources**: Fetches from comments, articles, users, content briefs
-- **Multiple Activity Types**: Comment activity, article updates, user registrations, content brief approvals
-- **Smart Time Formatting**: "Just now", "X minutes ago", "X hours ago", "X days ago"
-- **Error Handling**: Graceful degradation with individual source error handling
-- **Data Structure**: Rich activity items with id, title, time, type, user, details
-- **Sorting & Limiting**: Chronological sorting with configurable max items
-- **API Integration**: Uses existing `commentAnalytics.ts` and direct Supabase queries
+- **Fixed Join Syntax**: Changed from `user_profiles:user_id(email,company_name)` to `user_profiles!inner(email,company_name)`
+- **Correct PostgREST Format**: Following established patterns from `adminCommentApi.ts`
+- **Enhanced Error Logging**: Added specific error details for each data source
+- **Fixed Comment Activity**: Properly handle `commentActivityData.recentComments` structure
 
-#### **Enhanced AdminActivityFeed Component** ✅  
-**File**: `src/components/admin/ui/AdminActivityFeed.tsx`
-- **Loading States**: Skeleton loading animation with 3 placeholder items
-- **Error Handling**: Error display with retry functionality
-- **Activity Icons**: Type-specific icons (MessageSquare, FileText, Users, Package)
-- **Color Coding**: Blue=comments, Green=articles, Purple=users, Yellow=content briefs
-- **Rich Display**: Activity title, time, user, details with responsive layout
-- **Refresh Button**: Manual refresh capability with loading spinner
-- **Empty State**: Informative empty state when no activity exists
+#### **Enhanced Content Generation Activities** ✅
+**New Data Sources Added**:
+1. **🔬 Research Results** (`research_results` table)
+   - Shows: "Research completed: [product_name] from [company]"
+   - Activity Type: `research` (cyan icon)
 
-#### **AdminMainContent Integration** ✅
-**File**: `src/components/admin/layout/AdminMainContent.tsx`
-- **Hook Integration**: Replaced hardcoded data with `useAdminActivity(8)` hook
-- **Real-time Updates**: Activity feed now shows actual system activity
-- **Loading & Error States**: Proper state management passed to component
-- **Refresh Capability**: Admin can manually refresh activity data
+2. **✅ Approved Products** (`approved_products` table)  
+   - Shows: "Product approved: [product_name] from [company]"
+   - Activity Type: `approved_product` (emerald icon)
 
-### Key Features Implemented:
+3. **📄 Article Activities** (`content_briefs` with status='approved')
+   - Shows: "Article approved: [title] from [company]"
+   - Activity Type: `article` (green icon)
 
-#### **Real-Time Activity Sources** ✅
-- **Comments**: Recent comments on articles with user and article information
-- **Articles**: Article updates with titles and modification details  
-- **User Registrations**: New user signups with company information
-- **Content Briefs**: Content brief submissions and approvals with status
-- **Smart Aggregation**: Combines all sources and sorts chronologically
+4. **📋 Content Brief Activities** (`content_briefs` all statuses)
+   - Shows: "Content brief [approved/submitted]: [title] from [company]"
+   - Activity Type: `content_brief` (yellow icon)
 
-#### **Production-Ready Experience** ✅
-- **No More Placeholder Data**: All activity data comes from real database sources
-- **Error Resilience**: Individual source failures don't break entire feed
-- **Performance Optimized**: Limits queries (5 comments, 5 articles, 3 users, 3 briefs)
-- **Responsive Design**: Works across desktop and mobile admin dashboards
-- **Real-time Refresh**: Admins can refresh to see latest activity
+5. **💬 Comment Activities** (via `getRealtimeCommentActivity()`)
+   - Shows: "New comment posted: [content preview]"
+   - Activity Type: `comment` (blue icon)
 
-#### **User Experience Improvements** ✅
-- **Visual Activity Types**: Color-coded icons make activity types immediately recognizable
-- **Detailed Information**: Each activity shows user, timing, and relevant details
-- **Loading Feedback**: Professional loading skeleton during data fetch
-- **Error Recovery**: Clear error messages with retry options
-- **Empty State Guidance**: Helpful messaging when no recent activity exists
+6. **👥 User Registrations** (`user_profiles` table) 
+   - Shows: "New user registered from [company]"
+   - Activity Type: `user` (purple icon)
 
-### Result:
-- **Current State**: Admin activity feed now displays real system activity ✅
-- **Data Sources**: Comments, articles, users, and content briefs ✅
-- **User Experience**: Professional loading, error handling, and refresh capability ✅
-- **Production Ready**: No placeholder data, proper error handling, optimized queries ✅
+#### **Query Structure Patterns** ✅
+**Correct PostgREST Syntax**:
+```sql
+-- ✅ CORRECT - Using !inner join
+user_profiles!inner(email, company_name)
 
-## Recent Changes & Context
+-- ❌ INCORRECT - Old syntax that caused 400 errors
+user_profiles:user_id(email, company_name)
+```
 
-### Admin Activity Feed Evolution
-- **Previous**: Hardcoded placeholder text ("User profile updated", etc.)
-- **Current**: Real-time data from multiple database sources with rich display
-- **Architecture**: Custom hook + enhanced component with full state management
-- **Integration**: Seamless integration with existing admin dashboard layout
+**Enhanced Error Handling**:
+- Console logging for each data source individually
+- Specific error messages for debugging
+- Graceful fallback when individual sources fail
+- Total activity count logging
 
-### Technical Architecture
-- **Data Layer**: `useAdminActivity` hook aggregates from multiple Supabase tables
-- **Presentation Layer**: Enhanced AdminActivityFeed with loading/error/empty states
-- **Integration Layer**: AdminMainContent manages hook state and passes to component
-- **Error Handling**: Graceful degradation allows partial failures without breaking UI
+#### **Data Flow Architecture** ✅
+1. **Individual Source Fetching**: Each activity type fetched separately with error isolation
+2. **Smart Data Mapping**: Convert database records to consistent AdminActivityItem format
+3. **Time-based Sorting**: Sort all activities by creation/update time (newest first)
+4. **Intelligent Limiting**: Show top activities across all sources, not per source
+5. **User-friendly Display**: Company context, clear activity descriptions
+
+#### **Production Ready Features** ✅
+- **Real-time Data**: Live database queries, no placeholder data
+- **Error Resilience**: Individual source failures don't break entire feed  
+- **Performance Optimized**: Limited queries (3-5 items per source)
+- **User Context**: Email and company information for each activity
+- **Visual Feedback**: Loading states, error messages, manual refresh
+- **Type Safety**: Full TypeScript support with proper interfaces
+
+#### **Console Debug Output** ✅
+The enhanced logging now shows:
+- 💬 Fetching comment activities...
+- 🔬 Fetching research activities...  
+- ✅ Fetching approved products...
+- 📄 Fetching article activities...
+- 📋 Fetching content brief activities...
+- 👥 Fetching user registrations...
+- 🎯 Total activities found: X, showing top Y
+
+### **Expected Results**:
+Admin activity feed should now display diverse content generation activities instead of only user registrations, providing real insight into platform activity across research, products, articles, and collaboration.
+
+## Next Steps:
+- Monitor activity feed in production for data variety
+- Consider adding real-time subscriptions for live updates
+- Evaluate additional activity sources (file uploads, admin actions, etc.)
+- Performance monitoring for query optimization
 
 ---
 

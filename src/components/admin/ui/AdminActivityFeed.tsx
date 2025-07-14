@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Activity, Clock, MessageSquare, FileText, Users, Package, RefreshCw } from 'lucide-react';
+import { Activity, Clock, MessageSquare, FileText, Users, Package, RefreshCw, Search, CheckCircle } from 'lucide-react';
 import { AdminActivityItem } from '../../../hooks/useAdminActivity';
 
 interface AdminActivityFeedProps {
@@ -20,6 +20,10 @@ const getActivityIcon = (type: AdminActivityItem['type']) => {
       return Users;
     case 'content_brief':
       return Package;
+    case 'research':
+      return Search;
+    case 'approved_product':
+      return CheckCircle;
     default:
       return Activity;
   }
@@ -35,6 +39,10 @@ const getActivityColor = (type: AdminActivityItem['type']) => {
       return 'text-purple-400';
     case 'content_brief':
       return 'text-yellow-400';
+    case 'research':
+      return 'text-cyan-400';
+    case 'approved_product':
+      return 'text-emerald-400';
     default:
       return 'text-gray-400';
   }
