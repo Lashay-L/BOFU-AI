@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Bell, 
@@ -16,7 +16,8 @@ import { useAuth } from '../../lib/auth';
 import { 
   getMentionNotifications, 
   markMentionNotificationsAsSent,
-  MentionNotification 
+  MentionNotification,
+  subscribeToMentionNotifications
 } from '../../lib/commentApi';
 import { formatDistanceToNow } from 'date-fns';
 import { BaseModal } from '../ui/BaseModal';
@@ -32,6 +33,8 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
   const [isLoading, setIsLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread' | 'mentions'>('all');
   const [selectedNotifications, setSelectedNotifications] = useState<Set<string>>(new Set());
+  const [unreadCount, setUnreadCount] = useState(0);
+  const subscriptionRef = useRef<any>(null);
 
   // Load notifications when component becomes visible
   useEffect(() => {
@@ -39,6 +42,65 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
       loadNotifications();
     }
   }, [isVisible, user]);
+
+  // Set up real-time subscription for mention notifications
+  useEffect(() => {
+    if (user?.id) {
+      console.log('🔔 Setting up real-time mention notifications for user:', user.id);
+      
+      // Clean up any existing subscription first
+      if (subscriptionRef.current) {
+        console.log('🔔 Cleaning up existing user mention subscription');
+        subscriptionRef.current.unsubscribe();
+        subscriptionRef.current = null;
+      }
+      
+      subscriptionRef.current = subscribeToMentionNotifications(
+        user.id,
+        (newNotification: MentionNotification) => {
+          console.log('🔔 Received new mention notification:', newNotification);
+          
+          // Add the new notification to the list
+          setNotifications(prev => [newNotification, ...prev]);
+          
+          // Update unread count
+          setUnreadCount(prev => prev + 1);
+          
+          // Show toast notification
+          toast.success(
+            `New mention from ${newNotification.mentioned_by_user?.name || newNotification.mentioned_by_user?.email || 'someone'}`,
+            {
+              icon: '🔔',
+              duration: 5000,
+            }
+          );
+          
+          // Play notification sound (optional)
+          try {
+            const audio = new Audio('/notification-sound.mp3');
+            audio.volume = 0.3;
+            audio.play().catch(() => {}); // Ignore errors if sound doesn't exist
+          } catch (error) {
+            // Ignore audio errors
+          }
+        }
+      );
+
+      return () => {
+        if (subscriptionRef.current) {
+          console.log('🔔 Cleaning up mention notifications subscription');
+          subscriptionRef.current.unsubscribe();
+          subscriptionRef.current = null;
+        }
+      };
+    }
+  }, [user?.id]);
+
+  // Update unread count when notifications change
+  useEffect(() => {
+    const unread = notifications.filter(n => !n.notification_sent).length;
+    setUnreadCount(unread);
+  }, [notifications]);
 
   const loadNotifications = async () => {
     try {
@@ -80,6 +142,9 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
             : notification
         )
       );
+      
+      // Update unread count immediately
+      setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
       console.error('❌ Error marking notification as read:', error);
       toast.error('Failed to mark as read');
@@ -98,6 +163,7 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
         setNotifications(prev => 
           prev.map(notification => ({ ...notification, notification_sent: true }))
         );
+        setUnreadCount(0);
         toast.success('All notifications marked as read');
       }
     } catch (error) {
@@ -128,8 +194,6 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
     }
     return 'Someone';
   };
-
-  const unreadCount = notifications.filter(n => !n.notification_sent).length;
 
   return (
     <BaseModal

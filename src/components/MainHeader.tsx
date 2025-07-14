@@ -1,4 +1,4 @@
-import React, { Fragment, useState, useEffect } from 'react';
+import React, { Fragment, useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { LogIn, Book, Briefcase, Search, Settings, Bell } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -9,7 +9,12 @@ import { toast } from 'react-hot-toast';
 import { ProfileManager } from '../components/profile/ProfileManager';
 import { NotificationCenter } from './user-dashboard/NotificationCenter';
 import { AssignmentNotificationCenter } from './admin/AssignmentNotificationCenter';
-import { getMentionNotifications } from '../lib/commentApi';
+import { 
+  getMentionNotifications, 
+  subscribeToMentionNotifications,
+  subscribeToAdminMentionNotifications,
+  MentionNotification
+} from '../lib/commentApi';
 import { getBriefApprovalNotifications } from '../lib/briefApprovalNotifications';
 import { useAdminContext } from '../contexts/AdminContext';
 
@@ -41,6 +46,7 @@ export function MainHeader({
   const [showNotificationCenter, setShowNotificationCenter] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const { isAdmin, adminRole, assignedClientIds } = useAdminContext();
+  const mentionSubscriptionRef = useRef<any>(null);
 
   const navigate = useNavigate();
 
@@ -50,12 +56,15 @@ export function MainHeader({
     if (userData?.user_metadata?.company_name) {
       return userData.user_metadata.company_name;
     }
-    // If no company_name in user_metadata, check app_metadata.company_name (used in some Supabase setups)
-    if (userData?.app_metadata?.company_name) {
-      return userData.app_metadata.company_name;
+    // Then check name
+    if (userData?.user_metadata?.name) {
+      return userData.user_metadata.name;
     }
-    // Fallback to email
-    return userData?.email || 'User';
+    // Fall back to email prefix
+    if (userData?.email) {
+      return userData.email.split('@')[0];
+    }
+    return 'User';
   };
 
   // Load notification count
@@ -104,6 +113,54 @@ export function MainHeader({
     }
   };
 
+  // Set up real-time mention notification subscription to update count
+  useEffect(() => {
+    const setupMentionSubscription = () => {
+      if (user?.id) {
+        console.log('🔔 Setting up mention notification subscription for header count');
+        
+        // Clean up any existing subscription first
+        if (mentionSubscriptionRef.current) {
+          console.log('🔔 Cleaning up existing header mention subscription');
+          if (typeof mentionSubscriptionRef.current.unsubscribe === 'function') {
+            mentionSubscriptionRef.current.unsubscribe();
+          }
+          mentionSubscriptionRef.current = null;
+        }
+        
+        // Determine if this is an admin user and subscribe accordingly
+        if (isAdmin) {
+          mentionSubscriptionRef.current = subscribeToAdminMentionNotifications(
+            user.id,
+            assignedClientIds || [],
+            (newNotification: MentionNotification) => {
+              console.log('🔔 Header received new mention notification, updating count');
+              setUnreadNotificationCount(prev => prev + 1);
+            }
+          );
+        } else {
+          mentionSubscriptionRef.current = subscribeToMentionNotifications(
+            user.id,
+            (newNotification: MentionNotification) => {
+              console.log('🔔 Header received new mention notification, updating count');
+              setUnreadNotificationCount(prev => prev + 1);
+            }
+          );
+        }
+      }
+    };
+
+    setupMentionSubscription();
+
+    return () => {
+      if (mentionSubscriptionRef.current) {
+        console.log('🔔 Cleaning up header mention subscription');
+        mentionSubscriptionRef.current.unsubscribe();
+        mentionSubscriptionRef.current = null;
+      }
+    };
+  }, [user?.id, isAdmin, assignedClientIds]);
+
   React.useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -118,13 +175,11 @@ export function MainHeader({
       setUser(session?.user ?? null);
       if (session?.user) {
         loadNotificationCount();
-      } else {
-        setUnreadNotificationCount(0);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [adminRole, assignedClientIds]);
 
   // Load notifications when user changes or admin assignments change
   React.useEffect(() => {

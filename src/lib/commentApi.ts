@@ -1318,7 +1318,7 @@ export async function getMentionableUsers(
 
     console.log('✅ Retrieved mentionable users:', {
       count: data?.length || 0,
-      users: data?.map(u => ({ email: u.email, isAdmin: u.is_admin, mentionText: u.mention_text })) || []
+      users: data?.map((u: MentionableUser) => ({ email: u.email, isAdmin: u.is_admin, mentionText: u.mention_text })) || []
     });
     
     return data || [];
@@ -1529,28 +1529,35 @@ export const createMentionNotifications = async (
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
+    console.log('🔔 Creating mention notifications:', { commentId, mentions, userId: user.id });
+
     const notifications: MentionNotification[] = [];
 
-    for (const mentionText of mentions) {
-      // Extract username from mention (remove @ if present)
-      const username = mentionText.replace('@', '');
-      
-      // Find the mentioned user
-      const { data: mentionedUsers } = await supabase
-        .from('profiles')
-        .select('id, email, name')
-        .or(`email.ilike.%${username}%,name.ilike.%${username}%`)
-        .limit(1);
+    // Get all mentionable users first to match against
+    const mentionableUsers = await getMentionableUsers();
+    console.log('📝 Available mentionable users:', mentionableUsers.map(u => ({ email: u.email, mentionText: u.mention_text })));
 
-      if (mentionedUsers && mentionedUsers.length > 0) {
-        const mentionedUser = mentionedUsers[0];
+    for (const mentionText of mentions) {
+      console.log('🔍 Processing mention:', mentionText);
+      
+      // Find the mentioned user by matching the exact mention text
+      const mentionedUser = mentionableUsers.find(u => 
+        u.mention_text === mentionText || u.mention_text === mentionText.replace('@', '')
+      );
+
+      if (mentionedUser) {
+        console.log('✅ Found mentioned user:', { 
+          email: mentionedUser.email, 
+          userId: mentionedUser.user_id,
+          isAdmin: mentionedUser.is_admin 
+        });
         
         // Create mention record
         const { data: mention, error } = await supabase
           .from('comment_mentions')
           .insert({
             comment_id: commentId,
-            mentioned_user_id: mentionedUser.id,
+            mentioned_user_id: mentionedUser.user_id,
             mentioned_by_user_id: user.id,
             mention_text: mentionText,
             notification_sent: false
@@ -1559,11 +1566,12 @@ export const createMentionNotifications = async (
           .single();
 
         if (error) {
-          console.error('Error creating mention:', error);
+          console.error('❌ Error creating mention:', error);
           continue;
         }
 
         if (mention) {
+          console.log('✅ Created mention notification:', mention);
           notifications.push({
             ...mention,
             mentioned_by_user: {
@@ -1573,12 +1581,16 @@ export const createMentionNotifications = async (
             }
           });
         }
+      } else {
+        console.log('❌ User not found for mention:', mentionText);
+        console.log('🔍 Available mention texts:', mentionableUsers.map(u => u.mention_text));
       }
     }
 
+    console.log('🔔 Created mention notifications:', notifications.length);
     return notifications;
   } catch (error) {
-    console.error('Error creating mention notifications:', error);
+    console.error('❌ Error creating mention notifications:', error);
     return [];
   }
 };
@@ -1817,3 +1829,152 @@ export const getMentionStats = async (
     };
   }
 }; 
+
+/**
+ * Debug function to test mention notifications
+ */
+export const debugMentionSystem = async (): Promise<void> => {
+  try {
+    console.log('🐛 DEBUG: Testing mention system...');
+    
+    // Get all mentionable users
+    const users = await getMentionableUsers();
+    console.log('🐛 DEBUG: Available mentionable users:', users);
+    
+    // Test extraction
+    const testText = "Hey @lashay, this is a test mention!";
+    const mentions = extractMentionsFromText(testText);
+    console.log('🐛 DEBUG: Extracted mentions from "' + testText + '":', mentions);
+    
+    // Test validation
+    const { validMentions, invalidMentions } = await validateMentions(mentions);
+    console.log('🐛 DEBUG: Valid mentions:', validMentions);
+    console.log('🐛 DEBUG: Invalid mentions:', invalidMentions);
+    
+  } catch (error) {
+    console.error('🐛 DEBUG: Error in mention system:', error);
+  }
+};
+
+/**
+ * Subscribe to real-time mention notifications for a user
+ */
+export function subscribeToMentionNotifications(
+  userId: string,
+  callback: (notification: MentionNotification) => void
+) {
+  console.log('🔔 Setting up real-time mention notifications subscription for user:', userId);
+  
+  // Use a unique channel name with timestamp to avoid conflicts
+  const channelName = `mention-notifications-${userId}-${Date.now()}`;
+  
+  const subscription = supabase
+    .channel(channelName)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'comment_mentions',
+        filter: `mentioned_user_id=eq.${userId}`
+      },
+      async (payload) => {
+        console.log('🔔 New mention notification received:', payload);
+        
+        try {
+          // Get the full mention data with related information
+          const { data: mentionData, error } = await supabase
+            .from('comment_mentions')
+            .select(`
+              *,
+              mentioned_by_user:profiles!comment_mentions_mentioned_by_user_id_fkey(
+                id,
+                email,
+                name
+              ),
+              comment:article_comments!comment_mentions_comment_id_fkey(
+                id,
+                article_id,
+                content,
+                created_at,
+                user_id
+              )
+            `)
+            .eq('id', payload.new.id)
+            .single();
+
+          if (error) {
+            console.error('❌ Error fetching mention data:', error);
+            return;
+          }
+
+          if (mentionData) {
+            const notification: MentionNotification = {
+              id: mentionData.id,
+              comment_id: mentionData.comment_id,
+              mentioned_user_id: mentionData.mentioned_user_id,
+              mentioned_by_user_id: mentionData.mentioned_by_user_id,
+              mention_text: mentionData.mention_text,
+              notification_sent: mentionData.notification_sent,
+              created_at: mentionData.created_at,
+              updated_at: mentionData.updated_at,
+              comment: mentionData.comment,
+              mentioned_by_user: mentionData.mentioned_by_user
+            };
+
+            callback(notification);
+          }
+        } catch (error) {
+          console.error('❌ Error processing mention notification:', error);
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log('🔔 Mention notifications subscription status:', status, 'for channel:', channelName);
+    });
+
+  return subscription;
+}
+
+/**
+ * Subscribe to mention notifications with admin filtering
+ */
+export function subscribeToAdminMentionNotifications(
+  adminId: string,
+  assignedClientIds: string[] = [],
+  callback: (notification: MentionNotification) => void
+) {
+  console.log('🔔 Setting up admin mention notifications subscription for:', adminId, 'with clients:', assignedClientIds);
+  
+  // Create subscriptions array to track all subscriptions
+  const subscriptions: any[] = [];
+  
+  // Subscribe to mentions for the admin themselves
+  const adminSubscription = subscribeToMentionNotifications(adminId, callback);
+  subscriptions.push(adminSubscription);
+  
+  // Subscribe to mentions for assigned clients (for sub-admins) - only if there are actual client IDs
+  if (assignedClientIds && assignedClientIds.length > 0) {
+    assignedClientIds.forEach(clientId => {
+      if (clientId && clientId !== adminId) { // Avoid duplicate subscription for admin
+        const clientSubscription = subscribeToMentionNotifications(clientId, callback);
+        subscriptions.push(clientSubscription);
+      }
+    });
+  }
+
+  return {
+    subscriptions,
+    unsubscribe: () => {
+      console.log('🔔 Unsubscribing from admin mention notifications, total subscriptions:', subscriptions.length);
+      subscriptions.forEach((subscription, index) => {
+        try {
+          subscription.unsubscribe();
+          console.log(`🔔 Unsubscribed from subscription ${index + 1}`);
+        } catch (error) {
+          console.error(`❌ Error unsubscribing from subscription ${index + 1}:`, error);
+        }
+      });
+    }
+  };
+} 

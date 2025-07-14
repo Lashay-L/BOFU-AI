@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useAdminContext } from '../../contexts/AdminContext';
 import { 
@@ -27,7 +27,9 @@ import { supabase } from '../../lib/supabase';
 import { 
   getMentionNotifications, 
   markMentionNotificationsAsSent,
-  MentionNotification 
+  MentionNotification,
+  subscribeToAdminMentionNotifications,
+  debugMentionSystem
 } from '../../lib/commentApi';
 import {
   getBriefApprovalNotifications,
@@ -84,11 +86,85 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
   const [isLoading, setIsLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread' | 'assignments' | 'accounts' | 'mentions' | 'briefs' | 'products' | 'articles'>('all');
   const [selectedNotifications, setSelectedNotifications] = useState<Set<string>>(new Set());
+  const [unreadMentionCount, setUnreadMentionCount] = useState(0);
+  const mentionSubscriptionRef = useRef<any>(null);
 
   // Only admin users can access this component
   if (!adminRole || (adminRole !== 'super_admin' && adminRole !== 'sub_admin')) {
     return null;
   }
+
+  // Set up real-time mention notifications subscription
+  useEffect(() => {
+    const setupMentionSubscription = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user?.id || !isVisible) return;
+
+        // Clean up any existing subscription first
+        if (mentionSubscriptionRef.current) {
+          console.log('🔔 Cleaning up existing admin mention subscription before creating new one');
+          mentionSubscriptionRef.current.unsubscribe();
+          mentionSubscriptionRef.current = null;
+        }
+
+        console.log('🔔 Setting up admin mention notifications subscription for:', user.id, 'with clients:', assignedClientIds);
+        
+        mentionSubscriptionRef.current = subscribeToAdminMentionNotifications(
+          user.id,
+          assignedClientIds,
+          (newNotification: MentionNotification) => {
+            console.log('🔔 Admin received new mention notification:', newNotification);
+            
+            // Add the new mention to the list
+            setMentionNotifications(prev => [newNotification, ...prev]);
+            
+            // Update unread count
+            setUnreadMentionCount(prev => prev + 1);
+            
+            // Show toast notification
+            toast.success(
+              `New mention from ${newNotification.mentioned_by_user?.name || newNotification.mentioned_by_user?.email || 'someone'}`,
+              {
+                icon: '🔔',
+                duration: 5000,
+              }
+            );
+            
+            // Play notification sound (optional)
+            try {
+              const audio = new Audio('/notification-sound.mp3');
+              audio.volume = 0.3;
+              audio.play().catch(() => {}); // Ignore errors if sound doesn't exist
+            } catch (error) {
+              // Ignore audio errors
+            }
+          }
+        );
+      } catch (error) {
+        console.error('❌ Error setting up mention subscription:', error);
+      }
+    };
+
+    // Only setup subscription when notification center is visible
+    if (isVisible) {
+      setupMentionSubscription();
+    }
+
+    return () => {
+      if (mentionSubscriptionRef.current) {
+        console.log('🔔 Cleaning up admin mention notifications subscription');
+        mentionSubscriptionRef.current.unsubscribe();
+        mentionSubscriptionRef.current = null;
+      }
+    };
+  }, [isVisible, assignedClientIds]);
+
+  // Update unread mention count when mention notifications change
+  useEffect(() => {
+    const unread = mentionNotifications.filter(n => !n.notification_sent).length;
+    setUnreadMentionCount(unread);
+  }, [mentionNotifications]);
 
   // Load recent assignment activities and mention notifications
   const loadRecentActivities = async () => {
@@ -636,6 +712,14 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
           >
             <CheckCircle className="h-4 w-4" />
             Mark All Read
+          </button>
+          
+          {/* Debug button for testing mention system */}
+          <button
+            onClick={() => debugMentionSystem()}
+            className="flex items-center gap-2 px-3 py-1 bg-purple-500/20 text-purple-400 rounded-lg text-sm hover:bg-purple-500/30"
+          >
+            🐛 Debug Mentions
           </button>
         </div>
       </div>
