@@ -13,6 +13,7 @@ export interface ArticleListItem {
   article_version: number;
   created_at: string;
   updated_at: string;
+  google_doc_url?: string;
 }
 
 export interface AdminArticlesResponse {

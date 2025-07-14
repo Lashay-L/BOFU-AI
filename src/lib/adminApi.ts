@@ -132,7 +132,7 @@ export const adminArticlesApi = {
       // Step 1: Fetch content_briefs with role-based filtering
       let query = supabase
         .from('content_briefs')
-        .select('id, user_id, product_name, possible_article_titles, editing_status, last_edited_at, last_edited_by, article_version, created_at, updated_at, article_content', { count: 'exact' });
+        .select('id, user_id, product_name, possible_article_titles, editing_status, last_edited_at, last_edited_by, article_version, created_at, updated_at, article_content, google_doc_url', { count: 'exact' });
 
       // Apply role-based filtering
       if (adminCheck.role === 'sub_admin') {
@@ -267,6 +267,7 @@ export const adminArticlesApi = {
             article_version: article.article_version || 1,
             created_at: article.created_at || new Date().toISOString(),
             updated_at: article.updated_at || new Date().toISOString(),
+            google_doc_url: article.google_doc_url || null
           };
         }),
         total: count || 0,
@@ -351,9 +352,22 @@ export const adminArticlesApi = {
 
       console.log('DEBUG: Successfully fetched article and user profile');
 
+      // Parse article title from possible_article_titles (same logic as user dashboard)
+      let parsedTitle = `Untitled Article ${fetchedArticle.id.substring(0, 4)}`;
+      if (typeof fetchedArticle.possible_article_titles === 'string' && fetchedArticle.possible_article_titles.trim() !== '') {
+        const titlesString = fetchedArticle.possible_article_titles;
+        const match = titlesString.match(/^1\\.s*(.*?)(?:\\n2\\.|$)/s);
+        if (match && match[1]) {
+          parsedTitle = match[1].trim();
+        } else {
+          const firstLine = titlesString.split('\n')[0].trim();
+          if (firstLine) parsedTitle = firstLine;
+        }
+      }
+
       const response: ArticleDetail = {
         id: fetchedArticle.id,
-        title: fetchedArticle.product_name || 'Untitled',
+        title: parsedTitle, // Use parsed article title instead of product_name
         content: fetchedArticle.article_content || '',
         article_content: fetchedArticle.article_content || '',
         user_id: fetchedArticle.user_id || '',
@@ -462,9 +476,22 @@ export const adminArticlesApi = {
         .eq('id', data.user_id)
         .maybeSingle();
 
+      // Parse article title from possible_article_titles (same logic as user dashboard)
+      let parsedTitle = `Untitled Article ${data.id.substring(0, 4)}`;
+      if (typeof data.possible_article_titles === 'string' && data.possible_article_titles.trim() !== '') {
+        const titlesString = data.possible_article_titles;
+        const match = titlesString.match(/^1\\.s*(.*?)(?:\\n2\\.|$)/s);
+        if (match && match[1]) {
+          parsedTitle = match[1].trim();
+        } else {
+          const firstLine = titlesString.split('\n')[0].trim();
+          if (firstLine) parsedTitle = firstLine;
+        }
+      }
+
       const response: ArticleDetail = {
         id: data.id,
-        title: data.product_name || 'Untitled',
+        title: parsedTitle, // Use parsed article title instead of product_name
         content: data.article_content || '',
         article_content: data.article_content || '',
         user_id: data.user_id || '',

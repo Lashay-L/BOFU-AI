@@ -5,7 +5,8 @@ import {
   Eye,
   ExternalLink,
   CalendarDays,
-  Trash2
+  Trash2,
+  FileText
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { ArticleListItem } from '../../types/adminApi';
@@ -113,6 +114,16 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({
           <Edit3 size={16} />
           Edit Article
         </button>
+
+        {article.google_doc_url && (
+          <button
+            onClick={() => window.open(article.google_doc_url, '_blank')}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-100 text-green-700 text-sm font-medium rounded-lg hover:bg-green-200 transition-colors duration-200"
+          >
+            <FileText size={16} />
+            Open Google Doc
+          </button>
+        )}
 
         <button
           onClick={() => onDeleteArticle?.(article)}

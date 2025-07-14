@@ -85,7 +85,7 @@ export const AdminUserArticlesModal = ({
       // First, fetch articles without the join
       const { data: articlesData, error } = await supabaseAdmin
         .from('content_briefs')
-        .select('*')
+        .select('id, user_id, product_name, possible_article_titles, article_content, editing_status, last_edited_at, last_edited_by, article_version, created_at, updated_at')
         .in('user_id', userIds)
         .not('article_content', 'is', null)
         .order('created_at', { ascending: false });
@@ -186,10 +186,23 @@ export const AdminUserArticlesModal = ({
         ) : filteredArticles.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {filteredArticles.map((article) => {
+              // Parse article title from possible_article_titles (same logic as user dashboard)
+              let parsedTitle = `Untitled Article ${article.id.substring(0, 4)}`;
+              if (typeof article.possible_article_titles === 'string' && article.possible_article_titles.trim() !== '') {
+                const titlesString = article.possible_article_titles;
+                const match = titlesString.match(/^1\\.s*(.*?)(?:\\n2\\.|$)/s);
+                if (match && match[1]) {
+                  parsedTitle = match[1].trim();
+                } else {
+                  const firstLine = titlesString.split('\n')[0].trim();
+                  if (firstLine) parsedTitle = firstLine;
+                }
+              }
+              
               // Transform the article data to match ArticleCard expected format
               const transformedArticle = {
                 id: article.id,
-                title: article.product_name || 'Untitled Article',
+                title: parsedTitle, // Use parsed article title instead of product_name
                 content: article.article_content || '',
                 user_id: article.user_id,
                 user_email: article.user_profiles?.email || 'unknown@example.com',
