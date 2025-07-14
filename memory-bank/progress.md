@@ -19,7 +19,31 @@
 **Files Updated:**
 - `src/components/admin/ArticleCard.tsx`: Complete redesign to match user dashboard styling
 
-## 🎯 **LATEST COMPLETION: Admin Dashboard Article Management Enhancement** ✅
+## 🎯 **LATEST COMPLETION: Admin Dashboard Article Title Fix - CRITICAL** ✅
+**Date**: January 31, 2025  
+**Issue**: Admin dashboard showing product names instead of actual article titles  
+**Result**: Successfully fixed admin API to display correct article titles  
+
+**Problem Identified:**
+- Admin dashboard displayed "Online Rewards" instead of "Beyond Blackhawk: How Online Rewards Delivers Measurable Behavior Change"
+- Admin API incorrectly mapped `product_name` field to `title` in response
+- User dashboard correctly parsed `possible_article_titles` field but admin API did not
+
+**Critical Fix Applied:**
+- **Database Query Update**: Added `possible_article_titles` to admin API select statement
+- **Title Parsing Logic**: Implemented identical parsing logic as user dashboard
+- **Regex Pattern Matching**: Extract first article title from `possible_article_titles` string
+- **Search Enhancement**: Added `possible_article_titles` to search functionality for better article discovery
+- **Fallback Handling**: Proper fallback to "Untitled Article [ID]" when no titles available
+
+**Technical Changes:**
+- `src/lib/adminApi.ts`: Fixed database query and title mapping logic
+- Replaced `title: article.product_name` with proper title parsing
+- Enhanced search to include article titles in search results
+
+**Result:** Admin dashboard now correctly displays actual article titles matching user dashboard experience
+
+## 🎯 **PREVIOUS COMPLETION: Admin Dashboard Article Management Enhancement** ✅
 **Date**: January 31, 2025  
 **Task**: Complete admin dashboard article card enhancement with delete functionality  
 **Result**: Successfully enhanced ArticleCard and EnhancedArticleList components  

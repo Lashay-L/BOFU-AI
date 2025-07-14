@@ -132,7 +132,7 @@ export const adminArticlesApi = {
       // Step 1: Fetch content_briefs with role-based filtering
       let query = supabase
         .from('content_briefs')
-        .select('*', { count: 'exact' });
+        .select('id, user_id, product_name, possible_article_titles, editing_status, last_edited_at, last_edited_by, article_version, created_at, updated_at, article_content', { count: 'exact' });
 
       // Apply role-based filtering
       if (adminCheck.role === 'sub_admin') {
@@ -158,7 +158,7 @@ export const adminArticlesApi = {
 
       // Apply other filters
       if (search) {
-        query = query.or(`product_name.ilike.%${search}%,article_content.ilike.%${search}%`);
+        query = query.or(`product_name.ilike.%${search}%,article_content.ilike.%${search}%,possible_article_titles.ilike.%${search}%`);
       }
       if (status) {
         query = query.eq('editing_status', status);
@@ -225,9 +225,22 @@ export const adminArticlesApi = {
           const user = usersMap.get(article.user_id);
           console.log('DEBUG: Processing article:', article.id, 'with user:', user?.email || 'NOT FOUND');
           
+          // Parse article title from possible_article_titles (same logic as user dashboard)
+          let parsedTitle = `Untitled Article ${article.id.substring(0, 4)}`;
+          if (typeof article.possible_article_titles === 'string' && article.possible_article_titles.trim() !== '') {
+            const titlesString = article.possible_article_titles;
+            const match = titlesString.match(/^1\\.s*(.*?)(?:\\n2\\.|$)/s);
+            if (match && match[1]) {
+              parsedTitle = match[1].trim();
+            } else {
+              const firstLine = titlesString.split('\n')[0].trim();
+              if (firstLine) parsedTitle = firstLine;
+            }
+          }
+          
           return {
             id: article.id,
-            title: article.product_name || 'Untitled',
+            title: parsedTitle, // Use parsed article title instead of product_name
             user_id: article.user_id || '',
             user_email: user?.email || 'Unknown User',
             user_company: user?.company_name || '',

@@ -1,23 +1,24 @@
-# Active Context - Admin Dashboard Article Management Enhanced 🎯
+# Active Context - Admin Dashboard Article Title Fix Complete 🎯
 
-## 🎯 **LATEST COMPLETION**
+## 🎯 **LATEST COMPLETION - CRITICAL FIX**
+**Admin Dashboard Article Title Display Issue RESOLVED** ✅
+- **Issue:** Admin dashboard showed product names instead of article titles
+- **Root Cause:** Admin API incorrectly mapped `product_name` to `title` field
+- **Solution:** Updated admin API to use `possible_article_titles` field with same parsing logic as user dashboard
+
+**Technical Fix Applied:**
+- **Updated Database Query**: Added `possible_article_titles` field to admin API select statement
+- **Fixed Title Mapping**: Replaced `title: article.product_name` with parsed article title logic
+- **Enhanced Search**: Added `possible_article_titles` to search functionality
+- **Parsing Logic**: Implemented identical title extraction as user dashboard (regex pattern matching)
+
+**Result:** Admin dashboard now correctly displays actual article titles like "Beyond Blackhawk: How Online Rewards Delivers Measurable Behavior Change" instead of just "Online Rewards"
+
+## 🎯 **PREVIOUS COMPLETION**
 **Admin Dashboard Article Card Complete Enhancement** ✅
 - **Phase 1:** Redesigned complex article card to match user dashboard styling ✅
 - **Phase 2:** Enhanced with article title prominence and delete functionality ✅
-
-**Final Changes Made:**
-- **Article Title Emphasis**: Made article titles the main focus (as requested)
-- **Product Name De-emphasis**: Changed product badge to gray/smaller for less prominence
-- **Delete Button Added**: Full delete functionality with confirmation dialog
-- **Clean Design**: Maintained clean user dashboard aesthetic
-- **Admin Functionality**: Preserved all admin features (view/edit/delete articles)
-
-**Technical Implementation:**
-- Updated `ArticleCard.tsx`: Added `onDeleteArticle` prop and delete button
-- Enhanced `EnhancedArticleList.tsx`: Added delete handlers and confirmation dialog
-- Integrated with existing `deleteArticle` API from `articleApi.ts`
-- Added `ConfirmationDialog` for safe delete confirmation
-- Toast notifications for user feedback on delete operations
+- **Phase 3:** Fixed critical title display issue ✅
 
 ## 🎯 **CURRENT FOCUS** 
 **PLAN MODE: Image Repository Feature Technical Plan**
