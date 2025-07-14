@@ -79,6 +79,13 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({
           {article.title || 'Untitled Article'}
         </h2>
 
+        {/* Content Brief Title (First Keyword) */}
+        {article.first_keyword && (
+          <p className="text-sm text-blue-600 font-medium mb-3 px-2 py-1 bg-blue-50 rounded-md inline-block">
+            📝 {article.first_keyword}
+          </p>
+        )}
+
         {/* Author info */}
         <div className="text-sm text-gray-600 mb-2">
           <span>{article.user_email}</span>

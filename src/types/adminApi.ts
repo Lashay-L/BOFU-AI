@@ -14,6 +14,7 @@ export interface ArticleListItem {
   created_at: string;
   updated_at: string;
   google_doc_url?: string;
+  first_keyword?: string | null;
 }
 
 export interface AdminArticlesResponse {

@@ -50,9 +50,45 @@ export const AdminUserArticlesModal = ({
   onClose, 
   onEditArticle 
 }: AdminUserArticlesModalProps) => {
-  const [articles, setArticles] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [articles, setArticles] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Utility function to extract first keyword from brief content
+  const extractFirstKeyword = (briefContent: any): string | null => {
+    if (!briefContent) return null;
+    
+    try {
+      let parsedContent = briefContent;
+      
+      // Handle case where brief_content is stored as a JSON string
+      if (typeof briefContent === 'string') {
+        parsedContent = JSON.parse(briefContent);
+      }
+      
+      // Check for keywords array in the parsed content
+      if (parsedContent.keywords && Array.isArray(parsedContent.keywords) && parsedContent.keywords.length > 0) {
+        // Extract the first keyword and clean it from backticks and quotes
+        const firstKeyword = parsedContent.keywords[0].replace(/[`'"]/g, '').trim();
+        // Remove any URL patterns that might be in the keyword
+        const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
+        return cleanKeyword;
+      }
+      
+      // Try to get primary keyword from SEO Strategy as fallback
+      const seoStrategy = parsedContent['4. SEO Strategy'];
+      if (seoStrategy && seoStrategy['Primary Keyword']) {
+        const primaryKeyword = seoStrategy['Primary Keyword'].replace(/[`'"]/g, '').trim();
+        if (primaryKeyword) {
+          return primaryKeyword;
+        }
+      }
+    } catch (error) {
+      console.warn('Could not extract keyword from brief content:', error);
+    }
+    
+    return null;
+  };
 
   // Fetch articles for all users in the company
   useEffect(() => {
@@ -85,7 +121,7 @@ export const AdminUserArticlesModal = ({
       // First, fetch articles without the join
       const { data: articlesData, error } = await supabaseAdmin
         .from('content_briefs')
-        .select('id, user_id, product_name, possible_article_titles, article_content, editing_status, last_edited_at, last_edited_by, article_version, created_at, updated_at, google_doc_url')
+        .select('id, user_id, product_name, possible_article_titles, article_content, editing_status, last_edited_at, last_edited_by, article_version, created_at, updated_at, google_doc_url, brief_content')
         .in('user_id', userIds)
         .not('article_content', 'is', null)
         .order('created_at', { ascending: false });
@@ -214,7 +250,8 @@ export const AdminUserArticlesModal = ({
                 article_version: article.article_version || 1,
                 created_at: article.created_at,
                 updated_at: article.updated_at || article.created_at,
-                google_doc_url: article.google_doc_url || null
+                google_doc_url: article.google_doc_url || null,
+                first_keyword: extractFirstKeyword(article.brief_content)
               };
 
               return (

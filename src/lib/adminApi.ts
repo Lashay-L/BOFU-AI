@@ -101,6 +101,42 @@ async function getAssignedClientIds(): Promise<string[]> {
 // Constants
 const USER_PROFILE_SELECT_QUERY = 'id,email,company_name,created_at,updated_at';
 
+// Utility function to extract first keyword from brief content
+function extractFirstKeyword(briefContent: any): string | null {
+  if (!briefContent) return null;
+  
+  try {
+    let parsedContent = briefContent;
+    
+    // Handle case where brief_content is stored as a JSON string
+    if (typeof briefContent === 'string') {
+      parsedContent = JSON.parse(briefContent);
+    }
+    
+    // Check for keywords array in the parsed content
+    if (parsedContent.keywords && Array.isArray(parsedContent.keywords) && parsedContent.keywords.length > 0) {
+      // Extract the first keyword and clean it from backticks and quotes
+      const firstKeyword = parsedContent.keywords[0].replace(/[`'"]/g, '').trim();
+      // Remove any URL patterns that might be in the keyword
+      const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
+      return cleanKeyword;
+    }
+    
+    // Try to get primary keyword from SEO Strategy as fallback
+    const seoStrategy = parsedContent['4. SEO Strategy'];
+    if (seoStrategy && seoStrategy['Primary Keyword']) {
+      const primaryKeyword = seoStrategy['Primary Keyword'].replace(/[`'"]/g, '').trim();
+      if (primaryKeyword) {
+        return primaryKeyword;
+      }
+    }
+  } catch (error) {
+    console.warn('Could not extract keyword from brief content:', error);
+  }
+  
+  return null;
+}
+
 // Admin Articles API
 export const adminArticlesApi = {
   // Get list of articles with filtering and pagination (enhanced with role-based access)
@@ -132,7 +168,7 @@ export const adminArticlesApi = {
       // Step 1: Fetch content_briefs with role-based filtering
       let query = supabase
         .from('content_briefs')
-        .select('id, user_id, product_name, possible_article_titles, editing_status, last_edited_at, last_edited_by, article_version, created_at, updated_at, article_content, google_doc_url', { count: 'exact' });
+        .select('id, user_id, product_name, possible_article_titles, editing_status, last_edited_at, last_edited_by, article_version, created_at, updated_at, article_content, google_doc_url, brief_content', { count: 'exact' });
 
       // Apply role-based filtering
       if (adminCheck.role === 'sub_admin') {
@@ -254,6 +290,10 @@ export const adminArticlesApi = {
           }
           console.log('DEBUG: Final parsed title:', parsedTitle);
           
+          // Extract first keyword from brief content
+          const firstKeyword = extractFirstKeyword(article.brief_content);
+          console.log('DEBUG: Extracted first keyword:', firstKeyword);
+          
           return {
             id: article.id,
             title: parsedTitle, // Use parsed article title instead of product_name
@@ -267,7 +307,8 @@ export const adminArticlesApi = {
             article_version: article.article_version || 1,
             created_at: article.created_at || new Date().toISOString(),
             updated_at: article.updated_at || new Date().toISOString(),
-            google_doc_url: article.google_doc_url || null
+            google_doc_url: article.google_doc_url || null,
+            first_keyword: firstKeyword
           };
         }),
         total: count || 0,

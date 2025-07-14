@@ -14,6 +14,7 @@ interface GeneratedArticle {
   product_name?: string; // Added product_name
   link: string;
   updated_at: string;
+  first_keyword?: string | null;
 }
 
 const GeneratedArticlesPage: React.FC = () => {
@@ -44,7 +45,7 @@ const GeneratedArticlesPage: React.FC = () => {
         setLoading(true);
         const { data, error: dbError } = await supabase
           .from('content_briefs')
-          .select('id, possible_article_titles, product_name, link, updated_at') // Added product_name to select
+          .select('id, possible_article_titles, product_name, link, updated_at, brief_content') // Added product_name and brief_content to select
           .not('link', 'is', null)
           .order('updated_at', { ascending: false });
 
@@ -53,6 +54,42 @@ const GeneratedArticlesPage: React.FC = () => {
         }
 
         if (data) {
+          // Utility function to extract first keyword from brief content
+          const extractFirstKeyword = (briefContent: any): string | null => {
+            if (!briefContent) return null;
+            
+            try {
+              let parsedContent = briefContent;
+              
+              // Handle case where brief_content is stored as a JSON string
+              if (typeof briefContent === 'string') {
+                parsedContent = JSON.parse(briefContent);
+              }
+              
+              // Check for keywords array in the parsed content
+              if (parsedContent.keywords && Array.isArray(parsedContent.keywords) && parsedContent.keywords.length > 0) {
+                // Extract the first keyword and clean it from backticks and quotes
+                const firstKeyword = parsedContent.keywords[0].replace(/[`'"]/g, '').trim();
+                // Remove any URL patterns that might be in the keyword
+                const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
+                return cleanKeyword;
+              }
+              
+              // Try to get primary keyword from SEO Strategy as fallback
+              const seoStrategy = parsedContent['4. SEO Strategy'];
+              if (seoStrategy && seoStrategy['Primary Keyword']) {
+                const primaryKeyword = seoStrategy['Primary Keyword'].replace(/[`'"]/g, '').trim();
+                if (primaryKeyword) {
+                  return primaryKeyword;
+                }
+              }
+            } catch (error) {
+              console.warn('Could not extract keyword from brief content:', error);
+            }
+            
+            return null;
+          };
+
           const formattedArticles = data.map(article => {
             let parsedTitle = `Untitled Article ${article.id.substring(0, 4)}`;
             if (typeof article.possible_article_titles === 'string' && article.possible_article_titles.trim() !== '') {
@@ -71,6 +108,7 @@ const GeneratedArticlesPage: React.FC = () => {
               product_name: article.product_name || undefined,
               link: article.link,
               updated_at: new Date(article.updated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }), // More readable date format
+              first_keyword: extractFirstKeyword(article.brief_content)
             };
           });
           setArticles(formattedArticles);
@@ -201,6 +239,13 @@ const GeneratedArticlesPage: React.FC = () => {
                   <h2 className="text-lg font-semibold text-gray-800 mb-2 min-h-[2.5em] leading-tight group-hover:text-primary-600 transition-colors duration-200">
                     {article.title}
                   </h2>
+
+                  {/* Content Brief Title (First Keyword) */}
+                  {article.first_keyword && (
+                    <p className="text-sm text-blue-600 font-medium mb-3 px-2 py-1 bg-blue-50 rounded-md inline-block">
+                      📝 {article.first_keyword}
+                    </p>
+                  )}
                   
                   <div className="flex items-center text-xs text-gray-500 mt-auto">
                     <CalendarDays size={14} className="mr-1.5 text-gray-400" />
