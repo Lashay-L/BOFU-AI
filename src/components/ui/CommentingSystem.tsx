@@ -12,11 +12,12 @@ import {
   createCommentWithMentions,
   updateComment
 } from '../../lib/commentApi';
-import { CommentMarker } from './CommentMarker';
+
 import { CommentPopover } from './CommentPopover';
 import { CommentThread } from './CommentThread';
 import { CommentResolutionPanel } from './CommentResolutionPanel';
 import { InlineCommentingExtension } from './InlineCommentingExtension';
+
 import { supabase } from '../../lib/supabase';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BaseModal } from './BaseModal';
@@ -291,54 +292,113 @@ const CommentingSystemComponent = React.memo(({
       }
 
       const editorTextContent = editorRef.current.textContent || '';
-      console.log('🔍 Text selected:', {
-        text: selectedTextContent.substring(0, 30) + '...',
-        length: selectedTextContent.length,
-        editorLength: editorTextContent.length
+      
+      // EXTENSIVE DEBUGGING: Log everything to understand the mismatch
+      console.log('🔍 DETAILED selection analysis:', {
+        selectedText: selectedTextContent,
+        selectedLength: selectedTextContent.length,
+        rangeText: range.toString(),
+        rangeLength: range.toString().length,
+        rangeStartContainer: range.startContainer.nodeType === Node.TEXT_NODE ? 
+          `TEXT: "${range.startContainer.textContent?.substring(0, 50)}..."` : 
+          `ELEMENT: ${range.startContainer.nodeName}`,
+        rangeEndContainer: range.endContainer.nodeType === Node.TEXT_NODE ? 
+          `TEXT: "${range.endContainer.textContent?.substring(0, 50)}..."` : 
+          `ELEMENT: ${range.endContainer.nodeName}`,
+        rangeStartOffset: range.startOffset,
+        rangeEndOffset: range.endOffset,
+        editorLength: editorTextContent.length,
+        editorSample: editorTextContent.substring(0, 200) + '...',
+        commonAncestor: range.commonAncestorContainer.nodeName
       });
 
       if (selectedTextContent.length >= 3) {
-        // FIXED: Use actual range position instead of indexOf() which finds first occurrence
-        // Calculate start position using the Range API for precise positioning
-        const startNode = range.startContainer;
-        const startOffset = range.startOffset;
+        // ROBUST APPROACH: Use direct text matching as the primary method
+        // This avoids all the complex position calculation issues
         
-        // Get the actual text offset within the editor
-        const actualStart = getTextOffset(editorRef.current, startNode, startOffset);
-        const actualEnd = actualStart + selectedTextContent.length;
-        
-        // ENHANCED VALIDATION: Verify that our calculated offsets match the selected text
         const editorText = editorTextContent;
-        const textAtCalculatedPosition = editorText.substring(actualStart, actualEnd);
-        
-        console.log('🔍 Selection validation:', {
-          selectedText: selectedTextContent.substring(0, 50) + '...',
-          calculatedStart: actualStart,
-          calculatedEnd: actualEnd,
-          textAtPosition: textAtCalculatedPosition.substring(0, 50) + '...',
-          positionMatches: selectedTextContent === textAtCalculatedPosition,
-          selectionLength: selectedTextContent.length,
-          calculatedLength: textAtCalculatedPosition.length,
-          editorTotalLength: editorText.length
+        console.log('🔍 ROBUST selection processing:', {
+          selectedText: selectedTextContent,
+          selectedLength: selectedTextContent.length,
+          editorLength: editorText.length,
+          editorSample: editorText.substring(0, 200) + '...'
         });
         
-        // Only proceed if our calculation matches the actual selection
-        if (actualStart >= 0 && actualEnd <= editorTextContent.length && selectedTextContent === textAtCalculatedPosition) {
-          const newSelection: TextSelection = {
-            start: actualStart,
-            end: actualEnd,
-            text: selectedTextContent,
-            range: range.cloneRange()
-          };
+        // PRIMARY: Try exact text match
+        let textPosition = editorText.indexOf(selectedTextContent);
+        let matchMethod = 'exact';
+        
+        // FALLBACK 1: Try with normalized whitespace
+        if (textPosition === -1) {
+          const normalizedSelected = selectedTextContent.replace(/\s+/g, ' ').trim();
+          const normalizedEditor = editorText.replace(/\s+/g, ' ');
+          const normalizedIndex = normalizedEditor.indexOf(normalizedSelected);
           
-          console.log('✅ Valid and verified selection found:', newSelection);
-          setSelectedText(newSelection);
+          if (normalizedIndex !== -1) {
+            textPosition = convertNormalizedIndexToOriginal(editorText, normalizedIndex);
+            matchMethod = 'normalized';
+          }
+        }
+        
+        // FALLBACK 2: Try partial matching for very long selections
+        if (textPosition === -1 && selectedTextContent.length > 50) {
+          const firstPart = selectedTextContent.substring(0, 30).trim();
+          const firstPartIndex = editorText.indexOf(firstPart);
+          
+          if (firstPartIndex !== -1) {
+            // Check if the rest of the selection matches from this position
+            const potentialMatch = editorText.substring(firstPartIndex, firstPartIndex + selectedTextContent.length);
+            const normalizedPotential = potentialMatch.replace(/\s+/g, ' ').trim();
+            const normalizedSelected = selectedTextContent.replace(/\s+/g, ' ').trim();
+            
+            if (normalizedPotential === normalizedSelected) {
+              textPosition = firstPartIndex;
+              matchMethod = 'partial';
+            }
+          }
+        }
+        
+        if (textPosition !== -1 && textPosition + selectedTextContent.length <= editorText.length) {
+          // Validate the match
+          const foundText = editorText.substring(textPosition, textPosition + selectedTextContent.length);
+          const normalizedFound = foundText.replace(/\s+/g, ' ').trim();
+          const normalizedSelected = selectedTextContent.replace(/\s+/g, ' ').trim();
+          
+          console.log('🔍 Text match validation:', {
+            method: matchMethod,
+            position: textPosition,
+            endPosition: textPosition + selectedTextContent.length,
+            selectedText: selectedTextContent.substring(0, 50) + '...',
+            foundText: foundText.substring(0, 50) + '...',
+            exactMatch: selectedTextContent === foundText,
+            normalizedMatch: normalizedSelected === normalizedFound
+          });
+          
+          if (selectedTextContent === foundText || normalizedSelected === normalizedFound) {
+            const newSelection: TextSelection = {
+              start: textPosition,
+              end: textPosition + selectedTextContent.length,
+              text: selectedTextContent,
+              range: range.cloneRange()
+            };
+            
+            console.log(`✅ ROBUST selection found using ${matchMethod} match:`, newSelection);
+            setSelectedText(newSelection);
+          } else {
+            console.error('❌ Text match validation failed:', { 
+              selectedText: selectedTextContent.substring(0, 100),
+              foundText: foundText.substring(0, 100),
+              normalizedSelected: normalizedSelected.substring(0, 100),
+              normalizedFound: normalizedFound.substring(0, 100)
+            });
+            setSelectedText(null);
+          }
         } else {
-          console.error('❌ Selection validation FAILED:', { 
-            start: actualStart, 
-            end: actualEnd, 
-            editorLength: editorTextContent.length,
-            textMismatch: selectedTextContent !== textAtCalculatedPosition
+          console.error('❌ ROBUST selection FAILED - text not found in editor:', { 
+            selectedText: selectedTextContent.substring(0, 100),
+            textPosition,
+            editorLength: editorText.length,
+            editorSample: editorText.substring(0, 300) + '...'
           });
           setSelectedText(null);
         }
@@ -383,6 +443,7 @@ const CommentingSystemComponent = React.memo(({
     // Popover will auto-center, no need to calculate position
     setPopoverPosition({ x: 0, y: 0 }); // Not used anymore but keeping for compatibility
     
+    // Open the comment popup
     setShowPopover(true);
   };
 
@@ -575,6 +636,13 @@ const CommentingSystemComponent = React.memo(({
     }
   };
 
+  // Wrapper function for type compatibility with InlineCommentingExtension
+  const handleStatusChangeWrapper = (commentId: string, status: string) => {
+    if (status === 'active' || status === 'resolved' || status === 'archived') {
+      handleStatusChange(commentId, status as 'active' | 'resolved' | 'archived');
+    }
+  };
+
   const handleResolveWithReason = async (commentId: string, reason: string) => {
     console.log('✅ Resolving comment with reason:', { commentId, reason });
     
@@ -698,76 +766,7 @@ const CommentingSystemComponent = React.memo(({
 
   return (
     <>
-      {/* Comment markers in editor - render as portals for proper positioning */}
-      {/* Only render markers after layout has stabilized to prevent timing issues */}
-      {layoutStable && comments.map((comment, index) => {
-        // **DEBUG: Log each comment being processed for marker rendering**
-        console.log(`🎯 Processing comment ${index + 1}/${comments.length} for marker:`, {
-          id: comment.id,
-          content: comment.content.substring(0, 50) + '...',
-          selection_start: comment.selection_start,
-          selection_end: comment.selection_end,
-          selected_text: comment.selected_text ? comment.selected_text.substring(0, 30) + '...' : 'NOT_STORED',
-          status: comment.status,
-          created_at: comment.created_at
-        });
-
-        if (typeof comment.selection_start !== 'number' || typeof comment.selection_end !== 'number') {
-          console.warn(`🚨 Comment ${comment.id} has invalid selection coordinates:`, {
-            selection_start: comment.selection_start,
-            selection_end: comment.selection_end
-          });
-          return null;
-        }
-
-        // **COORDINATE VALIDATION: Check if stored coordinates match stored selected_text**
-        if (editorRef.current && comment.selected_text) {
-          const editorContent = editorRef.current.textContent || '';
-          const textAtCoordinates = editorContent.substring(comment.selection_start, comment.selection_end);
-          
-          if (textAtCoordinates !== comment.selected_text) {
-            console.warn(`🚨 COORDINATE MISMATCH for comment ${comment.id}:`, {
-              storedText: comment.selected_text.substring(0, 50) + '...',
-              textAtCoords: textAtCoordinates.substring(0, 50) + '...',
-              coordinates: `${comment.selection_start}-${comment.selection_end}`,
-              match: false
-            });
-            
-            // Skip rendering marker for mismatched comments to avoid confusion
-            return null;
-          } else {
-            console.log(`✅ Coordinate validation passed for comment ${comment.id}`);
-          }
-        }
-
-        const position = getMarkerPosition(comment.selection_start, comment.selection_end, editorRef, setContentDriftDetected);
-        if (!position || !editorRef.current) {
-          console.warn(`🚨 Could not calculate position for comment ${comment.id}`);
-          return null;
-        }
-
-        console.log(`✅ Rendering marker for comment ${comment.id} at position:`, position);
-
-        return ReactDOM.createPortal(
-          <div
-            key={comment.id}
-            style={{
-              position: 'absolute',
-              top: position.top,
-              left: position.left - 40, // Position marker to the left of selection start
-              zIndex: 15,
-              pointerEvents: 'auto'
-            }}
-          >
-            <CommentMarker
-              comment={comment}
-              position={position}
-              onClick={handleCommentClick}
-            />
-          </div>,
-          editorRef.current
-        );
-      })}
+      {/* Comment markers removed - using text highlighting instead via CommentHighlight component */}
 
       <motion.div 
         initial={{ opacity: 0, x: 20 }}
@@ -830,6 +829,8 @@ const CommentingSystemComponent = React.memo(({
           )}
         </AnimatePresence>
 
+        {/* Text Highlighting now handled by TipTap CommentHighlightExtension */}
+
         {/* Enhanced Selection button or Inline Comments */}
         {inlineMode ? (
           <InlineCommentingExtension
@@ -840,20 +841,10 @@ const CommentingSystemComponent = React.memo(({
             onCommentsChange={onCommentsChange}
             getMarkerPosition={(start, end, ref) => getMarkerPosition(start, end, ref, setContentDriftDetected)}
             onCommentClick={handleCommentClick}
-            onCommentStatusChange={handleStatusChange}
-            inlineMode={true}
+            onCommentStatusChange={handleStatusChangeWrapper}
+            inlineMode={false} // Disable bubbles in favor of text highlighting
           />
-        ) : (
-          selectedText && !showPopover && ReactDOM.createPortal(
-            <motion.div key="comment-selection-button">
-              <CommentSelectionButton
-                selection={selectedText}
-                onCreateComment={handleCreateComment}
-              />
-            </motion.div>,
-            document.body
-          )
-        )}
+        ) : null}
 
         {/* Comment popover */}
         {showPopover && ReactDOM.createPortal(
@@ -1075,6 +1066,19 @@ const CommentSelectionButton: React.FC<CommentSelectionButtonProps> = ({
   selection,
   onCreateComment
 }) => {
+  const [buttonPosition, setButtonPosition] = useState<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    // Calculate button position at the end of selected text
+    if (selection.range) {
+      const rect = selection.range.getBoundingClientRect();
+      setButtonPosition({
+        x: rect.right + 8, // 8px offset to the right
+        y: rect.top + (rect.height / 2) - 16 // Center vertically, account for button height
+      });
+    }
+  }, [selection]);
+
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1087,50 +1091,27 @@ const CommentSelectionButton: React.FC<CommentSelectionButtonProps> = ({
     onCreateComment(selection);
   };
 
+  if (!buttonPosition) return null;
+
   return (
-    <BaseModal
-      isOpen={true}
-      onClose={() => {}}
-      title="Add Comment"
-      size="sm"
-      theme="light"
-      showCloseButton={false}
+    <motion.button
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.8 }}
+      transition={{ duration: 0.15 }}
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={handleClick}
+      className="fixed z-50 flex items-center justify-center w-8 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg border-2 border-white transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+      style={{
+        left: buttonPosition.x,
+        top: buttonPosition.y,
+        pointerEvents: 'auto'
+      }}
+      title="Add comment"
     >
-      {/* Title icon and description */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
-          <MessageSquare className="w-5 h-5 text-blue-500" />
-        </div>
-        <div>
-          <p className="text-blue-600 text-sm">Share your thoughts on this selection</p>
-        </div>
-      </div>
-      
-      {/* Selected text display */}
-      <div className="mb-4">
-        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Selected text:</p>
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 border-l-4 border-blue-500">
-          <p className="text-sm text-gray-600 dark:text-gray-400 italic">
-            "{selection.text.length > 80 ? `${selection.text.substring(0, 80)}...` : selection.text}"
-          </p>
-        </div>
-      </div>
-      
-      {/* Action button */}
-      <motion.button
-        whileHover={{ backgroundColor: '#1d4ed8' }}
-        whileTap={{ scale: 0.98 }}
-        onClick={handleClick}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center space-x-2 shadow-lg"
-      >
-        <MessageSquare className="w-5 h-5" />
-        <span>Add Comment</span>
-      </motion.button>
-      
-      <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-3">
-        Click anywhere outside to cancel
-      </p>
-    </BaseModal>
+      <MessageSquare className="w-4 h-4" />
+    </motion.button>
   );
 };
 
@@ -1331,7 +1312,105 @@ const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
 // Helper functions to calculate text offsets
 // These are crucial for mapping selection ranges to the editor's text content
 
+// Helper function to convert normalized index back to original text position
+function convertNormalizedIndexToOriginal(originalText: string, normalizedIndex: number): number {
+  let originalIndex = 0;
+  let normalizedCount = 0;
+  
+  for (let i = 0; i < originalText.length; i++) {
+    if (normalizedCount === normalizedIndex) {
+      return i;
+    }
+    
+    const char = originalText[i];
+    if (/\s/.test(char)) {
+      // This is whitespace - it gets normalized to a single space
+      normalizedCount++;
+      // Skip any additional whitespace characters
+      while (i + 1 < originalText.length && /\s/.test(originalText[i + 1])) {
+        i++;
+      }
+    } else {
+      // Regular character
+      normalizedCount++;
+    }
+  }
+  
+  return originalIndex;
+}
+
+// Advanced function to get precise text positions using Range API
+function getRangeTextPositions(container: Element, range: Range): { start: number; end: number } | null {
+  try {
+    // Create a range that covers from the start of the container to the start of our selection
+    const startRange = document.createRange();
+    startRange.selectNodeContents(container);
+    startRange.setEnd(range.startContainer, range.startOffset);
+    
+    // Create a range that covers from the start of the container to the end of our selection
+    const endRange = document.createRange();
+    endRange.selectNodeContents(container);
+    endRange.setEnd(range.endContainer, range.endOffset);
+    
+    // Get the text content of these ranges to determine positions
+    const startText = startRange.toString();
+    const endText = endRange.toString();
+    
+    const start = startText.length;
+    const end = endText.length;
+    
+    console.log('🎯 Range-based position calculation:', {
+      startText: startText.substring(Math.max(0, start - 30)),
+      endText: endText.substring(Math.max(0, end - 30)),
+      start,
+      end,
+      selectionLength: end - start,
+      rangeText: range.toString().substring(0, 50) + '...'
+    });
+    
+    return { start, end };
+  } catch (error) {
+    console.error('❌ Error in getRangeTextPositions:', error);
+    return null;
+  }
+}
+
 function getTextOffset(container: Element, targetNode: Node, targetOffset: number): number {
+  // ENHANCED: Handle both text nodes and element nodes that might contain text
+  if (!container || !targetNode) {
+    console.error('❌ Invalid parameters for getTextOffset:', { container, targetNode });
+    return 0;
+  }
+  
+  // If target node is not a text node, try to find the nearest text node
+  let actualTargetNode = targetNode;
+  let actualTargetOffset = targetOffset;
+  
+  if (targetNode.nodeType !== Node.TEXT_NODE) {
+    // If it's an element node, find the text node at the given offset
+    const childNodes = Array.from(targetNode.childNodes);
+    let cumulativeOffset = 0;
+    
+    for (const child of childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        const textLength = child.textContent?.length || 0;
+        if (cumulativeOffset + textLength >= targetOffset) {
+          actualTargetNode = child;
+          actualTargetOffset = targetOffset - cumulativeOffset;
+          break;
+        }
+        cumulativeOffset += textLength;
+      } else if (child.nodeType === Node.ELEMENT_NODE) {
+        const elementTextLength = child.textContent?.length || 0;
+        if (cumulativeOffset + elementTextLength >= targetOffset) {
+          // Recursively find the text node within this element
+          return getTextOffset(container, child, targetOffset - cumulativeOffset);
+        }
+        cumulativeOffset += elementTextLength;
+      }
+    }
+  }
+  
   // Walk through all text nodes in the container to calculate the precise offset
   const walker = document.createTreeWalker(
     container,
@@ -1343,16 +1422,21 @@ function getTextOffset(container: Element, targetNode: Node, targetOffset: numbe
   let currentNode = walker.nextNode();
   
   while (currentNode) {
-    if (currentNode === targetNode) {
+    if (currentNode === actualTargetNode) {
       // Found our target node, add the offset within this node
-      const finalOffset = totalOffset + targetOffset;
+      const nodeLength = currentNode.textContent?.length || 0;
+      const clampedOffset = Math.min(actualTargetOffset, nodeLength);
+      const finalOffset = totalOffset + clampedOffset;
       
-      console.log('🎯 Text offset calculation - TARGET FOUND:', {
-        targetNodeText: targetNode.textContent?.substring(0, 50) + '...',
-        targetOffset,
+      console.log('🎯 Enhanced text offset calculation - TARGET FOUND:', {
+        targetNodeText: actualTargetNode.textContent?.substring(0, 50) + '...',
+        originalTargetOffset: targetOffset,
+        actualTargetOffset: actualTargetOffset,
+        clampedOffset,
         totalOffsetBeforeNode: totalOffset,
         finalCalculatedOffset: finalOffset,
-        containerTotalLength: container.textContent?.length || 0
+        containerTotalLength: container.textContent?.length || 0,
+        nodeWasElement: targetNode.nodeType !== Node.TEXT_NODE
       });
       
       return finalOffset;
@@ -1371,9 +1455,19 @@ function getTextOffset(container: Element, targetNode: Node, targetOffset: numbe
     currentNode = walker.nextNode();
   }
   
-  // If we didn't find the target node, return the total offset (edge case)
-  console.warn('⚠️ Target node not found in container, returning total offset:', totalOffset);
-  return totalOffset;
+  // FALLBACK: If we didn't find the target node, try to estimate position
+  const containerText = container.textContent || '';
+  const estimatedOffset = Math.min(targetOffset, containerText.length);
+  
+  console.warn('⚠️ Target node not found in container, using estimated offset:', {
+    targetNodeType: targetNode.nodeType,
+    targetNodeText: targetNode.textContent?.substring(0, 50) + '...',
+    originalOffset: targetOffset,
+    estimatedOffset,
+    containerLength: containerText.length
+  });
+  
+  return estimatedOffset;
 }
 
 function getTextNodeAtOffset(container: Element, offset: number): { node: Text; offset: number } | null {

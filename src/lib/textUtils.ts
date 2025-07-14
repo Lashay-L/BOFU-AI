@@ -27,9 +27,44 @@ export const getTextNodeAtOffset = (container: HTMLElement, offset: number): { n
 };
 
 /**
- * Helper function to get text offset within container
+ * Enhanced helper function to get text offset within container
+ * Handles both text nodes and element nodes with proper validation
  */
 export const getTextOffset = (container: HTMLElement, targetNode: Node, targetOffset: number): number => {
+  if (!container || !targetNode) {
+    console.error('❌ Invalid parameters for getTextOffset:', { container, targetNode });
+    return 0;
+  }
+  
+  // If target node is not a text node, try to find the nearest text node
+  let actualTargetNode = targetNode;
+  let actualTargetOffset = targetOffset;
+  
+  if (targetNode.nodeType !== Node.TEXT_NODE) {
+    // If it's an element node, find the text node at the given offset
+    const childNodes = Array.from(targetNode.childNodes);
+    let cumulativeOffset = 0;
+    
+    for (const child of childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        const textLength = child.textContent?.length || 0;
+        if (cumulativeOffset + textLength >= targetOffset) {
+          actualTargetNode = child;
+          actualTargetOffset = targetOffset - cumulativeOffset;
+          break;
+        }
+        cumulativeOffset += textLength;
+      } else if (child.nodeType === Node.ELEMENT_NODE) {
+        const elementTextLength = child.textContent?.length || 0;
+        if (cumulativeOffset + elementTextLength >= targetOffset) {
+          // Recursively find the text node within this element
+          return getTextOffset(container, child, targetOffset - cumulativeOffset);
+        }
+        cumulativeOffset += elementTextLength;
+      }
+    }
+  }
+
   const walker = document.createTreeWalker(
     container,
     NodeFilter.SHOW_TEXT,
@@ -40,14 +75,27 @@ export const getTextOffset = (container: HTMLElement, targetNode: Node, targetOf
   let currentNode = walker.nextNode();
   
   while (currentNode) {
-    if (currentNode === targetNode) {
-      return currentOffset + targetOffset;
+    if (currentNode === actualTargetNode) {
+      const nodeLength = currentNode.textContent?.length || 0;
+      const clampedOffset = Math.min(actualTargetOffset, nodeLength);
+      return currentOffset + clampedOffset;
     }
     currentOffset += currentNode.textContent?.length || 0;
     currentNode = walker.nextNode();
   }
   
-  return currentOffset;
+  // FALLBACK: If we didn't find the target node, try to estimate position
+  const containerText = container.textContent || '';
+  const estimatedOffset = Math.min(targetOffset, containerText.length);
+  
+  console.warn('⚠️ Target node not found in container, using estimated offset:', {
+    targetNodeType: targetNode.nodeType,
+    originalOffset: targetOffset,
+    estimatedOffset,
+    containerLength: containerText.length
+  });
+  
+  return estimatedOffset;
 };
 
 /**

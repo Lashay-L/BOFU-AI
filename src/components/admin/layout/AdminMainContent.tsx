@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Users, BarChart3, BookOpen, Clock } from 'lucide-react';
 import { AdminStatsCard, AdminActivityFeed, AdminQuickActions } from '../ui';
+import { useAdminActivity } from '../../../hooks/useAdminActivity';
 
 // Types
 type AdminView = 'dashboard' | 'userManagement' | 'articleManagement' | 'commentManagement' | 'auditLogs' | 'adminAssignmentHub' | 'contentBriefManagement' | 'mediaLibrary';
@@ -25,6 +26,9 @@ export const AdminMainContent = ({
   stats,
   renderMainContent
 }: AdminMainContentProps) => {
+  // Fetch real admin activity data
+  const { activities, isLoading, error, refresh } = useAdminActivity(8);
+
   return (
     <main className="p-6 bg-gray-800/90 min-h-screen">
       {currentView === 'dashboard' ? (
@@ -72,12 +76,12 @@ export const AdminMainContent = ({
           {/* Dashboard Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
-              <AdminActivityFeed activities={[
-                { title: "User profile updated", time: "15 minutes ago" },
-                { title: "Article published", time: "1 hour ago" },
-                { title: "System backup completed", time: "2 hours ago" },
-                { title: "New user registered", time: "3 hours ago" }
-              ]} />
+              <AdminActivityFeed 
+                activities={activities}
+                isLoading={isLoading}
+                error={error}
+                onRefresh={refresh}
+              />
             </div>
             <AdminQuickActions />
           </div>

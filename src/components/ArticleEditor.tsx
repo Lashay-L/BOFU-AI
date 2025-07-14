@@ -14,6 +14,9 @@ import Table from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
+import BulletList from '@tiptap/extension-bullet-list';
+import OrderedList from '@tiptap/extension-ordered-list';
+import ListItem from '@tiptap/extension-list-item';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Save, 
@@ -75,6 +78,7 @@ import { MediaLibrarySelector } from './ui/MediaLibrarySelector';
 import { LinkTooltip } from './ui/LinkTooltip';
 import { CommentingSystem, ArticleComment } from './ui/CommentingSystem';
 import { InlineCommentingExtension } from './ui/InlineCommentingExtension';
+import { CommentHighlightExtension } from '../extensions/CommentHighlightExtension';
 import { ToolbarButton } from './ui/ToolbarButton';
 import { ArticleColorPicker } from './ui/ArticleColorPicker';
 import { StatusIndicator } from './ui/StatusIndicator';
@@ -566,6 +570,9 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
         strike: false,
         horizontalRule: false,
         codeBlock: false,
+        bulletList: false, // Disable built-in bullet list
+        orderedList: false, // Disable built-in ordered list
+        listItem: false, // Disable built-in list item
         paragraph: {
           HTMLAttributes: {
             class: 'text-base text-gray-300 leading-relaxed',
@@ -575,6 +582,24 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       Image.configure({
         inline: true,
         allowBase64: true,
+      }),
+      // Custom list extensions with proper CSS classes
+      ListItem.configure({
+        HTMLAttributes: {
+          style: 'margin: 0.25rem 0; display: list-item;',
+        },
+      }),
+      BulletList.configure({
+        HTMLAttributes: {
+          class: 'bullet-list',
+          style: 'list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0;',
+        },
+      }),
+      OrderedList.configure({
+        HTMLAttributes: {
+          class: 'ordered-list',
+          style: 'list-style: decimal; padding-left: 1.5rem; margin: 0.5rem 0;',
+        },
       }),
       Link.configure({
         openOnClick: false,
@@ -603,8 +628,18 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       TableRow,
       TableCell,
       TableHeader,
+      CommentHighlightExtension.configure({
+        comments: comments,
+        highlightedCommentId: highlightedCommentId,
+        onCommentClick: (comment) => {
+          setHighlightedCommentId(comment.id);
+          if (!showComments) {
+            setShowComments(true); // Auto-open sidebar when clicking a comment
+          }
+        },
+      }),
     ];
-  }, []);
+  }, [comments, highlightedCommentId, showComments]);
 
   // Memoize the decorations function to prevent excessive re-renders
   // Use a stable function that gets the current highlightedCommentId from ref
@@ -1003,6 +1038,28 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       const result = commandFn();
       
       console.log('✅ Command executed:', commandName, result);
+      
+      // Debug: Log the current HTML to see what's being generated
+      if (commandName.includes('List')) {
+        const currentHTML = editor.getHTML();
+        console.log('🔍 Current HTML after list command:', currentHTML.substring(Math.max(0, currentHTML.length - 500)));
+        
+        // Debug: Check for ul and ol elements specifically
+        const ulMatches = currentHTML.match(/<ul[^>]*>/g);
+        const olMatches = currentHTML.match(/<ol[^>]*>/g);
+        const liMatches = currentHTML.match(/<li[^>]*>/g);
+        
+        console.log('🔍 Found UL elements:', ulMatches);
+        console.log('🔍 Found OL elements:', olMatches);
+        console.log('🔍 Found LI elements:', liMatches);
+        
+        // Debug: Search for any list elements in the full HTML
+        if (currentHTML.includes('<ul') || currentHTML.includes('<ol')) {
+          const listStart = Math.max(0, currentHTML.search(/<[uo]l/));
+          const listEnd = Math.min(currentHTML.length, listStart + 1000);
+          console.log('🔍 List HTML section:', currentHTML.substring(listStart, listEnd));
+        }
+      }
       
       // Force editor focus and UI update
       if (!editor.isFocused) {
@@ -1678,7 +1735,7 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
               onHighlightComment={setHighlightedCommentId}
               adminMode={adminMode}
               adminUser={adminUser}
-              inlineMode={false}
+              inlineMode={true}
             />
           </div>
         )}

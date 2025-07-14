@@ -190,22 +190,26 @@ export const parseContent = (
                   if (!result.internal_links) result.internal_links = [];
                   result.internal_links = [...result.internal_links, ...items];
                   console.log(`parseContent: Mapped "${sectionKey}" -> "${objectKey}" to internal_links`);
-                } else {
-                  // Smart filtering: separate URLs from keywords
-                  const urlItems = items.filter(item => isUrl(item));
+                } else if (objectKey.toLowerCase().includes('primary keyword') || objectKey.toLowerCase() === 'primary keyword') {
+                  // Only extract the Primary Keyword field from SEO Strategy
                   const keywordItems = items.filter(item => !isUrl(item));
-                  
-                  if (urlItems.length > 0) {
-                    if (!result.internal_links) result.internal_links = [];
-                    result.internal_links = [...result.internal_links, ...urlItems];
-                    console.log(`parseContent: Filtered URLs from "${sectionKey}" -> "${objectKey}" to internal_links:`, urlItems.length);
-                  }
                   
                   if (keywordItems.length > 0) {
                     if (!result.keywords) result.keywords = [];
                     result.keywords = [...result.keywords, ...keywordItems];
-                    console.log(`parseContent: Filtered keywords from "${sectionKey}" -> "${objectKey}" to keywords:`, keywordItems.length);
+                    console.log(`parseContent: Extracted Primary Keyword from "${sectionKey}" -> "${objectKey}":`, keywordItems.length);
                   }
+                } else {
+                  // For non-Primary Keyword fields in SEO section, only extract URLs for internal links
+                  const urlItems = items.filter(item => isUrl(item));
+                  
+                  if (urlItems.length > 0) {
+                    if (!result.internal_links) result.internal_links = [];
+                    result.internal_links = [...result.internal_links, ...urlItems];
+                    console.log(`parseContent: Filtered URLs from SEO section "${sectionKey}" -> "${objectKey}" to internal_links:`, urlItems.length);
+                  }
+                  
+                  console.log(`parseContent: Skipped non-keyword SEO field "${objectKey}" (Meta Description, URL Slug, etc.)`);
                 }
               } else if (sectionKey.toLowerCase().includes('note')) {
                 if (!result.notes) result.notes = [];

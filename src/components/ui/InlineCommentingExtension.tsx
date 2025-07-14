@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { ArticleComment, createComment, createCommentWithMentions } from '../../lib/commentApi';
 import { InlineCommentButton } from './InlineCommentButton';
 import { InlineCommentEditor } from './InlineCommentEditor';
-import { InlineCommentBubble } from './InlineCommentBubble';
+
 
 interface TextSelection {
   start: number;
@@ -120,28 +120,7 @@ export const InlineCommentingExtension: React.FC<InlineCommentingExtensionProps>
         />
       )}
 
-      {/* Inline comment bubbles for existing comments */}
-      {comments.map((comment) => {
-        // Only show bubbles for comments with valid coordinates
-        if (typeof comment.selection_start !== 'number' || typeof comment.selection_end !== 'number') {
-          return null;
-        }
-
-        const position = getMarkerPosition(comment.selection_start, comment.selection_end, editorRef);
-        if (!position) return null;
-
-        return (
-          <InlineCommentBubble
-            key={comment.id}
-            comment={comment}
-            position={position}
-            editorRef={editorRef}
-            onClick={onCommentClick}
-            onStatusChange={onCommentStatusChange}
-            compact={false}
-          />
-        );
-      })}
+      {/* Bubble rendering completely disabled - using text highlighting instead */}
     </>
   );
 };

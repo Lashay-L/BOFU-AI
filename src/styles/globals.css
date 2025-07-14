@@ -134,7 +134,7 @@
 }
 
 .ProseMirror ul.bullet-list > li:before {
-  content: '•';
+  content: '● ';
   position: absolute;
   left: 0;
   color: #374151;
@@ -156,6 +156,62 @@
   content: '‣';
 }
 
+/* Enhanced bullet list styles with highest specificity to override all other styles */
+.prose .ProseMirror ul.bullet-list,
+.prose-invert .ProseMirror ul.bullet-list,
+div.ProseMirror ul.bullet-list,
+.ProseMirror ul.bullet-list {
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin: 0.5rem 0 !important;
+  position: relative !important;
+}
+
+.prose .ProseMirror ul.bullet-list > li,
+.prose-invert .ProseMirror ul.bullet-list > li,
+div.ProseMirror ul.bullet-list > li,
+.ProseMirror ul.bullet-list > li {
+  list-style: none !important;
+  position: relative !important;
+  padding-left: 1.5rem !important;
+  margin: 0.25rem 0 !important;
+  display: list-item !important;
+}
+
+.prose .ProseMirror ul.bullet-list > li:before,
+.prose-invert .ProseMirror ul.bullet-list > li:before,
+div.ProseMirror ul.bullet-list > li:before,
+.ProseMirror ul.bullet-list > li:before {
+  content: '● ' !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0.25rem !important;
+  color: #374151 !important;
+  font-weight: bold !important;
+  display: block !important;
+  width: 1rem !important;
+  text-align: left !important;
+  font-size: 1.2rem !important;
+  line-height: 1 !important;
+  z-index: 10 !important;
+}
+
+/* Additional fallback for any ul with style attribute */
+.ProseMirror ul[style*="list-style: none"] > li:before {
+  content: '● ' !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0.25rem !important;
+  color: #374151 !important;
+  font-weight: bold !important;
+  display: block !important;
+  width: 1rem !important;
+  text-align: left !important;
+  z-index: 10 !important;
+  font-size: 1.2rem !important;
+  line-height: 1 !important;
+}
+
 /* Nested ordered list styling */
 .ProseMirror ol.ordered-list {
   counter-reset: list-counter;
@@ -170,9 +226,13 @@
   content: counter(list-counter) '.';
   position: absolute;
   left: 0;
+  top: 0.25rem;
   color: #374151;
   font-weight: 500;
   min-width: 1.25rem;
+  z-index: 10;
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 /* Second level ordered lists with letters */

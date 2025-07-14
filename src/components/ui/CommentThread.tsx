@@ -578,32 +578,6 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                         
                         return (
                           <>
-                            {/* Original Selected Text */}
-                            <div className="bg-white dark:bg-gray-800 rounded-md p-3 border border-blue-200 dark:border-blue-700">
-                              <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">
-                                Original Selection:
-                              </div>
-                              <div className="text-sm text-gray-700 dark:text-gray-300 italic bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded border-l-2 border-green-400">
-                                "{comment.selected_text}"
-                              </div>
-                            </div>
-                            
-                            {/* Current Text at Coordinates */}
-                            {currentTextAtCoords && (
-                              <div className="bg-white dark:bg-gray-800 rounded-md p-3 border border-gray-200 dark:border-gray-700">
-                                <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                  Current Text at Coordinates:
-                                </div>
-                                <div className={`text-sm italic px-2 py-1 rounded border-l-2 ${
-                                  coordinatesMatch 
-                                    ? 'text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 border-green-400'
-                                    : 'text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border-red-400'
-                                }`}>
-                                  "{currentTextAtCoords}"
-                                </div>
-                              </div>
-                            )}
-                            
                             {/* Mismatch Warning */}
                             {currentTextAtCoords && !coordinatesMatch && (
                               <div className="bg-red-50 dark:bg-red-900/20 rounded-md p-3 border border-red-200 dark:border-red-700">

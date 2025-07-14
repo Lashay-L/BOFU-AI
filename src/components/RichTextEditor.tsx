@@ -2,6 +2,9 @@ import React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
+import BulletList from '@tiptap/extension-bullet-list';
+import OrderedList from '@tiptap/extension-ordered-list';
+import ListItem from '@tiptap/extension-list-item';
 import { 
   Bold, Italic, List, ListOrdered, Image as ImageIcon, 
   Heading2, Undo, Redo
@@ -16,7 +19,29 @@ interface RichTextEditorProps {
 export function RichTextEditor({ content, onChange, onImageUpload }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        bulletList: false, // Disable built-in bullet list
+        orderedList: false, // Disable built-in ordered list
+        listItem: false, // Disable built-in list item
+      }),
+      // Custom list extensions with proper CSS classes
+      ListItem.configure({
+        HTMLAttributes: {
+          style: 'margin: 0.25rem 0; display: list-item;',
+        },
+      }),
+      BulletList.configure({
+        HTMLAttributes: {
+          class: 'bullet-list',
+          style: 'list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0;',
+        },
+      }),
+      OrderedList.configure({
+        HTMLAttributes: {
+          class: 'ordered-list',
+          style: 'list-style: decimal; padding-left: 1.5rem; margin: 0.5rem 0;',
+        },
+      }),
       Image
     ],
     content,
