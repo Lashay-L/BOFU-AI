@@ -85,7 +85,7 @@ export const AdminUserArticlesModal = ({
       // First, fetch articles without the join
       const { data: articlesData, error } = await supabaseAdmin
         .from('content_briefs')
-        .select('id, user_id, product_name, possible_article_titles, article_content, editing_status, last_edited_at, last_edited_by, article_version, created_at, updated_at')
+        .select('id, user_id, product_name, possible_article_titles, article_content, editing_status, last_edited_at, last_edited_by, article_version, created_at, updated_at, google_doc_url')
         .in('user_id', userIds)
         .not('article_content', 'is', null)
         .order('created_at', { ascending: false });
@@ -213,7 +213,8 @@ export const AdminUserArticlesModal = ({
                 last_edited_by: article.user_profiles?.email || 'unknown@example.com',
                 article_version: article.article_version || 1,
                 created_at: article.created_at,
-                updated_at: article.updated_at || article.created_at
+                updated_at: article.updated_at || article.created_at,
+                google_doc_url: article.google_doc_url || null
               };
 
               return (
@@ -221,6 +222,10 @@ export const AdminUserArticlesModal = ({
                   key={article.id}
                   article={transformedArticle}
                   onEditArticle={() => onEditArticle(article)}
+                  onDeleteArticle={() => {
+                    // Add delete functionality - could be implemented later
+                    console.log('Delete functionality not implemented in modal view');
+                  }}
                   className="h-fit"
                 />
               );
