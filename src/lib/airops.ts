@@ -143,21 +143,36 @@ export async function approveContentBrief(briefData: ContentBriefInput) {
   try {
     console.log('Sending content brief to AirOps...');
     
+    // Enhanced logging for content framework debugging
+    console.log('🎯 AirOps Content Brief Data:', {
+      hasContentBrief: !!briefData.contentBrief,
+      hasInternalLinks: !!briefData.internalLinks,
+      hasArticleTitle: !!briefData.articleTitle,
+      hasContentFramework: !!briefData.contentFramework,
+      contentFrameworkValue: briefData.contentFramework,
+      contentFrameworkLength: briefData.contentFramework?.length || 0,
+      researchResultId: briefData.research_result_id
+    });
+
+    const requestPayload = {
+      inputs: {
+        content_brief: briefData.contentBrief,
+        internal_links: briefData.internalLinks,
+        article_title: briefData.articleTitle,
+        content_framework: briefData.contentFramework,
+        research_result_id: briefData.research_result_id
+      }
+    };
+
+    console.log('🚀 Full payload being sent to AirOps:', JSON.stringify(requestPayload, null, 2));
+    
     const response = await fetch(`https://api.airops.com/public_api/airops_apps/${CONTENT_BRIEF_WORKFLOW_UUID}/execute`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${AIROPS_API_KEY}`
       },
-      body: JSON.stringify({
-        inputs: {
-          content_brief: briefData.contentBrief,
-          internal_links: briefData.internalLinks,
-          article_title: briefData.articleTitle,
-          content_framework: briefData.contentFramework,
-          research_result_id: briefData.research_result_id
-        }
-      })
+      body: JSON.stringify(requestPayload)
     });
     
     if (!response.ok) {
@@ -173,6 +188,13 @@ export async function approveContentBrief(briefData: ContentBriefInput) {
     
     const data = await response.json();
     console.log('AirOps content brief response:', data);
+    
+    // Log success confirmation
+    console.log('✅ Successfully sent content framework to AirOps:', {
+      contentFramework: briefData.contentFramework,
+      responseStatus: response.status
+    });
+    
     return data;
   } catch (error) {
     console.error('Error in AirOps content brief integration:', error);

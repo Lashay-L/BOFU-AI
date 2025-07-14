@@ -15,6 +15,7 @@ interface AdminHeaderProps {
   adminRole: 'super_admin' | 'sub_admin' | null;
   assignedClients: AssignedClient[];
   showNotificationCenter: boolean;
+  unreadNotificationCount?: number;
   onRefreshData: () => void;
   onToggleNotificationCenter: (show: boolean) => void;
 }
@@ -24,6 +25,7 @@ export const AdminHeader = ({
   adminRole,
   assignedClients,
   showNotificationCenter,
+  unreadNotificationCount = 0,
   onRefreshData,
   onToggleNotificationCenter
 }: AdminHeaderProps) => {
@@ -100,10 +102,11 @@ export const AdminHeader = ({
             >
               <Bell size={18} className="text-gray-300 hover:text-white transition-colors" />
               {/* Dynamic notification badge */}
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-bold">
-                {/* This will be updated to show actual count from AssignmentNotificationCenter */}
-                {assignedClients.length > 0 ? assignedClients.length : ''}
-              </div>
+              {unreadNotificationCount > 0 && (
+                <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-bold">
+                  {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                </div>
+              )}
             </motion.button>
           )}
         </div>

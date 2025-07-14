@@ -15,6 +15,7 @@ import { sendPasswordResetEmail } from '../../lib/auth';
 import { AdminStatsCard, AdminActivityFeed, AdminQuickActions } from './ui';
 import { AdminUserArticlesModal, AdminDirectPasswordChangeModal } from './modals';
 import { AdminSidebar, AdminHeader, AdminMainContent } from './layout';
+import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount';
 
 // Dynamically import AdminArticleManagementPage for article editing functionality
 const AdminArticleManagementPage = lazy(() => import('../../pages/AdminArticleManagementPage'));
@@ -95,6 +96,9 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [dataInitialized, setDataInitialized] = useState(false);
 
+  // Get unread notification count for the header badge
+  const { unreadCount, refreshUnreadCount } = useUnreadNotificationCount(adminRole);
+
   // Article Management state
   const [selectedUserForArticles, setSelectedUserForArticles] = useState<{ user: UserProfile | null; companyGroup?: CompanyGroup | null }>({ user: null, companyGroup: null });
 
@@ -102,6 +106,7 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
     console.log('[AdminDashboard] Manually refreshing data at:', new Date().toISOString());
     setDataInitialized(false); // Force re-initialization
     setRefreshCounter(prev => prev + 1);
+    refreshUnreadCount(); // Refresh unread notification count
   };
 
   const debugDatabase = async () => {
@@ -1224,6 +1229,7 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
           adminRole={adminRole}
           assignedClients={assignedClients}
           showNotificationCenter={showNotificationCenter}
+          unreadNotificationCount={unreadCount}
           onRefreshData={refreshData}
           onToggleNotificationCenter={setShowNotificationCenter}
         />
@@ -1239,7 +1245,10 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
       {/* Assignment Notification Center */}
       <AssignmentNotificationCenter
         isVisible={showNotificationCenter}
-        onClose={() => setShowNotificationCenter(false)}
+        onClose={() => {
+          setShowNotificationCenter(false);
+          refreshUnreadCount(); // Refresh count when notification center is closed
+        }}
       />
 
       {/* Direct Password Change Modal */}

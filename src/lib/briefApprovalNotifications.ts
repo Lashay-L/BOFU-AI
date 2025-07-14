@@ -16,6 +16,63 @@ export interface BriefApprovalNotification {
 }
 
 /**
+ * Create an article generation notification for admins using Edge Function
+ */
+export async function createArticleGenerationNotification({
+  briefId,
+  briefTitle,
+  userId
+}: {
+  briefId: string;
+  briefTitle: string;
+  userId: string;
+}) {
+  try {
+    console.log('Creating article generation notification via Edge Function...', { briefId, briefTitle, userId });
+
+    // Get the current session for authentication
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error('No active session found');
+      return;
+    }
+
+    // Call the Edge Function with service role permissions
+    const { data, error } = await supabase.functions.invoke('send-brief-approval-notification', {
+      body: {
+        briefId,
+        briefTitle,
+        userId,
+        notificationType: 'article_generated'
+      },
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+      }
+    });
+
+    if (error) {
+      console.error('Error calling notification Edge Function:', error);
+      throw error;
+    }
+
+    console.log('✅ Edge Function response:', data);
+    
+    // If Edge Function didn't create notifications, create them as fallback
+    if (data && data.notifications === 0) {
+      console.log('🔄 Edge Function created 0 notifications, creating fallback notifications...');
+      await createArticleFallbackNotifications({ briefId, briefTitle, userId });
+    }
+    
+    return data;
+
+  } catch (error) {
+    console.error('Error creating article generation notification:', error);
+    throw error;
+  }
+}
+
+/**
  * Create a brief approval notification for admins using Edge Function
  */
 export async function createBriefApprovalNotification({
@@ -72,6 +129,56 @@ export async function createBriefApprovalNotification({
 }
 
 /**
+ * Create fallback notifications for article generation when Edge Function fails
+ */
+async function createArticleFallbackNotifications({
+  briefId,
+  briefTitle,
+  userId
+}: {
+  briefId: string;
+  briefTitle: string;
+  userId: string;
+}) {
+  try {
+    // Get user profile information
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('email, company_name')
+      .eq('id', userId)
+      .single();
+
+    if (!userProfile) {
+      console.error('User profile not found for article fallback notifications');
+      return;
+    }
+
+    // Get target admin IDs
+    const adminIds = await getTargetAdminIds(userId);
+    
+    let createdCount = 0;
+    for (const adminId of adminIds) {
+      const notification = await createArticleInAppNotification({
+        adminId,
+        briefId,
+        briefTitle,
+        userEmail: userProfile.email,
+        userCompany: userProfile.company_name || 'Unknown Company'
+      });
+      
+      if (notification) {
+        createdCount++;
+        console.log('✅ Article fallback notification created:', notification.id);
+      }
+    }
+    
+    console.log(`🔄 Created ${createdCount} article fallback notifications`);
+  } catch (error) {
+    console.error('Error creating article fallback notifications:', error);
+  }
+}
+
+/**
  * Create fallback notifications when Edge Function fails
  */
 async function createFallbackNotifications({
@@ -118,6 +225,62 @@ async function createFallbackNotifications({
     console.log(`🔄 Created ${createdCount} fallback notifications`);
   } catch (error) {
     console.error('Error creating fallback notifications:', error);
+  }
+}
+
+/**
+ * Create in-app notification record for article generation
+ */
+async function createArticleInAppNotification({
+  adminId,
+  briefId,
+  briefTitle,
+  userEmail,
+  userCompany
+}: {
+  adminId: string;
+  briefId: string;
+  briefTitle: string;
+  userEmail: string;
+  userCompany: string;
+}) {
+  try {
+    // Get main admin (lashay@bofu.ai) ID
+    const { data: mainAdmin } = await supabase
+      .from('admin_profiles')
+      .select('id')
+      .eq('email', 'lashay@bofu.ai')
+      .single();
+
+    const isMainAdmin = mainAdmin && mainAdmin.id === adminId;
+
+    const message = `${userEmail} from ${userCompany} has generated an article: "${briefTitle}"`;
+
+    const { data, error } = await supabase
+      .from('brief_approval_notifications')
+      .insert({
+        admin_id: adminId,
+        brief_id: briefId,
+        brief_title: briefTitle,
+        user_email: userEmail,
+        user_company: userCompany,
+        message,
+        notification_type: 'article_generated',
+        title: `Article Generated: ${briefTitle}`,
+        is_read: false
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating article in-app notification:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in createArticleInAppNotification:', error);
+    return null;
   }
 }
 
@@ -330,6 +493,29 @@ export async function getProductOnlyNotifications(
     return productNotifications;
   } catch (error) {
     console.error('Error in getProductOnlyNotifications:', error);
+    return [];
+  }
+}
+
+/**
+ * Get only article generation notifications
+ */
+export async function getArticleOnlyNotifications(
+  adminId: string, 
+  assignedClientIds?: string[]
+) {
+  try {
+    // Get all brief approval notifications first
+    const allNotifications = await getBriefApprovalNotifications(adminId, assignedClientIds);
+    
+    // Filter to only article generations
+    const articleNotifications = allNotifications.filter(
+      notification => notification.notification_type === 'article_generated'
+    );
+
+    return articleNotifications;
+  } catch (error) {
+    console.error('Error in getArticleOnlyNotifications:', error);
     return [];
   }
 }

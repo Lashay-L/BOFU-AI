@@ -33,6 +33,7 @@ import {
   getBriefApprovalNotifications,
   getBriefOnlyNotifications,
   getProductOnlyNotifications,
+  getArticleOnlyNotifications,
   markBriefApprovalNotificationsAsRead,
   BriefApprovalNotification
 } from '../../lib/briefApprovalNotifications';
@@ -45,7 +46,7 @@ interface AssignmentNotificationCenterProps {
 
 interface NotificationItem {
   id: string;
-  type: 'assignment' | 'unassignment' | 'transfer' | 'account_created' | 'account_deleted' | 'bulk_operation' | 'mention' | 'comment' | 'brief_approved' | 'product_approved';
+  type: 'assignment' | 'unassignment' | 'transfer' | 'account_created' | 'account_deleted' | 'bulk_operation' | 'mention' | 'comment' | 'brief_approved' | 'product_approved' | 'article_generated';
   message: string;
   details?: string;
   timestamp: string;
@@ -81,7 +82,7 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
   const [mentionNotifications, setMentionNotifications] = useState<MentionNotification[]>([]);
   const [briefApprovalNotifications, setBriefApprovalNotifications] = useState<BriefApprovalNotification[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'unread' | 'assignments' | 'accounts' | 'mentions' | 'briefs' | 'products'>('all');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'assignments' | 'accounts' | 'mentions' | 'briefs' | 'products' | 'articles'>('all');
   const [selectedNotifications, setSelectedNotifications] = useState<Set<string>>(new Set());
 
   // Only admin users can access this component
@@ -238,19 +239,36 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
     // Convert brief approval notifications to notification items
     const briefApprovalNotificationItems: NotificationItem[] = briefApprovals.map((brief) => {
       const isProductApproval = brief.notification_type === 'product_approved';
+      const isArticleGenerated = brief.notification_type === 'article_generated';
       
       // Use the pre-constructed message if individual fields are null/missing
       const hasIndividualFields = brief.user_email && brief.user_company && brief.brief_title;
-      const details = hasIndividualFields 
-        ? (isProductApproval 
+      let details, message, notificationType;
+      
+      if (isArticleGenerated) {
+        details = hasIndividualFields 
+          ? `${brief.user_email} from ${brief.user_company} generated an article: "${brief.brief_title}"`
+          : brief.message || 'Article generated';
+        message = 'Article Generated';
+        notificationType = 'article_generated' as const;
+      } else if (isProductApproval) {
+        details = hasIndividualFields 
           ? `${brief.user_email} from ${brief.user_company} approved a product card: "${brief.brief_title}"`
-          : `${brief.user_email} from ${brief.user_company} approved: "${brief.brief_title}"`)
-        : brief.message || (isProductApproval ? 'Product card approved' : 'Content brief approved');
+          : brief.message || 'Product card approved';
+        message = 'Product Card Approved';
+        notificationType = 'product_approved' as const;
+      } else {
+        details = hasIndividualFields 
+          ? `${brief.user_email} from ${brief.user_company} approved: "${brief.brief_title}"`
+          : brief.message || 'Content brief approved';
+        message = 'Content Brief Approved';
+        notificationType = 'brief_approved' as const;
+      }
       
       return {
-        id: `${isProductApproval ? 'product' : 'brief'}-${brief.id}`,
-        type: isProductApproval ? 'product_approved' as const : 'brief_approved' as const,
-        message: isProductApproval ? 'Product Card Approved' : 'Content Brief Approved',
+        id: `${isArticleGenerated ? 'article' : (isProductApproval ? 'product' : 'brief')}-${brief.id}`,
+        type: notificationType,
+        message,
         details,
         timestamp: brief.created_at,
         isRead: brief.is_read,
@@ -315,6 +333,8 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
         return notification.type === 'brief_approved';
       case 'products':
         return notification.type === 'product_approved';
+      case 'articles':
+        return notification.type === 'article_generated';
       default:
         return true;
     }
@@ -333,8 +353,8 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
     }
     
     // Handle brief approval notifications separately
-    if (notificationId.startsWith('brief-') || notificationId.startsWith('product-')) {
-      const briefNotificationId = notificationId.replace(/^(brief-|product-)/, '');
+    if (notificationId.startsWith('brief-') || notificationId.startsWith('product-') || notificationId.startsWith('article-')) {
+      const briefNotificationId = notificationId.replace(/^(brief-|product-|article-)/, '');
       try {
         // Get current admin ID from authentication
         const { data: { user } } = await supabase.auth.getUser();
@@ -342,7 +362,7 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
           await markBriefApprovalNotificationsAsRead(user.id, [briefNotificationId]);
         }
       } catch (error) {
-        console.error('Error marking brief/product notification as read:', error);
+        console.error('Error marking brief/product/article notification as read:', error);
       }
     }
     
@@ -357,6 +377,21 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
 
   // Mark all as read
   const markAllAsRead = async () => {
+    // Immediately update UI state for better UX
+    setNotifications(prev => 
+      prev.map(notification => ({ ...notification, isRead: true }))
+    );
+    
+    // Update mention notifications state
+    setMentionNotifications(prev => 
+      prev.map(mention => ({ ...mention, notification_sent: true }))
+    );
+    
+    // Update brief approval notifications state
+    setBriefApprovalNotifications(prev => 
+      prev.map(brief => ({ ...brief, is_read: true }))
+    );
+    
     // Mark mention notifications as read
     const mentionIds = notifications
       .filter(n => n.id.startsWith('mention-') && !n.isRead)
@@ -367,13 +402,14 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
         await markMentionNotificationsAsSent(mentionIds);
       } catch (error) {
         console.error('Error marking mentions as read:', error);
+        toast.error('Failed to mark mention notifications as read');
       }
     }
     
     // Mark brief approval notifications as read
     const briefIds = notifications
-      .filter(n => (n.id.startsWith('brief-') || n.id.startsWith('product-')) && !n.isRead)
-      .map(n => n.id.replace(/^(brief-|product-)/, ''));
+      .filter(n => (n.id.startsWith('brief-') || n.id.startsWith('product-') || n.id.startsWith('article-')) && !n.isRead)
+      .map(n => n.id.replace(/^(brief-|product-|article-)/, ''));
     
     if (briefIds.length > 0) {
       try {
@@ -383,13 +419,16 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
           await markBriefApprovalNotificationsAsRead(user.id, briefIds);
         }
       } catch (error) {
-        console.error('Error marking brief/product notifications as read:', error);
+        console.error('Error marking brief/product/article notifications as read:', error);
+        toast.error('Failed to mark brief/product/article notifications as read');
       }
     }
     
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, isRead: true }))
-    );
+    // Show success message
+    toast.success('All notifications marked as read');
+    
+    // Refresh the data to ensure database changes are reflected
+    await loadRecentActivities();
   };
 
   // Toggle notification selection
@@ -424,9 +463,9 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
       }
 
       // Handle different types of notifications for database cleanup
-      if (notificationId.startsWith('brief-') || notificationId.startsWith('product-')) {
-        const briefNotificationId = notificationId.replace(/^(brief-|product-)/, '');
-        // Delete from brief_approval_notifications table (used for both brief and product notifications)
+      if (notificationId.startsWith('brief-') || notificationId.startsWith('product-') || notificationId.startsWith('article-')) {
+        const briefNotificationId = notificationId.replace(/^(brief-|product-|article-)/, '');
+        // Delete from brief_approval_notifications table (used for brief, product, and article notifications)
         const { error } = await supabase
           .from('brief_approval_notifications')
           .delete()
@@ -434,7 +473,7 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
           .eq('admin_id', user.id);
         
         if (error) {
-          console.error('Error deleting brief/product notification:', error);
+          console.error('Error deleting brief/product/article notification:', error);
           toast.error('Failed to delete notification');
           return;
         }
@@ -526,6 +565,8 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
         return CheckCircle;
       case 'product_approved':
         return CheckCircle;
+      case 'article_generated':
+        return FileText;
       default:
         return Bell;
     }
@@ -608,7 +649,8 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
           { key: 'accounts', label: 'Accounts', count: notifications.filter(n => ['account_created', 'account_deleted'].includes(n.type)).length },
           { key: 'mentions', label: 'Mentions', count: notifications.filter(n => ['mention', 'comment'].includes(n.type)).length },
           { key: 'briefs', label: 'Brief Approvals', count: notifications.filter(n => n.type === 'brief_approved').length },
-          { key: 'products', label: 'Product Approvals', count: notifications.filter(n => n.type === 'product_approved').length }
+          { key: 'products', label: 'Product Approvals', count: notifications.filter(n => n.type === 'product_approved').length },
+          { key: 'articles', label: 'Article Generation', count: notifications.filter(n => n.type === 'article_generated').length }
         ].map((tab) => (
           <button
             key={tab.key}

@@ -27,7 +27,7 @@ serve(async (req) => {
       }
     )
 
-    const { briefId, briefTitle, userId } = await req.json()
+    const { briefId, briefTitle, userId, notificationType = 'brief_approved' } = await req.json()
 
     if (!briefId || !briefTitle || !userId) {
       return new Response(
@@ -36,7 +36,7 @@ serve(async (req) => {
       )
     }
 
-    console.log('Processing notification request:', { briefId, briefTitle, userId })
+    console.log('Processing notification request:', { briefId, briefTitle, userId, notificationType })
 
     // Get user profile information
     const { data: userProfile, error: userError } = await supabaseAdmin
@@ -86,7 +86,8 @@ serve(async (req) => {
           briefId,
           briefTitle,
           userEmail: userProfile.email,
-          userCompany: userProfile.company_name || 'Unknown Company'
+          userCompany: userProfile.company_name || 'Unknown Company',
+          notificationType
         })
 
         if (notification) {
@@ -102,7 +103,8 @@ serve(async (req) => {
           adminName: adminProfile.name || 'Admin',
           userEmail: userProfile.email,
           userCompany: userProfile.company_name || 'Unknown Company',
-          briefTitle
+          briefTitle,
+          notificationType
         })
 
         emailResults.push({
@@ -192,17 +194,27 @@ async function createInAppNotification(supabaseAdmin: any, {
   briefId,
   briefTitle,
   userEmail,
-  userCompany
+  userCompany,
+  notificationType = 'brief_approved'
 }: {
   adminId: string
   briefId: string
   briefTitle: string
   userEmail: string
   userCompany: string
+  notificationType?: string
 }) {
   try {
-    const message = `${userEmail} from ${userCompany} has approved a content brief: "${briefTitle}"`
-    const title = `Content Brief Approved: ${briefTitle}`
+    // Generate appropriate message and title based on notification type
+    let message, title;
+    
+    if (notificationType === 'article_generated') {
+      message = `${userEmail} from ${userCompany} has generated an article: "${briefTitle}"`;
+      title = `Article Generated: ${briefTitle}`;
+    } else {
+      message = `${userEmail} from ${userCompany} has approved a content brief: "${briefTitle}"`;
+      title = `Content Brief Approved: ${briefTitle}`;
+    }
 
     console.log('Creating notification with data:', {
       admin_id: adminId,
@@ -224,7 +236,7 @@ async function createInAppNotification(supabaseAdmin: any, {
         user_email: userEmail,
         user_company: userCompany,
         message,
-        notification_type: 'brief_approved',
+        notification_type: notificationType,
         is_read: false
       })
       .select()
@@ -251,13 +263,15 @@ async function sendEmailNotification({
   adminName,
   userEmail,
   userCompany,
-  briefTitle
+  briefTitle,
+  notificationType = 'brief_approved'
 }: {
   adminEmail: string
   adminName: string
   userEmail: string
   userCompany: string
   briefTitle: string
+  notificationType?: string
 }) {
   try {
     // 🔧 EMAIL CONFIGURATION
@@ -288,10 +302,16 @@ async function sendEmailNotification({
       return false
     }
 
+    // Generate appropriate subject and content based on notification type
+    const isArticleGenerated = notificationType === 'article_generated';
+    const subject = isArticleGenerated 
+      ? `📄 Article Generated: ${briefTitle}`
+      : `🎉 Content Brief Approved: ${briefTitle}`;
+    
     const emailData = {
       from: FROM_EMAIL,
       to: RECIPIENT_EMAIL,
-      subject: `🎉 Content Brief Approved: ${briefTitle}`,
+      subject,
       html: `
         <!DOCTYPE html>
         <html lang="en">
@@ -343,8 +363,8 @@ async function sendEmailNotification({
                             </div>
                             
                             <!-- Main Heading -->
-                            <h1 style="margin: 0 0 8px; color: #ffffff; font-size: 32px; font-weight: 700; line-height: 1.2; letter-spacing: -0.5px;">Content Brief Approved!</h1>
-                            <p style="margin: 0; color: #94a3b8; font-size: 16px; line-height: 1.5;">Great news! A content brief has been successfully approved and is ready for your review.</p>
+                            <h1 style="margin: 0 0 8px; color: #ffffff; font-size: 32px; font-weight: 700; line-height: 1.2; letter-spacing: -0.5px;">${isArticleGenerated ? 'Article Generated!' : 'Content Brief Approved!'}</h1>
+                            <p style="margin: 0; color: #94a3b8; font-size: 16px; line-height: 1.5;">${isArticleGenerated ? 'Great news! A new article has been generated and is ready for your review.' : 'Great news! A content brief has been successfully approved and is ready for your review.'}</p>
                           </td>
                         </tr>
                       </table>
@@ -366,13 +386,13 @@ async function sendEmailNotification({
                         <div style="position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%);"></div>
                         
                         <div style="margin-bottom: 16px;">
-                          <p style="margin: 0 0 4px; color: #fbbf24; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Approved By</p>
+                          <p style="margin: 0 0 4px; color: #fbbf24; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${isArticleGenerated ? 'Generated By' : 'Approved By'}</p>
                           <p style="margin: 0; color: #ffffff; font-size: 18px; font-weight: 600;">${userEmail}</p>
                           <p style="margin: 4px 0 0; color: #94a3b8; font-size: 14px;">from <strong style="color: #e2e8f0;">${userCompany}</strong></p>
                         </div>
                         
                         <div style="margin-bottom: 20px;">
-                          <p style="margin: 0 0 8px; color: #fbbf24; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Content Brief Title</p>
+                          <p style="margin: 0 0 8px; color: #fbbf24; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${isArticleGenerated ? 'Article Title' : 'Content Brief Title'}</p>
                           <div style="background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 8px; padding: 16px;">
                             <p style="margin: 0; color: #ffffff; font-size: 18px; font-weight: 600; line-height: 1.4;">"${briefTitle}"</p>
                           </div>
@@ -381,7 +401,7 @@ async function sendEmailNotification({
                         <!-- Timestamp -->
                         <div style="border-top: 1px solid rgba(148, 163, 184, 0.2); padding-top: 16px;">
                           <p style="margin: 0; color: #64748b; font-size: 14px;">
-                            <span style="color: #fbbf24;">●</span> Approved on ${new Date().toLocaleDateString('en-US', { 
+                            <span style="color: #fbbf24;">●</span> ${isArticleGenerated ? 'Generated on' : 'Approved on'} ${new Date().toLocaleDateString('en-US', { 
                               weekday: 'long', 
                               year: 'numeric', 
                               month: 'long', 
@@ -397,9 +417,9 @@ async function sendEmailNotification({
                       <!-- Call to Action -->
                       <div style="text-align: center; margin-bottom: 32px;">
                         <a href="#" style="display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #1a1a2e; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; letter-spacing: -0.3px; box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3); transition: all 0.2s ease;">
-                          🚀 Review in Admin Dashboard
+                          ${isArticleGenerated ? '📄 Review Article in Dashboard' : '🚀 Review in Admin Dashboard'}
                         </a>
-                        <p style="margin: 12px 0 0; color: #64748b; font-size: 14px;">Click above to view the full content brief and manage approvals</p>
+                        <p style="margin: 12px 0 0; color: #64748b; font-size: 14px;">${isArticleGenerated ? 'Click above to view the generated article and make any edits' : 'Click above to view the full content brief and manage approvals'}</p>
                       </div>
                       
                       <!-- Features Highlight -->
@@ -408,15 +428,15 @@ async function sendEmailNotification({
                         <ul style="margin: 0; padding: 0; list-style: none;">
                           <li style="margin: 0 0 12px; color: #e2e8f0; font-size: 14px; display: flex; align-items: center;">
                             <span style="color: #10b981; margin-right: 8px; font-weight: bold;">✓</span>
-                            Review the approved content brief in your dashboard
+                            ${isArticleGenerated ? 'Review the generated article for quality and accuracy' : 'Review the approved content brief in your dashboard'}
                           </li>
                           <li style="margin: 0 0 12px; color: #e2e8f0; font-size: 14px; display: flex; align-items: center;">
                             <span style="color: #10b981; margin-right: 8px; font-weight: bold;">✓</span>
-                            Assign content creation tasks to your team
+                            ${isArticleGenerated ? 'Make any necessary edits or improvements' : 'Assign content creation tasks to your team'}
                           </li>
                           <li style="margin: 0; color: #e2e8f0; font-size: 14px; display: flex; align-items: center;">
                             <span style="color: #10b981; margin-right: 8px; font-weight: bold;">✓</span>
-                            Track progress and monitor performance metrics
+                            ${isArticleGenerated ? 'Publish the article to your content channels' : 'Track progress and monitor performance metrics'}
                           </li>
                         </ul>
                       </div>

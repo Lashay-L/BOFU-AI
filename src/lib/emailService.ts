@@ -451,6 +451,439 @@ export function generateBriefApprovalEmailTemplate({
 }
 
 /**
+ * Generate professional HTML template for article generation notifications
+ */
+export function generateArticleGenerationEmailTemplate({
+  adminName,
+  userEmail,
+  userCompany,
+  briefTitle,
+  generatedAt,
+  platformUrl = 'https://app.bofu.ai'
+}: {
+  adminName: string;
+  userEmail: string;
+  userCompany: string;
+  briefTitle: string;
+  generatedAt: string;
+  platformUrl?: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article Generated - BOFU AI</title>
+    <style>
+        /* Reset styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #374151;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        
+        /* Header with gradient */
+        .header {
+            background: linear-gradient(135deg, #16a34a 0%, #22c55e 50%, #84cc16 100%);
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(22, 163, 74, 0.9) 0%, rgba(34, 197, 94, 0.9) 50%, rgba(132, 204, 22, 0.9) 100%);
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .logo-text {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header h1 {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+            font-weight: 400;
+        }
+        
+        /* Main content */
+        .content {
+            padding: 40px 30px;
+        }
+        
+        .greeting {
+            font-size: 18px;
+            color: #1f2937;
+            margin-bottom: 24px;
+            font-weight: 600;
+        }
+        
+        .notification-card {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            border: 1px solid #bbf7d0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .notification-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+        }
+        
+        .notification-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+        }
+        
+        .article-icon {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .notification-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 12px;
+        }
+        
+        .article-details {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 16px 0;
+            border: 1px solid #d1fae5;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        
+        .detail-value {
+            font-weight: 500;
+            color: #1f2937;
+            text-align: right;
+            max-width: 60%;
+            word-break: break-word;
+        }
+        
+        .company-badge {
+            background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+            color: #ffffff;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .time-badge {
+            background: #f3f4f6;
+            color: #6b7280;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        /* Action button */
+        .action-section {
+            text-align: center;
+            margin: 32px 0;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+            color: #ffffff;
+            text-decoration: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 16px;
+            box-shadow: 0 4px 15px rgba(22, 163, 74, 0.4);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(22, 163, 74, 0.5);
+        }
+        
+        /* Footer */
+        .footer {
+            background: #f8fafc;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .footer p {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .footer-links {
+            margin: 16px 0;
+        }
+        
+        .footer-link {
+            color: #16a34a;
+            text-decoration: none;
+            font-size: 14px;
+            margin: 0 15px;
+            font-weight: 500;
+        }
+        
+        .footer-link:hover {
+            text-decoration: underline;
+        }
+        
+        /* Responsive */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            
+            .content {
+                padding: 30px 20px;
+            }
+            
+            .header {
+                padding: 30px 20px;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .detail-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .detail-value {
+                text-align: left;
+                max-width: 100%;
+                margin-top: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-text">B</div>
+                </div>
+                <h1>Article Generated</h1>
+                <p>Your BOFU AI platform notification</p>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="content">
+            <div class="greeting">
+                Hello ${adminName},
+            </div>
+            
+            <p style="color: #4b5563; font-size: 16px; margin-bottom: 24px;">
+                Great news! A new article has been generated and is ready for review. Here are the details:
+            </p>
+            
+            <!-- Notification Card -->
+            <div class="notification-card">
+                <div class="notification-icon">
+                    <div class="article-icon">📄</div>
+                </div>
+                <div class="notification-title">Article Successfully Generated</div>
+                
+                <div class="article-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Client Email</span>
+                        <span class="detail-value">${userEmail}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Company</span>
+                        <span class="detail-value">
+                            <span class="company-badge">${userCompany}</span>
+                        </span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Article Title</span>
+                        <span class="detail-value" style="font-weight: 600;">${briefTitle}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Generated At</span>
+                        <span class="detail-value">
+                            <span class="time-badge">${new Date(generatedAt).toLocaleString()}</span>
+                        </span>
+                    </div>
+                </div>
+                
+                <p style="color: #6b7280; font-size: 14px; margin-top: 16px; line-height: 1.5;">
+                    The article has been successfully generated using AI and is now available for review and editing. You can access it in your admin dashboard to review quality and make any necessary adjustments.
+                </p>
+            </div>
+            
+            <!-- Call to Action -->
+            <div class="action-section">
+                <a href="${platformUrl}/admin" class="cta-button">
+                    Review Article in Dashboard →
+                </a>
+            </div>
+            
+            <p style="color: #6b7280; font-size: 14px; text-align: center; margin-top: 24px;">
+                Need help? Contact our support team or check the documentation for more information.
+            </p>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>BOFU AI</strong> - Bottom of Funnel Content Intelligence</p>
+            <p>Transforming how businesses create and optimize their content strategy</p>
+            
+            <div class="footer-links">
+                <a href="${platformUrl}" class="footer-link">Dashboard</a>
+                <a href="${platformUrl}/support" class="footer-link">Support</a>
+                <a href="${platformUrl}/docs" class="footer-link">Documentation</a>
+            </div>
+            
+            <p style="font-size: 12px; color: #9ca3af; margin-top: 16px;">
+                This is an automated notification from BOFU AI. Please do not reply to this email.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Send article generation email notification to admin
+ */
+export async function sendArticleGenerationEmailNotification({
+  adminEmail,
+  adminName,
+  userEmail,
+  userCompany,
+  briefTitle
+}: {
+  adminEmail: string;
+  adminName: string;
+  userEmail: string;
+  userCompany: string;
+  briefTitle: string;
+}): Promise<boolean> {
+  try {
+    const htmlContent = generateArticleGenerationEmailTemplate({
+      adminName,
+      userEmail,
+      userCompany,
+      briefTitle,
+      generatedAt: new Date().toISOString()
+    });
+
+    const emailNotification: EmailNotification = {
+      to: adminEmail,
+      subject: `📄 Article Generated - ${userCompany}`,
+      html: htmlContent
+    };
+
+    return await sendEmail(emailNotification);
+  } catch (error) {
+    console.error('Error sending article generation email:', error);
+    return false;
+  }
+}
+
+/**
  * Send brief approval email notification to admin
  */
 export async function sendBriefApprovalEmailNotification({

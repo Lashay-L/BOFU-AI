@@ -418,9 +418,27 @@ export function ProductCardActions({
       return;
     }
 
-    // Show the notification after 5 seconds
+    // Generate a new UUID for each content brief to ensure uniqueness
+    // This creates a valid UUID v4 format
+    const generateUUID = () => {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    };
+    
+    const uniqueResearchResultId = generateUUID();
+    
+    console.log('🔍 Unique Research Result ID Generation:', {
+      originalId: trackingId,
+      uniqueId: uniqueResearchResultId,
+      isValidUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uniqueResearchResultId)
+    });
+
+    // Show the notification after 5 seconds with the unique ID
     setTimeout(() => {
-      setTrackingId(trackingId);
+      setTrackingId(uniqueResearchResultId);
       setShowContentNotification(true);
     }, 5000);
 
@@ -436,7 +454,7 @@ export function ProductCardActions({
             userEmail,
             userCompanyName
           },
-          research_result_Id: trackingId
+          research_result_Id: uniqueResearchResultId // Send the unique ID with 6 random digits appended
         };
 
         // Log framework being sent to AirOps for verification

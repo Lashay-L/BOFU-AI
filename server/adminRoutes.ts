@@ -472,6 +472,54 @@ router.put('/articles/:id', asyncHandler(async (req: Request, res: Response) => 
     });
   }
 
+  // Check if this is an article generation (first time content is added)
+  if (article_content !== undefined && article_content.trim()) {
+    try {
+      // Get the previous version to check if content was empty before
+      const { data: previousArticle } = await supabase
+        .from('content_briefs')
+        .select('article_content')
+        .eq('id', id)
+        .single();
+
+      // If the previous article content was empty or null, this is likely article generation
+      const wasEmpty = !previousArticle?.article_content || previousArticle.article_content.trim() === '';
+      
+      if (wasEmpty) {
+        console.log('Detected article generation for brief:', id);
+        
+        // Call the Supabase Edge Function directly to create notifications
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        
+        if (supabaseUrl && supabaseServiceRoleKey) {
+          const notificationResponse = await fetch(`${supabaseUrl}/functions/v1/send-brief-approval-notification`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${supabaseServiceRoleKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              briefId: id,
+              briefTitle: updatedArticle.title || 'Untitled Article',
+              userId: updatedArticle.user_id,
+              notificationType: 'article_generated'
+            })
+          });
+          
+          if (!notificationResponse.ok) {
+            console.error('Failed to call notification Edge Function:', await notificationResponse.text());
+          } else {
+            console.log('Edge Function notification response:', await notificationResponse.json());
+          }
+        }
+      }
+    } catch (notificationError) {
+      console.error('Failed to send article generation notifications:', notificationError);
+      // Don't fail the update process if notifications fail
+    }
+  }
+
   // Log admin access
   await logAdminAccess(authResult.adminId!, id, 'edit', {
     action: 'update_article',
