@@ -48,19 +48,27 @@ export const useAdminActivity = (maxItems: number = 10): AdminActivityData => {
       // 1. Fetch comment activities
       console.log('💬 Fetching comment activities...');
       try {
-        const commentActivityData = await getRealtimeCommentActivity();
-        console.log('💬 Comment activity data:', commentActivityData);
-        
-        if (commentActivityData && commentActivityData.recentComments && commentActivityData.recentComments.length > 0) {
-          const commentActivities: AdminActivityItem[] = commentActivityData.recentComments.slice(0, 3).map((comment: any) => ({
+        const { data: comments, error: commentsError } = await supabase
+          .from('article_comments')
+          .select('id, content, created_at, article_id, user_id')
+          .order('created_at', { ascending: false })
+          .limit(3);
+
+        if (commentsError) {
+          console.error('❌ Comments query error:', commentsError);
+        } else if (comments && comments.length > 0) {
+          console.log('💬 Comments data found:', comments);
+          const commentActivities: AdminActivityItem[] = comments.map((comment: any) => ({
             id: `comment-${comment.id}`,
             title: 'New comment posted',
             time: formatTime(comment.created_at),
             type: 'comment' as const,
-            user: comment.user?.email || comment.userEmail || 'Unknown user',
-            details: `Comment on article: ${comment.content?.substring(0, 50)}...` || 'New comment added'
+            user: 'User', // Simplified for now
+            details: `Comment: ${comment.content?.substring(0, 50)}...` || 'New comment added'
           }));
           allActivities.push(...commentActivities);
+        } else {
+          console.log('💬 No comments found');
         }
       } catch (commentError) {
         console.error('❌ Failed to fetch comment activity:', commentError);
@@ -71,13 +79,7 @@ export const useAdminActivity = (maxItems: number = 10): AdminActivityData => {
       try {
         const { data: research, error: researchError } = await supabase
           .from('research_results')
-          .select(`
-            id,
-            product_name,
-            created_at,
-            updated_at,
-            user_profiles!inner(email, company_name)
-          `)
+          .select('id, title, product_name, created_at, updated_at, user_id')
           .order('created_at', { ascending: false })
           .limit(3);
 
@@ -85,18 +87,14 @@ export const useAdminActivity = (maxItems: number = 10): AdminActivityData => {
           console.error('❌ Research query error:', researchError);
         } else if (research && research.length > 0) {
           console.log('🔬 Research data found:', research);
-          const researchActivities: AdminActivityItem[] = research.map((research: any) => {
-            const userEmail = research.user_profiles?.email || 'Unknown user';
-            const companyName = research.user_profiles?.company_name;
-            return {
-              id: `research-${research.id}`,
-              title: 'Research completed',
-              time: formatTime(research.created_at),
-              type: 'research' as const,
-              user: userEmail,
-              details: `Product research: ${research.product_name}${companyName ? ` from ${companyName}` : ''}`
-            };
-          });
+          const researchActivities: AdminActivityItem[] = research.map((research: any) => ({
+            id: `research-${research.id}`,
+            title: 'Research completed',
+            time: formatTime(research.created_at),
+            type: 'research' as const,
+            user: 'User', // Simplified for now
+            details: `Product research: ${research.product_name || research.title || 'Unknown product'}`
+          }));
           allActivities.push(...researchActivities);
         } else {
           console.log('🔬 No research data found');
@@ -110,13 +108,7 @@ export const useAdminActivity = (maxItems: number = 10): AdminActivityData => {
       try {
         const { data: approvals, error: approvalsError } = await supabase
           .from('approved_products')
-          .select(`
-            id,
-            product_name,
-            created_at,
-            updated_at,
-            user_profiles!inner(email, company_name)
-          `)
+          .select('id, product_name, created_at, updated_at')
           .order('created_at', { ascending: false })
           .limit(3);
 
@@ -124,18 +116,14 @@ export const useAdminActivity = (maxItems: number = 10): AdminActivityData => {
           console.error('❌ Approved products query error:', approvalsError);
         } else if (approvals && approvals.length > 0) {
           console.log('✅ Approved products data found:', approvals);
-          const approvalActivities: AdminActivityItem[] = approvals.map((approval: any) => {
-            const userEmail = approval.user_profiles?.email || 'Unknown user';
-            const companyName = approval.user_profiles?.company_name;
-            return {
-              id: `approval-${approval.id}`,
-              title: 'Product approved',
-              time: formatTime(approval.created_at),
-              type: 'approved_product' as const,
-              user: userEmail,
-              details: `Product approved: ${approval.product_name}${companyName ? ` from ${companyName}` : ''}`
-            };
-          });
+          const approvalActivities: AdminActivityItem[] = approvals.map((approval: any) => ({
+            id: `approval-${approval.id}`,
+            title: 'Product approved',
+            time: formatTime(approval.created_at),
+            type: 'approved_product' as const,
+            user: 'Admin', // Simplified for now
+            details: `Product approved: ${approval.product_name || 'Unknown product'}`
+          }));
           allActivities.push(...approvalActivities);
         } else {
           console.log('✅ No approved products found');
@@ -149,14 +137,7 @@ export const useAdminActivity = (maxItems: number = 10): AdminActivityData => {
       try {
         const { data: articles, error: articlesError } = await supabase
           .from('content_briefs')
-          .select(`
-            id,
-            title,
-            created_at,
-            updated_at,
-            status,
-            user_profiles!inner(email, company_name)
-          `)
+          .select('id, title, created_at, updated_at, status, user_id')
           .eq('status', 'approved')
           .order('updated_at', { ascending: false })
           .limit(3);
@@ -165,18 +146,14 @@ export const useAdminActivity = (maxItems: number = 10): AdminActivityData => {
           console.error('❌ Articles query error:', articlesError);
         } else if (articles && articles.length > 0) {
           console.log('📄 Articles data found:', articles);
-          const articleActivities: AdminActivityItem[] = articles.map((article: any) => {
-            const userEmail = article.user_profiles?.email || 'Unknown user';
-            const companyName = article.user_profiles?.company_name;
-            return {
-              id: `article-${article.id}`,
-              title: 'Article approved',
-              time: formatTime(article.updated_at),
-              type: 'article' as const,
-              user: userEmail,
-              details: `Article: ${article.title || 'Untitled'}${companyName ? ` from ${companyName}` : ''}`
-            };
-          });
+          const articleActivities: AdminActivityItem[] = articles.map((article: any) => ({
+            id: `article-${article.id}`,
+            title: 'Article approved',
+            time: formatTime(article.updated_at),
+            type: 'article' as const,
+            user: 'User', // Simplified for now
+            details: `Article: ${article.title || 'Untitled'}`
+          }));
           allActivities.push(...articleActivities);
         } else {
           console.log('📄 No approved articles found');
@@ -190,14 +167,7 @@ export const useAdminActivity = (maxItems: number = 10): AdminActivityData => {
       try {
         const { data: briefs, error: briefsError } = await supabase
           .from('content_briefs')
-          .select(`
-            id,
-            title,
-            approval_status,
-            created_at,
-            updated_at,
-            user_profiles!inner(email, company_name)
-          `)
+          .select('id, title, approval_status, created_at, updated_at, user_id')
           .order('updated_at', { ascending: false })
           .limit(3);
 
@@ -206,16 +176,14 @@ export const useAdminActivity = (maxItems: number = 10): AdminActivityData => {
         } else if (briefs && briefs.length > 0) {
           console.log('📋 Content briefs data found:', briefs);
           const briefActivities: AdminActivityItem[] = briefs.map((brief: any) => {
-            const userEmail = brief.user_profiles?.email || 'Unknown user';
-            const companyName = brief.user_profiles?.company_name;
             const statusText = brief.approval_status === 'approved' ? 'approved' : 'submitted';
             return {
               id: `brief-${brief.id}`,
               title: `Content brief ${statusText}`,
               time: formatTime(brief.updated_at),
               type: 'content_brief' as const,
-              user: userEmail,
-              details: `Brief: ${brief.title || 'Untitled'}${companyName ? ` from ${companyName}` : ''}`
+              user: 'User', // Simplified for now
+              details: `Brief: ${brief.title || 'Untitled'}`
             };
           });
           allActivities.push(...briefActivities);
