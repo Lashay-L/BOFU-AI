@@ -402,7 +402,7 @@ export function ProductCardContent({
   const [isCapabilitiesExpanded, setIsCapabilitiesExpanded] = useState(false);
   
   // Add state for controlling all sections based on isExpanded prop
-  const [sectionsExpanded, setSectionsExpanded] = useState(isExpanded);
+  const [sectionsExpanded, setSectionsExpanded] = useState(false);
 
   // Update sectionsExpanded when isExpanded prop changes
   React.useEffect(() => {

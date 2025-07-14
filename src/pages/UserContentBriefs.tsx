@@ -169,12 +169,11 @@ export default function UserContentBriefs() {
                 
                 // Check for keywords array in the parsed content
                 if (briefContent.keywords && Array.isArray(briefContent.keywords) && briefContent.keywords.length > 0) {
-                  const shortId = brief.id.substring(0, 8);
                   // Extract the first keyword and clean it from backticks and quotes
                   const firstKeyword = briefContent.keywords[0].replace(/[`'"]/g, '').trim();
                   // Remove any URL patterns that might be in the keyword
                   const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
-                  return `${cleanKeyword} - Content Brief ${shortId}`;
+                  return cleanKeyword;
                 }
                 
                 // Try to get primary keyword from SEO Strategy
@@ -182,8 +181,7 @@ export default function UserContentBriefs() {
                 if (seoStrategy && seoStrategy['Primary Keyword']) {
                   const primaryKeyword = seoStrategy['Primary Keyword'].replace(/[`'"]/g, '').trim();
                   if (primaryKeyword) {
-                    const shortId = brief.id.substring(0, 8);
-                    return `${primaryKeyword} - Brief ${shortId}`;
+                    return primaryKeyword;
                   }
                 }
               } catch (error) {
@@ -208,8 +206,7 @@ export default function UserContentBriefs() {
                   
                   if (productData.keywords && Array.isArray(productData.keywords) && productData.keywords.length > 0) {
                     // Use first keyword but make it unique with brief ID
-                    const shortId = brief.id.substring(0, 8);
-                    return `${productData.keywords[0]} Analysis - Brief ${shortId}`;
+                    return `${productData.keywords[0]} Analysis`;
                   }
                 }
               } catch (productError) {
@@ -219,13 +216,11 @@ export default function UserContentBriefs() {
             
             // Fallback to product_name if available
             if (brief.product_name && brief.product_name.trim()) {
-              const shortId = brief.id.substring(0, 8);
-              return `${brief.product_name} - Content Brief ${shortId}`;
+              return brief.product_name;
             }
             
             // Final fallback with date and brief ID
-            const shortId = brief.id.substring(0, 8);
-            return `Content Brief ${shortId} - ${briefDate}`;
+            return `Content Brief - ${briefDate}`;
           };
 
           const title = await getTitle();
