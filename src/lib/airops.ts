@@ -151,15 +151,32 @@ export async function approveContentBrief(briefData: ContentBriefInput) {
       hasContentFramework: !!briefData.contentFramework,
       contentFrameworkValue: briefData.contentFramework,
       contentFrameworkLength: briefData.contentFramework?.length || 0,
+      contentFrameworkType: Array.isArray(briefData.contentFramework) ? 'array' : typeof briefData.contentFramework,
       researchResultId: briefData.research_result_id
     });
+
+    // Format content framework properly for AirOps
+    let formattedContentFramework = '';
+    if (briefData.contentFramework) {
+      if (Array.isArray(briefData.contentFramework)) {
+        // Convert array to formatted string with proper line breaks
+        formattedContentFramework = briefData.contentFramework
+          .filter(item => item && item.trim()) // Remove empty items
+          .join('\n\n'); // Join with double line breaks for better readability
+        console.log('📝 Converted array to formatted string:', formattedContentFramework.substring(0, 200) + '...');
+      } else {
+        // Already a string, use as-is
+        formattedContentFramework = String(briefData.contentFramework);
+        console.log('📝 Using string content framework as-is');
+      }
+    }
 
     const requestPayload = {
       inputs: {
         content_brief: briefData.contentBrief,
         internal_links: briefData.internalLinks,
         article_title: briefData.articleTitle,
-        content_framework: briefData.contentFramework,
+        content_framework: formattedContentFramework, // Now properly formatted as string
         research_result_id: briefData.research_result_id
       }
     };
