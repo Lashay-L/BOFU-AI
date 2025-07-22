@@ -144,17 +144,24 @@ export function MainHeader({
 
   // Set up real-time mention notification subscription to update count
   useEffect(() => {
-    const setupMentionSubscription = () => {
+    const setupMentionSubscription = async () => {
       if (user?.id) {
         console.log('🔔 Setting up mention notification subscription for header count');
         
         // Clean up any existing subscription first
         if (mentionSubscriptionRef.current) {
           console.log('🔔 Cleaning up existing header mention subscription');
-          if (typeof mentionSubscriptionRef.current.unsubscribe === 'function') {
-            mentionSubscriptionRef.current.unsubscribe();
+          try {
+            if (typeof mentionSubscriptionRef.current.unsubscribe === 'function') {
+              mentionSubscriptionRef.current.unsubscribe();
+            }
+          } catch (error) {
+            console.error('❌ Error cleaning up mention subscription:', error);
           }
           mentionSubscriptionRef.current = null;
+          
+          // Small delay to ensure cleanup completes
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
         
         // Determine if this is an admin user and subscribe accordingly
@@ -197,12 +204,18 @@ export function MainHeader({
       }
     };
 
-    setupMentionSubscription();
+    setupMentionSubscription().catch(error => {
+      console.error('❌ Error setting up mention subscription:', error);
+    });
 
     return () => {
       if (mentionSubscriptionRef.current) {
         console.log('🔔 Cleaning up header mention subscription');
-        mentionSubscriptionRef.current.unsubscribe();
+        try {
+          mentionSubscriptionRef.current.unsubscribe();
+        } catch (error) {
+          console.error('❌ Error cleaning up header mention subscription:', error);
+        }
         mentionSubscriptionRef.current = null;
       }
     };

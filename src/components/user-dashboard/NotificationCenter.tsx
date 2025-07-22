@@ -27,6 +27,8 @@ import {
   MentionNotification,
   subscribeToMentionNotifications
 } from '../../lib/commentApi';
+import { useUserNotifications } from '../../hooks/useUserNotifications';
+import { getNotificationTypeLabel } from '../../lib/userNotifications';
 import { formatDistanceToNow } from 'date-fns';
 import { BaseModal } from '../ui/BaseModal';
 
@@ -39,13 +41,25 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
   const { user } = useAuth();
   const navigate = useNavigate();
   const { navigateToArticle } = useArticleNavigation();
-  const [notifications, setNotifications] = useState<MentionNotification[]>([]);
+  const [mentions, setMentions] = useState<MentionNotification[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'unread' | 'mentions'>('all');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'mentions' | 'notifications'>('all');
   const [selectedNotifications, setSelectedNotifications] = useState<Set<string>>(new Set());
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [mentionUnreadCount, setMentionUnreadCount] = useState(0);
   const [navigationError, setNavigationError] = useState<string | null>(null);
   const subscriptionRef = useRef<any>(null);
+
+  // Use the user notifications hook
+  const {
+    notifications: userNotifications,
+    unreadCount: userUnreadCount,
+    isLoading: userNotificationsLoading,
+    markAsRead: markUserNotificationsAsRead,
+    markAllAsRead: markAllUserNotificationsAsRead
+  } = useUserNotifications();
+
+  // Calculate total unread count
+  const totalUnreadCount = mentionUnreadCount + userUnreadCount;
 
   // Load notifications when component becomes visible
   useEffect(() => {
@@ -72,10 +86,10 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
           console.log('🔔 Received new mention notification:', newNotification);
           
           // Add the new notification to the list
-          setNotifications(prev => [newNotification, ...prev]);
+          setMentions(prev => [newNotification, ...prev]);
           
           // Update unread count
-          setUnreadCount(prev => prev + 1);
+          setMentionUnreadCount(prev => prev + 1);
           
           // Show toast notification
           const articleTitle = newNotification.comment?.content_briefs?.title || 'an article';
@@ -111,11 +125,11 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
     }
   }, [user?.id]);
 
-  // Update unread count when notifications change
+  // Update unread count when mentions change
   useEffect(() => {
-    const unread = notifications.filter(n => !n.notification_sent).length;
-    setUnreadCount(unread);
-  }, [notifications]);
+    const unread = mentions.filter(n => !n.notification_sent).length;
+    setMentionUnreadCount(unread);
+  }, [mentions]);
 
   const loadNotifications = async () => {
     try {
@@ -125,7 +139,7 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
       const mentionNotifications = await getMentionNotifications(undefined, undefined, true);
       console.log('📥 Loaded mention notifications:', mentionNotifications.length);
       
-      setNotifications(mentionNotifications);
+      setMentions(mentionNotifications);
     } catch (error) {
       console.error('❌ Error loading notifications:', error);
       toast.error('Failed to load notifications');
@@ -134,32 +148,41 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
     }
   };
 
-  // Filter notifications
-  const filteredNotifications = notifications.filter(notification => {
+  // Combine and filter all notifications
+  const allNotifications = [
+    ...userNotifications.map(n => ({ ...n, type: 'user' as const })),
+    ...mentions.map(n => ({ ...n, type: 'mention' as const }))
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const filteredNotifications = allNotifications.filter(notification => {
     switch (filter) {
       case 'unread':
-        return !notification.notification_sent;
+        return notification.type === 'user' ? !notification.is_read : !notification.notification_sent;
       case 'mentions':
-        return true; // All notifications are mentions for now
+        return notification.type === 'mention';
+      case 'notifications':
+        return notification.type === 'user';
       default:
         return true;
     }
   });
 
   // Mark notification as read
-  const markAsRead = async (notificationId: string) => {
+  const markAsRead = async (notificationId: string, notificationType: 'user' | 'mention') => {
     try {
-      await markMentionNotificationsAsSent([notificationId]);
-      setNotifications(prev => 
-        prev.map(notification => 
-          notification.id === notificationId 
-            ? { ...notification, notification_sent: true }
-            : notification
-        )
-      );
-      
-      // Update unread count immediately
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      if (notificationType === 'user') {
+        await markUserNotificationsAsRead([notificationId]);
+      } else {
+        await markMentionNotificationsAsSent([notificationId]);
+        setMentions(prev => 
+          prev.map(notification => 
+            notification.id === notificationId 
+              ? { ...notification, notification_sent: true }
+              : notification
+          )
+        );
+        setMentionUnreadCount(prev => Math.max(0, prev - 1));
+      }
     } catch (error) {
       console.error('❌ Error marking notification as read:', error);
       toast.error('Failed to mark as read');
@@ -169,24 +192,30 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
   // Mark all as read
   const markAllAsRead = async () => {
     try {
-      console.log('🔄 markAllAsRead called, total notifications:', notifications.length);
+      console.log('🔄 markAllAsRead called, total notifications:', allNotifications.length);
       
-      const unreadIds = notifications
+      // Mark all user notifications as read
+      if (userUnreadCount > 0) {
+        await markAllUserNotificationsAsRead();
+      }
+
+      // Mark all mention notifications as read  
+      const unreadMentionIds = mentions
         .filter(n => !n.notification_sent)
         .map(n => n.id);
       
-      console.log('🔍 Found unread notification IDs:', unreadIds);
+      console.log('🔍 Found unread mention IDs:', unreadMentionIds);
       
-      if (unreadIds.length > 0) {
+      if (unreadMentionIds.length > 0) {
         console.log('🔄 Calling markMentionNotificationsAsSent...');
-        const result = await markMentionNotificationsAsSent(unreadIds);
+        const result = await markMentionNotificationsAsSent(unreadMentionIds);
         console.log('📤 markMentionNotificationsAsSent result:', result);
         
         if (result) {
-          setNotifications(prev => 
+          setMentions(prev => 
             prev.map(notification => ({ ...notification, notification_sent: true }))
           );
-          setUnreadCount(0);
+          setMentionUnreadCount(0);
           
           // Manually refresh the main header notification count
           console.log('🔄 Calling manual refresh...');
@@ -203,7 +232,7 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
         }
       } else {
         console.log('ℹ️ No unread notifications to mark');
-        toast.info('No unread notifications to mark');
+        toast.success('No unread notifications to mark');
       }
     } catch (error) {
       console.error('❌ Error marking all as read:', error);
@@ -259,18 +288,18 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
       <div className="flex items-center gap-3 mb-6">
         <div className="p-2 rounded-lg bg-blue-500/20 relative">
           <Bell className="h-6 w-6 text-blue-500" />
-          {unreadCount > 0 && (
+          {totalUnreadCount > 0 && (
             <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-bold">
-              {unreadCount > 9 ? '9+' : unreadCount}
+              {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
             </div>
           )}
         </div>
         <div>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {unreadCount} unread • {notifications.length} total
+            {totalUnreadCount} unread • {allNotifications.length} total
           </p>
         </div>
-        {unreadCount > 0 && (
+        {totalUnreadCount > 0 && (
           <button
             onClick={markAllAsRead}
             className="flex items-center gap-2 px-3 py-1 bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg text-sm hover:bg-blue-500/30 transition-colors ml-auto"
@@ -284,9 +313,9 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
         {[
-          { key: 'all', label: 'All', count: notifications.length },
-          { key: 'unread', label: 'Unread', count: unreadCount },
-          { key: 'mentions', label: 'Mentions', count: notifications.length }
+          { key: 'all', label: 'All', count: allNotifications.length },
+          { key: 'unread', label: 'Unread', count: totalUnreadCount },
+          { key: 'mentions', label: 'Mentions', count: mentions.length }
         ].map((tab) => (
           <button
             key={tab.key}
@@ -316,10 +345,18 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
         ) : filteredNotifications.length > 0 ? (
           <div className="space-y-3">
             {filteredNotifications.map((notification) => {
-              const articleId = notification.comment?.content_briefs?.id || notification.comment?.article_id;
-              const articleTitle = notification.comment?.content_briefs?.title || 'Unknown Article';
-              const productName = notification.comment?.content_briefs?.product_name;
-              const mentionedByName = getMentionedByName(notification);
+              // Handle different notification types
+              const isMention = notification.type === 'mention';
+              const articleId = isMention 
+                ? (notification.comment?.content_briefs?.id || notification.comment?.article_id)
+                : notification.brief_id;
+              const articleTitle = isMention
+                ? (notification.comment?.content_briefs?.title || 'Unknown Article') 
+                : notification.title;
+              const productName = isMention
+                ? notification.comment?.content_briefs?.product_name
+                : undefined;
+              const mentionedByName = isMention ? getMentionedByName(notification) : 'System';
               
               return (
                 <motion.div
@@ -327,12 +364,13 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className={`p-5 rounded-xl border transition-all cursor-pointer ${
-                    notification.notification_sent
+                    (isMention ? notification.notification_sent : !notification.is_read)
                       ? 'bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700'
                       : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 shadow-lg'
                   }`}
                   onClick={() => {
-                    if (!notification.notification_sent) markAsRead(notification.id);
+                    const isUnread = isMention ? !notification.notification_sent : !notification.is_read;
+                    if (isUnread) markAsRead(notification.id, notification.type);
                   }}
                 >
                   <div className="flex items-start gap-4">
