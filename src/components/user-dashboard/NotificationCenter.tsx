@@ -17,7 +17,8 @@ import {
   FileText,
   Calendar,
   ArrowRight,
-  AlertTriangle
+  AlertTriangle,
+  Edit
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../lib/auth';
@@ -43,7 +44,7 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
   const { navigateToArticle } = useArticleNavigation();
   const [mentions, setMentions] = useState<MentionNotification[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'unread' | 'mentions' | 'notifications'>('all');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'mentions' | 'content_briefs' | 'articles'>('all');
   const [selectedNotifications, setSelectedNotifications] = useState<Set<string>>(new Set());
   const [mentionUnreadCount, setMentionUnreadCount] = useState(0);
   const [navigationError, setNavigationError] = useState<string | null>(null);
@@ -160,8 +161,10 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
         return notification.type === 'user' ? !notification.is_read : !notification.notification_sent;
       case 'mentions':
         return notification.type === 'mention';
-      case 'notifications':
-        return notification.type === 'user';
+      case 'content_briefs':
+        return notification.type === 'user' && notification.notification_type === 'brief_generated';
+      case 'articles':
+        return notification.type === 'user' && notification.notification_type === 'article_generated';
       default:
         return true;
     }
@@ -263,6 +266,21 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
     );
   };
 
+  // Navigation handler for content briefs
+  const handleNavigateToContentBrief = async (briefId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setNavigationError(null);
+    
+    try {
+      // Navigate to content brief management page - user's content briefs
+      navigate('/content-briefs');
+      onClose(); // Close the notification modal
+    } catch (error) {
+      console.error('Error navigating to content brief:', error);
+      setNavigationError('Unable to navigate to content brief. Please try again.');
+    }
+  };
+
 
   // Get user name from comment data
   const getMentionedByName = (notification: MentionNotification) => {
@@ -315,6 +333,8 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
         {[
           { key: 'all', label: 'All', count: allNotifications.length },
           { key: 'unread', label: 'Unread', count: totalUnreadCount },
+          { key: 'content_briefs', label: 'Content Briefs', count: userNotifications.filter(n => n.notification_type === 'brief_generated').length },
+          { key: 'articles', label: 'Articles', count: userNotifications.filter(n => n.notification_type === 'article_generated').length },
           { key: 'mentions', label: 'Mentions', count: mentions.length }
         ].map((tab) => (
           <button
@@ -375,24 +395,36 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
                 >
                   <div className="flex items-start gap-4">
                     <div className={`p-3 rounded-xl ${
-                      notification.notification_sent ? 'bg-gray-200 dark:bg-gray-700' : 'bg-blue-500/20'
+                      (isMention ? notification.notification_sent : !notification.is_read) ? 'bg-gray-200 dark:bg-gray-700' : 
+                      isMention ? 'bg-blue-500/20' :
+                      notification.notification_type === 'brief_generated' ? 'bg-green-500/20' : 'bg-purple-500/20'
                     }`}>
-                      <AtSign className={`h-5 w-5 ${
-                        notification.notification_sent ? 'text-gray-500' : 'text-blue-500'
-                      }`} />
+                      {isMention ? (
+                        <AtSign className={`h-5 w-5 ${
+                          notification.notification_sent ? 'text-gray-500' : 'text-blue-500'
+                        }`} />
+                      ) : notification.notification_type === 'brief_generated' ? (
+                        <FileText className={`h-5 w-5 ${
+                          !notification.is_read ? 'text-green-500' : 'text-gray-500'
+                        }`} />
+                      ) : (
+                        <Edit className={`h-5 w-5 ${
+                          !notification.is_read ? 'text-purple-500' : 'text-gray-500'
+                        }`} />
+                      )}
                     </div>
                     
                     <div className="flex-1 min-w-0 space-y-3">
                       {/* Header */}
                       <div className="flex items-center gap-2 mb-2">
                         <h4 className={`font-semibold text-lg ${
-                          notification.notification_sent 
+                          (isMention ? notification.notification_sent : !notification.is_read)
                             ? 'text-gray-600 dark:text-gray-300' 
                             : 'text-gray-900 dark:text-white'
                         }`}>
                           {articleTitle}
                         </h4>
-                        {!notification.notification_sent && (
+                        {!(isMention ? notification.notification_sent : !notification.is_read) && (
                           <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
                         )}
                       </div>
@@ -414,7 +446,7 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
                           )}
                         </div>
                         
-                        {notification.comment && (
+                        {isMention && notification.comment && (
                           <div className="bg-white dark:bg-gray-800/50 rounded-lg p-3 border border-gray-200 dark:border-gray-600/20">
                             <div className="flex items-center gap-2 mb-2">
                               <User className="h-4 w-4 text-purple-500" />
@@ -434,15 +466,27 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
                         {/* Navigation Button */}
                         {articleId && (
                           <div className="flex items-center gap-2 mt-4">
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={(e) => handleNavigateToArticle(articleId, e)}
-                              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                              Edit Article
-                            </motion.button>
+                            {isMention || notification.notification_type === 'article_generated' ? (
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={(e) => handleNavigateToArticle(articleId, e)}
+                                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+                              >
+                                <Edit className="h-4 w-4" />
+                                Edit Article
+                              </motion.button>
+                            ) : notification.notification_type === 'brief_generated' ? (
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={(e) => handleNavigateToContentBrief(articleId, e)}
+                                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+                              >
+                                <FileText className="h-4 w-4" />
+                                View Content Brief
+                              </motion.button>
+                            ) : null}
                           </div>
                         )}
                         
@@ -469,13 +513,13 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      {notification.notification_sent ? (
+                      {(isMention ? notification.notification_sent : !notification.is_read) ? (
                         <CheckCircle className="h-5 w-5 text-green-500" />
                       ) : (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            markAsRead(notification.id);
+                            markAsRead(notification.id, notification.type);
                           }}
                           className="p-2 rounded-lg hover:bg-blue-500/20 text-blue-500 hover:text-blue-600 transition-colors"
                           title="Mark as read"
@@ -496,6 +540,8 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
             <p>
               {filter === 'all' ? 'No notifications found' :
                filter === 'unread' ? 'All notifications have been read' :
+               filter === 'content_briefs' ? 'No content brief notifications found' :
+               filter === 'articles' ? 'No article notifications found' :
                'No mention notifications found'}
             </p>
           </div>
