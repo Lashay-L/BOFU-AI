@@ -15,7 +15,8 @@ export function CompanyDetailView({
   onUpdateApprovedProduct,
   onDeleteBrief,
   onDeleteApprovedProduct,
-  onRefreshData
+  onRefreshData,
+  onSelectUser
 }: CompanyDetailViewProps) {
   const [expandedProductIndex, setExpandedProductIndex] = React.useState<string | null>(null);
   const [collapsedContentBriefs, setCollapsedContentBriefs] = React.useState<Set<string>>(new Set());

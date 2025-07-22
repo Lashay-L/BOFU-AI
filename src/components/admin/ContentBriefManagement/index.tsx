@@ -31,7 +31,7 @@ export function ContentBriefManagement({ onBack }: ContentBriefManagementProps) 
   const [expandedProductIndex, setExpandedProductIndex] = useState<string | null>(null);
 
   // Initialize hooks
-  const { users, isLoading, error, groupUsersByCompany, refreshUsers } = useUsersData();
+  const { users, isLoading, error, groupUsersByCompany, refreshUsers, handleUserDeleted } = useUsersData();
   const { 
     userResearchResults, 
     isLoadingResearch, 
@@ -295,6 +295,7 @@ export function ContentBriefManagement({ onBack }: ContentBriefManagementProps) 
             refreshUsers();
           }
         }}
+        onUserDeleted={handleUserDeleted}
       />
     );
   }

@@ -82,6 +82,7 @@ export interface UserDetailViewProps {
   onBack: () => void;
   onUpdateSection: (productIndex: number, sectionType: string, newValue: any) => void;
   onDeleteBrief: (briefId: string, briefTitle?: string) => void;
+  onUserDeleted?: (userId: string) => void;
 }
 
 export interface ApprovedProductsSectionProps {

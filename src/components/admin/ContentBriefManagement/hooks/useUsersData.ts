@@ -259,11 +259,18 @@ export function useUsersData() {
     fetchUsers();
   }, []);
 
+  // Handle user deletion callback
+  const handleUserDeleted = async (userId: string) => {
+    console.log('User deleted, refreshing users data...');
+    await fetchUsers();
+  };
+
   return {
     users,
     isLoading,
     error,
     groupUsersByCompany,
-    refreshUsers: fetchUsers
+    refreshUsers: fetchUsers,
+    handleUserDeleted
   };
 }

@@ -20,7 +20,7 @@ import {
 import { sendProductCardToMoonlit } from '../../lib/moonlit';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
-// Removed ContentGenerationSuccessModal import - not needed for "Send to Moonlit" action
+// Database trigger will handle notifications automatically when content briefs are created
 
 interface ProductCardActionsProps {
   product: ProductAnalysis;
@@ -518,8 +518,10 @@ export function ProductCardActions({
           hasFramework: !!completeProductData.framework
         });
 
-        await sendProductCardToMoonlit(moonlitData);
-        toast.success('Successfully sent to Moonlit for processing');
+        const moonlitResponse = await sendProductCardToMoonlit(moonlitData);
+        console.log('🎯 Moonlit response received:', moonlitResponse);
+        
+        toast.success('Successfully sent to Moonlit for processing. You will be notified when your content brief is ready.');
       } catch (error: any) {
         console.error('Error sending to Moonlit:', error);
         

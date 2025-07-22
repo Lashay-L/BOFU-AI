@@ -4,7 +4,9 @@ import { supabase, supabaseAdmin } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
-import { Eye, EyeOff, Loader2, RefreshCw, UserCircle, ArrowLeft, Users, FileText, Shield, MessageSquare, BarChart3, TrendingUp, Clock, AlertCircle, Plus, Search, Filter, Calendar, Bell, LogOut, Home, Zap, Activity, BookOpen, UserPlus, Crown, Building2, UserCog, ChevronRight, Badge, ChevronDown, Edit, X, Mail, KeyRound, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, Loader2, RefreshCw, UserCircle, ArrowLeft, Users, FileText, Shield, MessageSquare, BarChart3, TrendingUp, Clock, AlertCircle, Plus, Search, Filter, Calendar, Bell, LogOut, Home, Zap, Activity, BookOpen, UserPlus, Crown, Building2, UserCog, ChevronRight, Badge, ChevronDown, Edit, X, Mail, KeyRound, AlertTriangle, Trash2 } from 'lucide-react';
+import { useUserDeletion } from './ContentBriefManagement/hooks/useUserDeletion';
+import { BaseModal } from '../ui/BaseModal';
 import { AuditLogViewer } from './AuditLogViewer';
 import { EnhancedCommentDashboard } from './EnhancedCommentDashboard';
 import { useAdminContext } from '../../contexts/AdminContext';
@@ -91,6 +93,9 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
   const [selectedArticle, setSelectedArticle] = useState<any>(null);
   const [passwordResetLoading, setPasswordResetLoading] = useState<Set<string>>(new Set());
   const [directPasswordChangeUser, setDirectPasswordChangeUser] = useState<UserProfile | null>(null);
+  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [isMainAdmin, setIsMainAdmin] = useState(false);
   const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
   const [showNotificationCenter, setShowNotificationCenter] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
@@ -98,6 +103,16 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
 
   // Get unread notification count for the header badge
   const { unreadCount, refreshUnreadCount } = useUnreadNotificationCount(adminRole);
+
+  // User deletion functionality
+  const { 
+    deleteUser, 
+    getDeletionSummary, 
+    isDeleting, 
+    deletionSummary, 
+    isLoadingSummary,
+    isMainAdmin: checkIsMainAdmin
+  } = useUserDeletion();
 
   // Article Management state
   const [selectedUserForArticles, setSelectedUserForArticles] = useState<{ user: UserProfile | null; companyGroup?: CompanyGroup | null }>({ user: null, companyGroup: null });
@@ -555,6 +570,42 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
     }
   };
 
+  // Check if current user is main admin on component mount
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      const isAdmin = await checkIsMainAdmin();
+      setIsMainAdmin(isAdmin);
+    };
+    checkAdminStatus();
+  }, [checkIsMainAdmin]);
+
+  // Handle delete user button click
+  const handleDeleteUser = async (user: UserProfile) => {
+    if (!isMainAdmin) {
+      return;
+    }
+    
+    setUserToDelete(user);
+    // Get deletion summary before showing confirmation
+    await getDeletionSummary(user.id);
+    setShowDeleteConfirmation(true);
+  };
+
+  // Handle confirmed deletion
+  const handleConfirmedDelete = async () => {
+    if (!isMainAdmin || !userToDelete) {
+      return;
+    }
+
+    const success = await deleteUser(userToDelete.id, userToDelete.email);
+    if (success) {
+      setShowDeleteConfirmation(false);
+      setUserToDelete(null);
+      // Refresh the user data
+      refreshData();
+    }
+  };
+
   const renderMainContent = () => {
     switch (currentView) {
       case 'userManagement':
@@ -776,6 +827,27 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
                                         <KeyRound className="w-4 h-4" />
                                       </motion.button>
                                     )}
+                                    
+                                    {/* Delete User Button - Only visible to main admin */}
+                                    {isMainAdmin && (
+                                      <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteUser(companyGroup.main_account);
+                                        }}
+                                        disabled={isLoadingSummary}
+                                        className="p-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 rounded-lg transition-colors border border-red-500/30 hover:border-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Delete User Account"
+                                      >
+                                        {isLoadingSummary && userToDelete?.id === companyGroup.main_account.id ? (
+                                          <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                          <Trash2 className="w-4 h-4" />
+                                        )}
+                                      </motion.button>
+                                    )}
                                     <UserCircle className="w-4 h-4 text-gray-400" />
                                   </div>
                                 </div>
@@ -878,6 +950,27 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
                                                 title="Change Password Directly"
                                               >
                                                 <KeyRound className="w-3 h-3" />
+                                              </motion.button>
+                                            )}
+                                            
+                                            {/* Delete User Button - Only visible to main admin */}
+                                            {isMainAdmin && (
+                                              <motion.button
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.95 }}
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleDeleteUser(subUser);
+                                                }}
+                                                disabled={isLoadingSummary}
+                                                className="p-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 rounded-lg transition-colors border border-red-500/30 hover:border-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                title="Delete User Account"
+                                              >
+                                                {isLoadingSummary && userToDelete?.id === subUser.id ? (
+                                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                                ) : (
+                                                  <Trash2 className="w-3 h-3" />
+                                                )}
                                               </motion.button>
                                             )}
                                             <UserCircle className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -1261,6 +1354,135 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
         }}
         onPasswordChange={handleDirectPasswordChange}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <BaseModal
+        isOpen={showDeleteConfirmation}
+        onClose={() => setShowDeleteConfirmation(false)}
+        title="Delete User Account"
+        size="md"
+        theme="dark"
+      >
+        {userToDelete && (
+          <div className="space-y-6">
+            {/* Warning Icon */}
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-full bg-red-500/20 border border-red-500/30">
+                <AlertTriangle className="h-6 w-6 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Permanent Account Deletion</h3>
+                <p className="text-sm text-gray-400">This action cannot be undone</p>
+              </div>
+            </div>
+
+            {/* User Info */}
+            <div className="bg-gray-800/60 rounded-lg p-4 border border-gray-700/30">
+              <h4 className="text-white font-medium mb-2">Account to be deleted:</h4>
+              <div className="space-y-1 text-sm">
+                <p><span className="text-gray-400">Email:</span> <span className="text-white">{userToDelete.email}</span></p>
+                <p><span className="text-gray-400">Company:</span> <span className="text-white">{userToDelete.company_name || 'N/A'}</span></p>
+                <p><span className="text-gray-400">Created:</span> <span className="text-white">{new Date(userToDelete.created_at).toLocaleDateString()}</span></p>
+              </div>
+            </div>
+
+            {/* Data Impact Summary */}
+            {deletionSummary && (
+              <div className="bg-red-500/5 rounded-lg p-4 border border-red-500/20">
+                <h4 className="text-red-300 font-medium mb-3 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Data that will be permanently deleted:
+                </h4>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Content Briefs:</span>
+                      <span className="text-white font-medium">{deletionSummary.contentBriefs}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Research Results:</span>
+                      <span className="text-white font-medium">{deletionSummary.researchResults}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Approved Products:</span>
+                      <span className="text-white font-medium">{deletionSummary.approvedProducts}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Article Comments:</span>
+                      <span className="text-white font-medium">{deletionSummary.articleComments}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Version History:</span>
+                      <span className="text-white font-medium">{deletionSummary.versionHistory}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Company Profiles:</span>
+                      <span className="text-white font-medium">{deletionSummary.companyProfiles}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Dashboard Data:</span>
+                      <span className="text-white font-medium">{deletionSummary.userDashboardEmbeds}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Activity Records:</span>
+                      <span className="text-white font-medium">{deletionSummary.commentStatusHistory}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-red-500/20">
+                  <div className="flex justify-between">
+                    <span className="text-red-300 font-medium">Total Records:</span>
+                    <span className="text-red-300 font-bold">
+                      {Object.values(deletionSummary).reduce((sum, count) => sum + count, 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Warning Message */}
+            <div className="bg-yellow-500/10 rounded-lg p-4 border border-yellow-500/20">
+              <p className="text-yellow-300 text-sm flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <span>
+                  This will permanently delete the user's account from Supabase authentication, 
+                  remove all their data from the database, and cannot be recovered. 
+                  Only the main admin (lashay@bofu.ai) can perform this action.
+                </span>
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirmation(false)}
+                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmedDelete}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Delete Account
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </BaseModal>
     </div>
   );
 }
