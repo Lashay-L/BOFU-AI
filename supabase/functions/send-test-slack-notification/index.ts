@@ -181,6 +181,19 @@ serve(async (req) => {
         )
       }
       
+      // Handle bot not in channel
+      if (slackResult.error === 'not_in_channel') {
+        return new Response(
+          JSON.stringify({ 
+            error: 'bot_not_in_channel',
+            message: `The BOFU AI bot is not a member of #${userProfile.slack_channel_name}. Please invite the bot to the channel by typing "/invite @BOFU AI" in the channel, then try again.`,
+            details: slackResult.error,
+            channel: userProfile.slack_channel_name
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
       return new Response(
         JSON.stringify({ 
           error: 'slack_send_failed',

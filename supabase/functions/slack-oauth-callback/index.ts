@@ -179,7 +179,7 @@ serve(async (req) => {
     console.log('✅ Successfully connected Slack for user:', existingUser.email)
 
     // Redirect back to settings page with success - use frontend app URL
-    const frontendUrl = existingUser.email.includes('demo') ? 'http://localhost:5173' : 'https://bofu-ai.windsurf.build'
+    const frontendUrl = existingUser.email.includes('demo') ? 'http://localhost:5173' : 'https://bofu.netlify.app'
     return new Response(null, {
       status: 302,
       headers: {
