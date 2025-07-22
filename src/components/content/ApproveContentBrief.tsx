@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { Loader2, CheckCircle } from 'lucide-react';
-import { approveContentBrief } from '../../lib/airops';
+import { approveContentBriefWithMoonlit } from '../../lib/moonlit';
 import { supabase } from '../../lib/supabase';
 import { createBriefApprovalNotification } from '../../lib/briefApprovalNotifications';
 import { ContentGenerationSuccessModal } from '../ui/ContentGenerationSuccessModal';
@@ -12,6 +12,7 @@ interface ApproveContentBriefProps {
   articleTitle: string;
   contentFramework: string;
   briefId: string;
+  briefStatus?: string; // Add brief status prop
   onSuccess?: () => void;
   onError?: (error: Error) => void;
 }
@@ -22,6 +23,7 @@ export function ApproveContentBrief({
   articleTitle,
   contentFramework,
   briefId,
+  briefStatus,
   onSuccess,
   onError
 }: ApproveContentBriefProps) {
@@ -29,13 +31,19 @@ export function ApproveContentBrief({
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const handleApprove = async () => {
+    // Check if user has approved the brief first
+    if (briefStatus !== 'approved') {
+      toast.error('This brief must be approved by the user before it can be sent for article generation');
+      return;
+    }
+    
     // Validate required fields
     if (!contentBrief || !articleTitle) {
       toast.error('Content brief and article title are required');
       return;
     }
     
-    // Show success modal after 5 seconds regardless of AirOps completion
+    // Show success modal after 5 seconds regardless of Moonlit completion
     setTimeout(() => {
       setShowSuccessModal(true);
     }, 5000);
@@ -78,7 +86,7 @@ export function ApproveContentBrief({
         }
       }
 
-      await approveContentBrief({
+      await approveContentBriefWithMoonlit({
         contentBrief,
         internalLinks,
         articleTitle,
@@ -108,7 +116,7 @@ export function ApproveContentBrief({
           <CheckCircle className="h-5 w-5 text-green-500" />
           <div>
             <p className="font-medium">Article Generation Started</p>
-            <p className="text-sm text-gray-400">Your content brief has been successfully processed. Admins have been notified via email and in-app notifications.</p>
+            <p className="text-sm text-gray-400">Your content brief has been successfully processed via Moonlit. Admins have been notified via email and in-app notifications.</p>
           </div>
         </div>
       );
@@ -142,16 +150,19 @@ export function ApproveContentBrief({
     <>
       <button
         onClick={handleApprove}
-        disabled={isApproving}
+        disabled={isApproving || briefStatus !== 'approved'}
         className={`
           inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium
-          ${isApproving
+          ${isApproving || briefStatus !== 'approved'
             ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-inner'
             : 'bg-green-600 text-white hover:bg-green-700 active:bg-green-800 shadow-md hover:shadow-lg'
           }
           transition-all duration-200 ease-in-out
         `}
-        title="Send content brief to AirOps for content generation"
+        title={briefStatus !== 'approved' 
+          ? "User must approve this brief first before it can be sent for article generation"
+          : "Send content brief to Moonlit for content generation"
+        }
       >
         {isApproving ? (
           <>
@@ -161,7 +172,7 @@ export function ApproveContentBrief({
         ) : (
           <>
             <CheckCircle className="h-5 w-5" />
-            <span>Approve & Generate</span>
+            <span>{briefStatus !== 'approved' ? 'Waiting for User Approval' : 'Approve & Generate'}</span>
           </>
         )}
       </button>
@@ -171,8 +182,8 @@ export function ApproveContentBrief({
         onClose={() => setShowSuccessModal(false)}
         trackingId={briefId}
         title="Article Generation Initiated!"
-        description="Your content brief has been sent to AirOps for article generation"
-        processingLocation="AirOps AI Engine"
+        description="Your content brief has been sent to Moonlit for article generation"
+        processingLocation="Moonlit AI Engine"
         estimatedTime="5-8 minutes"
         additionalInfo="You'll receive a notification when your article is ready"
       />

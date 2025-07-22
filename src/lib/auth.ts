@@ -4,7 +4,7 @@ import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
 
 // User registration
-export async function registerUser(email: string, password: string, companyName: string) {
+export async function registerUser(email: string, password: string, companyName: string, userName: string) {
   try {
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -12,6 +12,7 @@ export async function registerUser(email: string, password: string, companyName:
       options: {
         data: {
           company_name: companyName,
+          user_name: userName,
           is_admin: false, // Explicitly set as not an admin
         }
       }

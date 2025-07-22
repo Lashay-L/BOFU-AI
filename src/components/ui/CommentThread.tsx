@@ -567,39 +567,8 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                     
                     {/* Coordinate Validation and Content Display */}
                     {(() => {
-                      // Check if coordinates are valid and match stored text
-                      if (comment.selected_text) {
-                        // Get current text at coordinates (using editor ref if available)
-                        const currentTextAtCoords = typeof window !== 'undefined' && document.querySelector('[data-editor]') 
-                          ? (document.querySelector('[data-editor]')?.textContent || '').substring(comment.selection_start, comment.selection_end)
-                          : null;
-                        
-                        const coordinatesMatch = currentTextAtCoords === comment.selected_text;
-                        
-                        return (
-                          <>
-                            {/* Mismatch Warning */}
-                            {currentTextAtCoords && !coordinatesMatch && (
-                              <div className="bg-red-50 dark:bg-red-900/20 rounded-md p-3 border border-red-200 dark:border-red-700">
-                                <div className="flex items-start space-x-2">
-                                  <span className="text-red-500 flex-shrink-0 mt-0.5">⚠️</span>
-                                  <div>
-                                    <div className="text-xs font-medium text-red-600 dark:text-red-400 mb-1">
-                                      Coordinate Mismatch Detected:
-                                    </div>
-                                    <div className="text-sm text-red-700 dark:text-red-300">
-                                      The text at these coordinates no longer matches the original selection. The article content may have been modified since this comment was created.
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        );
-                      } else {
-                        // Fallback for comments without stored selected_text
-                        return null;
-                      }
+                      // Removed coordinate mismatch warning section
+                      return null;
                     })()}
                   </div>
                 </div>

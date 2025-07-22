@@ -8,7 +8,6 @@ import {
   UnifiedUserContext,
   UnifiedSaveResult 
 } from '../lib/unifiedArticleApi';
-import { useAdminCheck } from '../hooks/useAdminCheck';
 import { realtimeCollaboration } from '../lib/realtimeCollaboration';
 import ArticleAICoPilot from './admin/ArticleAICoPilot';
 import { Brain, Sparkles } from 'lucide-react';
@@ -25,7 +24,6 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
   const params = useParams<{ id?: string; articleId?: string }>();
   const articleId = params.id || params.articleId;
   const navigate = useNavigate();
-  const { isAdmin, loading: adminCheckLoading } = useAdminCheck();
   const { layout, setAICopilotVisible } = useLayout();
   
   // State management
@@ -107,7 +105,7 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
         setError(result.error || 'Failed to load article');
         
         // Redirect based on error type
-        const redirectPath = forceMode === 'admin' || isAdmin ? '/admin' : '/dashboard';
+        const redirectPath = forceMode === 'admin' || userContext?.isAdmin ? '/admin' : '/dashboard';
         if (result.error?.includes('Access denied')) {
           toast.error('You do not have permission to access this article');
           navigate(redirectPath);
@@ -259,12 +257,10 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
     });
   }, [hasUnsavedChanges, saveArticle]);
 
-  // Load article on mount
+  // Load article immediately on mount (auth check is handled internally)
   useEffect(() => {
-    if (!adminCheckLoading) {
-      loadArticle();
-    }
-  }, [loadArticle, adminCheckLoading]);
+    loadArticle();
+  }, [loadArticle]);
 
   // Set up real-time collaboration
   useEffect(() => {
@@ -383,7 +379,7 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
   }, [articleId, userContext?.email, loadArticle]);
 
   // Loading states
-  if (adminCheckLoading || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-white">Loading article...</div>

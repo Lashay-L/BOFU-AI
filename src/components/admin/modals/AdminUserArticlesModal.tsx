@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { motion } from 'framer-motion';
 import { supabaseAdmin } from '../../../lib/supabase';
 import { toast } from 'react-hot-toast';
@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { BaseModal } from '../../ui/BaseModal';
 import { ArticleCard } from '../ArticleCard';
+import { deleteArticleAsAdmin } from '../../../lib/articleApi';
+import { AdminContext } from '../../../contexts/AdminContext';
 
 // Types for the modal
 interface UserProfile {
@@ -50,9 +52,11 @@ export const AdminUserArticlesModal = ({
   onClose, 
   onEditArticle 
 }: AdminUserArticlesModalProps) => {
+  const adminContext = useContext(AdminContext);
   const [loading, setLoading] = useState(false);
   const [articles, setArticles] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [deletingArticleId, setDeletingArticleId] = useState<string | null>(null);
 
   // Utility function to extract first keyword from brief content
   const extractFirstKeyword = (briefContent: any): string | null => {
@@ -168,6 +172,38 @@ export const AdminUserArticlesModal = ({
     }
   };
 
+  // Handle article deletion
+  const handleDeleteArticle = async (article: any) => {
+    if (!adminContext?.adminId) {
+      toast.error('Admin authentication required');
+      return;
+    }
+
+    // Confirm deletion
+    if (!window.confirm(`Are you sure you want to delete the article "${article.product_name || 'Untitled'}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingArticleId(article.id);
+    
+    try {
+      const result = await deleteArticleAsAdmin(article.id, adminContext.adminId);
+      
+      if (result.success) {
+        toast.success('Article deleted successfully');
+        // Refresh the articles list
+        await fetchCompanyArticles();
+      } else {
+        toast.error(result.error || 'Failed to delete article');
+      }
+    } catch (error) {
+      console.error('Error deleting article:', error);
+      toast.error('An unexpected error occurred while deleting the article');
+    } finally {
+      setDeletingArticleId(null);
+    }
+  };
+
   const filteredArticles = articles.filter(article =>
     article.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     article.article_content?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -259,10 +295,8 @@ export const AdminUserArticlesModal = ({
                   key={article.id}
                   article={transformedArticle}
                   onEditArticle={() => onEditArticle(article)}
-                  onDeleteArticle={() => {
-                    // Add delete functionality - could be implemented later
-                    console.log('Delete functionality not implemented in modal view');
-                  }}
+                  onDeleteArticle={() => handleDeleteArticle(article)}
+                  isDeleting={deletingArticleId === article.id}
                   className="h-fit"
                 />
               );

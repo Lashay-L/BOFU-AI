@@ -177,6 +177,7 @@ export const ResponsiveApprovalButton = ({
         internalLinks={internalLinks}
         contentFramework={contentFramework}
         briefId={briefId}
+        briefStatus={brief.status}
         onSuccess={onSuccess}
       />
     </div>

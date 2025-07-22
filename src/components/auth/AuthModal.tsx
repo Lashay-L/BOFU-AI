@@ -19,7 +19,8 @@ export function AuthModal({ isOpen, onClose, onShowAdminLogin }: AuthModalProps)
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    companyName: ''
+    companyName: '',
+    userName: ''
   });
   const navigate = useNavigate();
   
@@ -53,7 +54,8 @@ export function AuthModal({ isOpen, onClose, onShowAdminLogin }: AuthModalProps)
         await registerUser(
           formData.email,
           formData.password,
-          formData.companyName.trim()
+          formData.companyName.trim(),
+          formData.userName.trim()
         );
         
         // After successful registration, sign in automatically
@@ -259,21 +261,39 @@ export function AuthModal({ isOpen, onClose, onShowAdminLogin }: AuthModalProps)
                 </div>
 
                 {isSignUp && (
-                  <div className="mb-4">
-                    <label htmlFor="companyName" className="block text-sm font-medium text-gray-400">
-                      Company Name
-                    </label>
-                    <input
-                      type="text"
-                      id="companyName"
-                      name="companyName"
-                      className="mt-1 block w-full px-3 py-2 border border-gray-600 bg-white rounded-lg text-black placeholder:text-gray-500 shadow-sm focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
-                      placeholder="Your company"
-                      value={formData.companyName}
-                      onChange={(e) => setFormData({...formData, companyName: e.target.value})}
-                      required={isSignUp}
-                    />
-                  </div>
+                  <>
+                    <div className="mb-4">
+                      <label htmlFor="userName" className="block text-sm font-medium text-gray-400">
+                        User Name
+                      </label>
+                      <input
+                        type="text"
+                        id="userName"
+                        name="userName"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-600 bg-white rounded-lg text-black placeholder:text-gray-500 shadow-sm focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                        placeholder="Your full name"
+                        value={formData.userName}
+                        onChange={(e) => setFormData({...formData, userName: e.target.value})}
+                        required={isSignUp}
+                      />
+                    </div>
+                    
+                    <div className="mb-4">
+                      <label htmlFor="companyName" className="block text-sm font-medium text-gray-400">
+                        Company Name
+                      </label>
+                      <input
+                        type="text"
+                        id="companyName"
+                        name="companyName"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-600 bg-white rounded-lg text-black placeholder:text-gray-500 shadow-sm focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                        placeholder="Your company"
+                        value={formData.companyName}
+                        onChange={(e) => setFormData({...formData, companyName: e.target.value})}
+                        required={isSignUp}
+                      />
+                    </div>
+                  </>
                 )}
 
                 <div>

@@ -6,6 +6,7 @@ import { MentionableUser } from '../../lib/commentApi';
 interface CommentEditorProps {
   value: string;
   onChange: (value: string) => void;
+  onMentionsChange?: (mentions: string[]) => void;
   placeholder?: string;
   disabled?: boolean;
   onImageSelect?: (file: File) => void;
@@ -13,18 +14,23 @@ interface CommentEditorProps {
   onImageRemove?: () => void;
   showImageUpload?: boolean;
   articleId?: string;
+  compact?: boolean;
+  autoFocus?: boolean;
 }
 
 export const CommentEditor: React.FC<CommentEditorProps> = ({
   value,
   onChange,
+  onMentionsChange,
   placeholder = "Add a comment...",
   disabled = false,
   onImageSelect,
   selectedImage,
   onImageRemove,
   showImageUpload = true,
-  articleId
+  articleId,
+  compact = false,
+  autoFocus = false
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +54,31 @@ export const CommentEditor: React.FC<CommentEditorProps> = ({
       textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
     }
   }, [value]);
+
+  // Auto-focus textarea if autoFocus is enabled
+  useEffect(() => {
+    if (autoFocus && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [autoFocus]);
+
+  // Extract mentions from text and notify parent component
+  useEffect(() => {
+    if (onMentionsChange) {
+      // Extract all @mentions from the text (format: @username)
+      const mentionPattern = /@[a-zA-Z0-9._-]+/g;
+      const mentions = value.match(mentionPattern) || [];
+      
+      console.log('🔍 Extracting mentions from text:', {
+        text: value,
+        mentions,
+        pattern: mentionPattern.toString()
+      });
+      
+      // Pass the full mention text (including @) as that's what the API expects
+      onMentionsChange(mentions);
+    }
+  }, [value, onMentionsChange]);
 
   // Generate preview URL for selected image
   useEffect(() => {
@@ -287,8 +318,8 @@ export const CommentEditor: React.FC<CommentEditorProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}
-            className="w-full p-3 bg-transparent border-0 focus:outline-none focus:ring-0 resize-none text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-            style={{ minHeight: '80px', maxHeight: '200px' }}
+            className={`w-full bg-transparent border-0 focus:outline-none focus:ring-0 resize-none text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 ${compact ? 'p-2' : 'p-3'}`}
+            style={{ minHeight: compact ? '60px' : '80px', maxHeight: '200px' }}
           />
 
           {/* Drag Overlay */}

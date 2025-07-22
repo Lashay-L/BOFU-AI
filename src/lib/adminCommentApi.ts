@@ -36,7 +36,7 @@ export async function createAdminComment(data: CreateAdminCommentData): Promise<
       .select(`
         *,
         user_profiles!inner(id, email, company_name),
-        content_briefs!inner(id, product_name)
+        content_briefs!inner(id, title, product_name, user_id, status, created_at)
       `)
       .eq('id', result)
       .single();
@@ -167,7 +167,7 @@ export async function rejectComment(
       .select(`
         *,
         user_profiles!inner(id, email, company_name),
-        content_briefs!inner(id, product_name)
+        content_briefs!inner(id, title, product_name, user_id, status, created_at)
       `)
       .single();
 
@@ -460,7 +460,7 @@ export async function getRecentComments(limit: number = 10): Promise<AdminArticl
       .from('article_comments')
       .select(`
         *,
-        content_briefs!inner(id, product_name)
+        content_briefs!inner(id, title, product_name, user_id, status, created_at)
       `)
       .order('created_at', { ascending: false })
       .limit(limit);
@@ -528,7 +528,8 @@ export async function getRecentComments(limit: number = 10): Promise<AdminArticl
         reply_count: 0,
         article: {
           id: comment.content_briefs?.id,
-          title: comment.content_briefs?.product_name || 'Untitled Article'
+          title: comment.content_briefs?.title || 'Untitled Article',
+          product_name: comment.content_briefs?.product_name
         }
       };
     });
@@ -551,7 +552,7 @@ export async function getPendingApprovals(): Promise<AdminArticleComment[]> {
       .from('article_comments')
       .select(`
         *,
-        content_briefs!inner(id, product_name)
+        content_briefs!inner(id, title, product_name, user_id, status, created_at)
       `)
       .eq('approval_status', 'pending')
       .order('created_at', { ascending: false })
@@ -620,7 +621,8 @@ export async function getPendingApprovals(): Promise<AdminArticleComment[]> {
         reply_count: 0,
         article: {
           id: comment.content_briefs?.id,
-          title: comment.content_briefs?.product_name || 'Untitled Article'
+          title: comment.content_briefs?.title || 'Untitled Article',
+          product_name: comment.content_briefs?.product_name
         }
       };
     });
@@ -643,7 +645,7 @@ export async function getHighPriorityComments(): Promise<AdminArticleComment[]> 
       .from('article_comments')
       .select(`
         *,
-        content_briefs!inner(id, product_name)
+        content_briefs!inner(id, title, product_name, user_id, status, created_at)
       `)
       .in('priority', ['high', 'urgent', 'critical'])
       .order('created_at', { ascending: false })
@@ -712,7 +714,8 @@ export async function getHighPriorityComments(): Promise<AdminArticleComment[]> 
         reply_count: 0,
         article: {
           id: comment.content_briefs?.id,
-          title: comment.content_briefs?.product_name || 'Untitled Article'
+          title: comment.content_briefs?.title || 'Untitled Article',
+          product_name: comment.content_briefs?.product_name
         }
       };
     });
@@ -737,7 +740,7 @@ export async function searchComments(
       .select(`
         *,
         user_profiles!inner(id, email, company_name),
-        content_briefs!inner(id, product_name)
+        content_briefs!inner(id, title, product_name, user_id, status, created_at)
       `)
       .textSearch('content', query, { type: 'websearch' })
       .order('created_at', { ascending: false });

@@ -17,16 +17,17 @@ import {
   Archive,
   Send
 } from 'lucide-react';
-import { sendToAirOps } from '../../lib/airops';
+import { sendProductCardToMoonlit } from '../../lib/moonlit';
 import { toast } from 'react-hot-toast';
-import { ContentGenerationSuccessModal } from '../ui/ContentGenerationSuccessModal';
+import { supabase } from '../../lib/supabase';
+// Removed ContentGenerationSuccessModal import - not needed for "Send to Moonlit" action
 
 interface ProductCardActionsProps {
   product: ProductAnalysis;
   context?: 'history' | 'product' | 'admin';
-  researchResultId?: string; // Add research result ID for AirOps integration
+  researchResultId?: string; // Add research result ID for Moonlit integration
   approvedProductId?: string; // Add approved product ID as fallback for tracking
-  // User information for AirOps integration
+  // User information for Moonlit integration
   userUUID?: string;
   userEmail?: string;
   userCompanyName?: string;
@@ -374,8 +375,7 @@ export function ProductCardActions({
   const styles = useAdaptiveStyles();
   
   const [actionStates, setActionStates] = useState<Record<string, boolean>>({});
-  const [showContentNotification, setShowContentNotification] = useState(false);
-  const [trackingId, setTrackingId] = useState<string>();
+  // Removed showContentNotification and trackingId - not needed for "Send to Moonlit" action
 
   const handleAction = async (actionName: string, actionFn?: () => Promise<void> | void) => {
     if (!actionFn || disabled) return;
@@ -397,13 +397,13 @@ export function ProductCardActions({
     }
   };
 
-  const handleSendToAirOps = async () => {
+  const handleSendToMoonlit = async () => {
     // Use research result ID if available, otherwise fall back to approved product ID
     // Handle empty strings by treating them as falsy
     const trackingId = (researchResultId && researchResultId.trim()) || (approvedProductId && approvedProductId.trim());
     
     // Debug logging to see what values we have
-    console.log('🔍 AirOps Tracking Debug:', {
+    console.log('🔍 Moonlit Tracking Debug:', {
       researchResultId,
       approvedProductId,
       trackingId,
@@ -414,7 +414,7 @@ export function ProductCardActions({
     });
     
     if (!trackingId) {
-      toast.error('Unable to send to AirOps: No tracking ID available. Please contact support.');
+      toast.error('Unable to send to Moonlit: No tracking ID available. Please contact support.');
       return;
     }
 
@@ -436,43 +436,101 @@ export function ProductCardActions({
       isValidUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uniqueResearchResultId)
     });
 
-    // Show the notification after 5 seconds with the unique ID
-    setTimeout(() => {
-      setTrackingId(uniqueResearchResultId);
-      setShowContentNotification(true);
-    }, 5000);
+    // Note: User notification removed - only admins should see notifications for actual article generation
+    // The "Send to Moonlit" action generates content briefs, not articles, so users don't need to be notified
 
     // Use the action handler for proper loading state management
-    await handleAction('sendToAirOps', async () => {
+    await handleAction('sendToMoonlit', async () => {
       try {
-        // Format data according to AirOpsProductInput interface
-        const airOpsData = {
-          product_card_information: {
-            ...product,
-            google_doc: product.google_doc || product.competitorAnalysisUrl || '',
-            userUUID,
-            userEmail,
-            userCompanyName
+        let completeProductData = product;
+        
+        // If we have an approved product ID, fetch the complete data from approved_products table
+        if (approvedProductId) {
+          console.log('🔍 Fetching complete approved product data from database...');
+          
+          const { data: approvedProductData, error } = await supabase
+            .from('approved_products')
+            .select(`
+              *,
+              research_results!approved_products_research_result_id_fkey (
+                id,
+                user_id
+              )
+            `)
+            .eq('id', approvedProductId)
+            .single();
+            
+          if (error) {
+            console.error('❌ Error fetching approved product data:', error);
+            throw new Error('Failed to fetch complete product data');
+          }
+          
+          if (approvedProductData) {
+            console.log('✅ Complete approved product data fetched:', approvedProductData);
+            
+            // Fetch user profile separately if we have a user_id
+            let userProfileData = null;
+            if (approvedProductData.research_results?.user_id) {
+              const { data: profileData } = await supabase
+                .from('user_profiles')
+                .select('id, email, company_name')
+                .eq('user_id', approvedProductData.research_results.user_id)
+                .single();
+              userProfileData = profileData;
+            }
+            
+            // Use the complete product data from the database
+            completeProductData = {
+              ...approvedProductData.product_data,
+              // Ensure user information is included
+              userUUID: userProfileData?.id || userUUID,
+              userEmail: userProfileData?.email || userEmail,
+              userCompanyName: userProfileData?.company_name || userCompanyName
+            };
+            
+            console.log('🎯 Using complete approved product data for Moonlit:', {
+              hasGoogleDoc: !!completeProductData.google_doc,
+              hasKeywords: !!completeProductData.keywords?.length,
+              hasFramework: !!completeProductData.framework,
+              keywords: completeProductData.keywords,
+              framework: completeProductData.framework,
+              googleDoc: completeProductData.google_doc
+            });
+          }
+        }
+        
+        // Format data according to MoonlitProductInput interface
+        const moonlitData = {
+          productCard: {
+            ...completeProductData,
+            google_doc: completeProductData.google_doc || completeProductData.competitorAnalysisUrl || '',
+            userUUID: completeProductData.userUUID || userUUID,
+            userEmail: completeProductData.userEmail || userEmail,
+            userCompanyName: completeProductData.userCompanyName || userCompanyName
           },
-          research_result_Id: uniqueResearchResultId // Send the unique ID with 6 random digits appended
+          researchResultId: uniqueResearchResultId
         };
 
-        // Log framework being sent to AirOps for verification
-        console.log('🎯 Framework being sent to AirOps:', {
-          framework: product.framework,
-          frameworkType: typeof product.framework,
-          hasFramework: !!product.framework
+        // Log framework being sent to Moonlit for verification
+        console.log('🎯 Framework being sent to Moonlit:', {
+          framework: completeProductData.framework,
+          frameworkType: typeof completeProductData.framework,
+          hasFramework: !!completeProductData.framework
         });
 
-        await sendToAirOps(airOpsData);
-        toast.success('Successfully sent to AirOps for processing');
+        await sendProductCardToMoonlit(moonlitData);
+        toast.success('Successfully sent to Moonlit for processing');
       } catch (error: any) {
-        console.error('Error sending to AirOps:', error);
+        console.error('Error sending to Moonlit:', error);
         
-        if (error.message.includes('ACCOUNT_LIMITATION')) {
-          toast.error('AirOps account requires upgrade. Please contact support.');
+        if (error.message.includes('AUTHENTICATION_ERROR')) {
+          toast.error('Moonlit API authentication failed. Please check your credentials.');
+        } else if (error.message.includes('PERMISSION_ERROR')) {
+          toast.error('Insufficient permissions for Moonlit API. Please contact support.');
+        } else if (error.message.includes('RATE_LIMIT_ERROR')) {
+          toast.error('Rate limit exceeded. Please try again later.');
         } else {
-          toast.error(`Failed to send to AirOps: ${error.message}`);
+          toast.error(`Failed to send to Moonlit: ${error.message}`);
         }
         throw error; // Re-throw to ensure the action handler catches it
       }
@@ -530,15 +588,15 @@ export function ProductCardActions({
           />
         )}
 
-        {/* AirOps action */}
+        {/* Moonlit action */}
         {context === 'admin' && (
           <ActionButton
             icon={<Send className="w-4 h-4" />}
-            label="Send to AirOps to generate content brief"
+            label="Send to Moonlit to generate content brief"
             variant="secondary"
-            isLoading={actionStates.sendToAirOps}
+            isLoading={actionStates.sendToMoonlit}
             disabled={disabled}
-            onClick={() => handleSendToAirOps()}
+            onClick={() => handleSendToMoonlit()}
             styles={styles}
             isReducedMotion={isReducedMotion}
           />
@@ -581,17 +639,7 @@ export function ProductCardActions({
       )}
     </motion.div>
 
-    {/* Content Generation Success Modal */}
-    <ContentGenerationSuccessModal
-      isOpen={showContentNotification}
-      onClose={() => setShowContentNotification(false)}
-      trackingId={trackingId}
-      title="Content Brief Generation Initiated!"
-      description="Your product analysis has been sent to AirOps for content brief creation"
-      processingLocation="AirOps AI Engine"
-      estimatedTime="3-4 minutes"
-      additionalInfo="You'll receive a notification when your content brief is ready"
-    />
+    {/* ContentGenerationSuccessModal removed - users should only see notifications from "Approve & Generate" action */}
     </>
   );
 } 

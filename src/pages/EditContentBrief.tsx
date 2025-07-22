@@ -302,7 +302,7 @@ export default function EditContentBrief() {
 
   // Handle approval success
   const handleApprovalSuccess = useCallback(() => {
-    toast.success('Content brief sent to AirOps successfully');
+    toast.success('Content brief sent to Moonlit successfully');
     setBrief(prev => prev ? { ...prev, status: 'approved' } : null);
     if (id) {
       updateBrief(id, { status: 'approved' });

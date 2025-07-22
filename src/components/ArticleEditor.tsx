@@ -641,27 +641,7 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
     ];
   }, [comments, highlightedCommentId, showComments]);
 
-  // Memoize the decorations function to prevent excessive re-renders
-  // Use a stable function that gets the current highlightedCommentId from ref
-  const highlightedCommentIdRef = useRef(highlightedCommentId);
-  
-  const editorDecorations = useCallback((state: any) => {
-    const currentHighlightedId = highlightedCommentIdRef.current;
-    if (!currentHighlightedId) return null;
-
-    const decorations: Decoration[] = [];
-    const commentToHighlight = commentsRef.current.find(c => c.id === currentHighlightedId);
-
-    if (commentToHighlight && typeof commentToHighlight.selection_start === 'number' && typeof commentToHighlight.selection_end === 'number') {
-      decorations.push(
-        Decoration.inline(commentToHighlight.selection_start, commentToHighlight.selection_end, {
-          class: 'comment-highlight-active',
-        })
-      );
-    }
-
-    return DecorationSet.create(state.doc, decorations);
-  }, []); // Empty dependencies - this function is now stable
+  // Comment highlighting is now handled by CommentHighlightExtension
 
   const editor = useEditor({
     extensions: getEditorExtensions,
@@ -675,7 +655,6 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
         contenteditable: 'true', // Explicitly ensure contenteditable
         spellcheck: 'false', // Disable spellcheck to prevent Grammarly interference
       },
-      decorations: editorDecorations,
       handleKeyDown: (view, event) => {
         console.log('🎹 Key event in editor:', event.key, event.type);
         return false; // Allow normal key handling
@@ -726,6 +705,30 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
     },
   }, [getEditorExtensions, theme]); // ✅ FIXED: Removed 'content' from dependencies to prevent editor recreation
 
+  // Update comment highlighting when highlighted comment changes
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) {
+      const commentHighlightExtension = editor.extensionManager.extensions.find(
+        (ext) => ext.name === 'commentHighlight'
+      );
+      if (commentHighlightExtension) {
+        commentHighlightExtension.updateHighlightedComment?.(highlightedCommentId);
+      }
+    }
+  }, [editor, highlightedCommentId]);
+
+  // Update comment data when comments change
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) {
+      const commentHighlightExtension = editor.extensionManager.extensions.find(
+        (ext) => ext.name === 'commentHighlight'
+      );
+      if (commentHighlightExtension) {
+        commentHighlightExtension.updateComments?.(comments);
+      }
+    }
+  }, [editor, comments]);
+
   // Update user status when actively editing (simplified - no cursor positioning)
   useEffect(() => {
     if (!editor || !isCollaborationReady) return;
@@ -749,15 +752,6 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
     };
   }, [editor, isCollaborationReady, articleId]);
   
-  // Update ref when highlightedCommentId changes and force decoration update
-  useEffect(() => {
-    highlightedCommentIdRef.current = highlightedCommentId;
-    // Force decoration update without recreating editor
-    if (editor && !editor.isDestroyed) {
-      editor.view.updateState(editor.view.state);
-    }
-  }, [highlightedCommentId, editor]);
-
   // Auto-save functionality with stable debounced function
   const debouncedAutoSave = useMemo(
     () => debounce(async (content: string) => {
@@ -1578,14 +1572,12 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
                 w-full leading-relaxed
                 article-editor-content
               `}
-              style={{
-                paddingTop: focusMode === 'zen' ? '32px' : '32px',
-              }}
               onClick={handleEditorContainerClick}
               data-gramm="false"
               data-gramm_editor="false"
               data-enable-grammarly="false"
               style={{
+                paddingTop: focusMode === 'zen' ? '32px' : '32px',
                 scrollBehavior: 'auto', // Prevent smooth scrolling that might interfere
                 ...(focusMode === 'zen' && {
                   minHeight: '100vh',

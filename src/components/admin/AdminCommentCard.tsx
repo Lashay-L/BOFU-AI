@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AdminArticleComment, CommentPriority, AdminCommentType, ApprovalStatus } from '../../types/adminComment';
 import { PRIORITY_LEVELS, ADMIN_COMMENT_TYPES } from '../../types/adminComment';
 import { approveComment, rejectComment, updateCommentsPriority } from '../../lib/adminCommentApi';
+import { ArticleNavigation, ArticleInfo } from '../../lib/articleNavigation';
 import { formatDistanceToNow } from 'date-fns';
 import {
   Check,
-  X,
   Clock,
   AlertTriangle,
   Shield,
@@ -15,8 +16,6 @@ import {
   Calendar,
   ChevronDown,
   Star,
-  Zap,
-  Target,
   CheckCircle,
   XCircle,
   Edit3,
@@ -26,12 +25,14 @@ import {
   ThumbsUp,
   ThumbsDown,
   Send,
-  Sparkles,
   Lock,
-  Globe,
   Settings,
   ArrowRight,
-  Archive
+  Archive,
+  ExternalLink,
+  FileText,
+  Building,
+  AlertCircle
 } from 'lucide-react';
 
 interface AdminCommentCardProps {
@@ -42,6 +43,10 @@ interface AdminCommentCardProps {
   onSelect?: (commentId: string, selected: boolean) => void;
 }
 
+interface ExtendedComment extends AdminArticleComment {
+  articleInfo?: ArticleInfo;
+}
+
 export const AdminCommentCard: React.FC<AdminCommentCardProps> = ({
   comment,
   onUpdate,
@@ -49,12 +54,35 @@ export const AdminCommentCard: React.FC<AdminCommentCardProps> = ({
   isSelected = false,
   onSelect
 }) => {
+  const navigate = useNavigate();
+  const [articleInfo, setArticleInfo] = useState<ArticleInfo | null>(null);
+  const [isLoadingArticle, setIsLoadingArticle] = useState(false);
+  const [navigationError, setNavigationError] = useState<string | null>(null);
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [showApprovalForm, setShowApprovalForm] = useState(false);
   const [approvalComments, setApprovalComments] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [isUpdatingPriority, setIsUpdatingPriority] = useState(false);
+
+  // Fetch article information
+  useEffect(() => {
+    const fetchArticleInfo = async () => {
+      if (!comment.article_id) return;
+      
+      setIsLoadingArticle(true);
+      try {
+        const info = await ArticleNavigation.getArticleInfo(comment.article_id);
+        setArticleInfo(info);
+      } catch (error) {
+        console.error('Error fetching article info:', error);
+      } finally {
+        setIsLoadingArticle(false);
+      }
+    };
+
+    fetchArticleInfo();
+  }, [comment.article_id]);
 
   const priorityConfig = PRIORITY_LEVELS[comment.priority];
   const typeConfig = comment.admin_comment_type ? ADMIN_COMMENT_TYPES[comment.admin_comment_type] : null;
@@ -110,6 +138,18 @@ export const AdminCommentCard: React.FC<AdminCommentCardProps> = ({
       setIsUpdatingPriority(false);
     }
   };
+
+  const handleNavigateToArticle = async () => {
+    if (!comment.article_id) return;
+    
+    setNavigationError(null);
+    await ArticleNavigation.navigateToArticle(
+      comment.article_id,
+      navigate,
+      setNavigationError
+    );
+  };
+
 
   const getStatusBadge = (status: string) => {
     const configs = {
@@ -192,285 +232,313 @@ export const AdminCommentCard: React.FC<AdminCommentCardProps> = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      whileHover={{ y: -2, scale: 1.01 }}
-      transition={{ duration: 0.3, type: "spring", stiffness: 200 }}
-      className={`group relative bg-gradient-to-br from-white via-gray-50/30 to-white backdrop-blur-xl rounded-2xl border shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden ${
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ 
+        y: -8,
+        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)",
+        transition: { duration: 0.2 }
+      }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className={`group relative bg-white/80 backdrop-blur-3xl rounded-3xl border border-gray-200/40 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden ${
         isSelected 
-          ? 'ring-2 ring-blue-500/50 border-blue-500/30 shadow-blue-500/25' 
-          : 'border-gray-200/50 hover:border-gray-300/60'
+          ? 'ring-2 ring-blue-500/30 border-blue-400/50 shadow-blue-500/20' 
+          : 'hover:border-gray-300/60'
       }`}
     >
-      {/* Floating Particles Effect */}
-      <div className="absolute inset-0 overflow-hidden rounded-2xl">
-        <div className="absolute -top-4 -right-4 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-        <div className="absolute -bottom-4 -left-4 w-24 h-24 bg-gradient-to-tr from-green-500/10 to-blue-500/10 rounded-full blur-xl opacity-0 group-hover:opacity-70 transition-opacity duration-700"></div>
+      {/* Sophisticated Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/90 via-gray-50/30 to-white/90 rounded-3xl"></div>
+      
+      {/* Elegant Glow Effects */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-24 bg-gradient-to-r from-blue-500/5 via-purple-500/10 to-blue-500/5 blur-3xl"></div>
+        <div className="absolute bottom-0 right-0 w-64 h-32 bg-gradient-to-tl from-indigo-500/5 to-transparent blur-2xl"></div>
       </div>
 
-      {/* Admin Only Left Border */}
-      {comment.is_admin_only && (
-        <div className="absolute left-0 top-0 w-1 h-full bg-gradient-to-b from-purple-500 to-purple-600 rounded-l-2xl"></div>
-      )}
+      {/* Priority Left Accent */}
+      <div className={`absolute left-0 top-6 bottom-6 w-1 rounded-r-full ${priorityConfig.bgColor.replace('bg-', 'bg-gradient-to-b from-').replace('/20', '/60 to-').replace(' ', '/40 ')}`}></div>
 
-      <div className="relative z-10 p-6">
-        {/* Header Section */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex items-start gap-4">
+      <div className="relative z-10 p-3">
+        {/* Elegant Header */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
             {/* Selection Checkbox */}
             {onSelect && (
               <motion.div 
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 className="relative"
               >
                 <input
                   type="checkbox"
                   checked={isSelected}
                   onChange={(e) => onSelect(comment.id, e.target.checked)}
-                  className="h-5 w-5 text-blue-600 rounded-lg border-2 border-gray-300 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+                  className="h-4 w-4 text-blue-600 rounded border-2 border-gray-300 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
                 />
-                {isSelected && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                  >
-                    <Check className="h-3 w-3 text-white" />
-                  </motion.div>
-                )}
               </motion.div>
             )}
             
-            {/* User Avatar and Info */}
-            <div className="flex items-start gap-4">
-              <motion.div 
-                whileHover={{ scale: 1.05 }}
-                className="relative"
-              >
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <User className="h-6 w-6 text-white" />
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
-              </motion.div>
+            {/* Refined User Avatar */}
+            <motion.div 
+              whileHover={{ scale: 1.02, rotate: 2 }}
+              className="relative"
+            >
+              <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center shadow-md shadow-purple-500/20">
+                <User className="h-4 w-4 text-white" />
+              </div>
+              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border border-white rounded-full shadow-sm"></div>
+            </motion.div>
+            
+            {/* Compact User Info */}
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-gray-900 text-sm tracking-tight">
+                  {comment.user?.email?.split('@')[0] || 'Unknown User'}
+                </h3>
+                <span className="text-xs text-gray-500 font-medium">
+                  {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                </span>
+              </div>
               
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-3">
-                  <h3 className="font-semibold text-gray-900 text-lg">
-                    {comment.user?.email || 'Unknown User'}
-                  </h3>
-                  
-                  {comment.is_admin_only && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-purple-500/20 to-purple-600/20 backdrop-blur-sm border border-purple-500/30 rounded-full"
-                    >
-                      <Lock className="h-3 w-3 text-purple-600" />
-                      <span className="text-xs font-medium text-purple-700">Admin Only</span>
-                    </motion.div>
-                  )}
-                </div>
+              {/* Priority & Type Badges */}
+              <div className="flex items-center gap-1">
+                <motion.span
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className={`px-1.5 py-0.5 text-xs font-medium rounded-md ${priorityConfig.bgColor} ${priorityConfig.color}`}
+                >
+                  {priorityConfig.icon} {priorityConfig.label}
+                </motion.span>
                 
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Calendar className="h-4 w-4" />
-                  <span>{formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}</span>
-                </div>
+                {typeConfig && (
+                  <motion.span
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.1 }}
+                    className={`px-1.5 py-0.5 text-xs font-medium rounded-md ${typeConfig.bgColor} ${typeConfig.color}`}
+                  >
+                    {typeConfig.icon} {typeConfig.label}
+                  </motion.span>
+                )}
+
+                {comment.is_admin_only && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="flex items-center gap-1 px-1.5 py-0.5 bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 rounded-md border border-purple-200/50"
+                  >
+                    <Lock className="h-2.5 w-2.5" />
+                    <span className="text-xs font-medium">Private</span>
+                  </motion.div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Status Badges */}
+          {/* Status Indicators */}
           <div className="flex items-center gap-2">
             {getStatusBadge(comment.status)}
             {getApprovalStatusBadge(comment.approval_status)}
-            
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <MoreHorizontal className="h-4 w-4 text-gray-400" />
-            </motion.button>
           </div>
         </div>
 
-        {/* Priority and Type Tags */}
-        <div className="flex items-center gap-3 mb-6">
-          <motion.div
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl backdrop-blur-sm border shadow-sm ${priorityConfig.bgColor} ${priorityConfig.color}`}
-          >
-            <span className="text-sm">{priorityConfig.icon}</span>
-            <span className="text-sm font-medium">{priorityConfig.label}</span>
-            <div className="text-xs opacity-70">Priority</div>
-          </motion.div>
-          
-          {typeConfig && (
-            <motion.div
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl backdrop-blur-sm border shadow-sm ${typeConfig.bgColor} ${typeConfig.color}`}
-            >
-              <span className="text-sm">{typeConfig.icon}</span>
-              <span className="text-sm font-medium">{typeConfig.label}</span>
-            </motion.div>
-          )}
-          
-          <motion.div
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="flex items-center gap-2 px-3 py-1 bg-gray-100/80 backdrop-blur-sm border border-gray-200 rounded-lg"
-          >
-            <MessageSquare className="h-4 w-4 text-gray-500" />
-            <span className="text-xs text-gray-600 font-medium">ID: {comment.id.slice(-8)}</span>
-          </motion.div>
-        </div>
-
-        {/* Article Info */}
-        {showArticleInfo && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="mb-6 p-4 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 backdrop-blur-sm border border-blue-200/50 rounded-xl"
-          >
-            <div className="flex items-center gap-2">
-              <Target className="h-4 w-4 text-blue-600" />
-              <span className="text-sm text-blue-700 font-medium">Article Reference</span>
-            </div>
-            <div className="mt-2 font-mono text-sm text-blue-800 bg-blue-100/50 px-3 py-1 rounded-lg inline-block">
-              {comment.article_id}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Comment Content */}
+        {/* Article Context - Elevated Design */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="mb-6"
+          transition={{ delay: 0.1 }}
+          className="mb-3 relative"
         >
-          <div className="bg-gray-50/70 backdrop-blur-sm border border-gray-200/50 rounded-xl p-5">
-            <div className="flex items-start gap-3 mb-3">
-              <div className="p-2 bg-white rounded-lg shadow-sm">
-                <MessageSquare className="h-4 w-4 text-gray-600" />
+          <div className="bg-gradient-to-r from-slate-50 to-gray-50 rounded-lg p-3 border border-gray-200/60 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1 bg-white rounded-md shadow-sm">
+                  <FileText className="h-3 w-3 text-indigo-600" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-gray-900 text-xs">Article Context</h4>
+                  <p className="text-xs text-gray-600">Related content information</p>
+                </div>
               </div>
-              <div>
-                <h4 className="font-medium text-gray-900 mb-1">Comment Content</h4>
-                <p className="text-sm text-gray-600">User feedback and message</p>
+              
+              <motion.button
+                whileHover={{ scale: 1.02, x: 2 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleNavigateToArticle}
+                className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-black font-medium rounded-md shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                <ExternalLink className="h-3 w-3" />
+                <span className="text-xs">Open Article</span>
+              </motion.button>
+            </div>
+
+            {isLoadingArticle ? (
+              <div className="flex items-center gap-2 p-2 bg-indigo-50 rounded-md">
+                <div className="w-3 h-3 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin"></div>
+                <span className="text-xs text-indigo-700 font-medium">Loading...</span>
+              </div>
+            ) : articleInfo ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="bg-white/80 rounded-md p-2 border border-gray-200/50">
+                  <div className="flex items-center gap-1 mb-1">
+                    <div className="w-1 h-1 bg-blue-500 rounded-full"></div>
+                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Title</span>
+                  </div>
+                  <h5 className="font-bold text-gray-900 text-xs leading-tight">{articleInfo.title}</h5>
+                </div>
+                
+                {articleInfo.product_name && (
+                  <div className="bg-white/80 rounded-md p-2 border border-gray-200/50">
+                    <div className="flex items-center gap-1 mb-1">
+                      <div className="w-1 h-1 bg-emerald-500 rounded-full"></div>
+                      <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Product</span>
+                    </div>
+                    <h5 className="font-bold text-gray-900 text-xs">{articleInfo.product_name}</h5>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 p-2 bg-red-50 rounded-md border border-red-200">
+                <AlertCircle className="h-3 w-3 text-red-500" />
+                <span className="text-xs text-red-700 font-medium">Unable to load article</span>
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Comment Content - Hero Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-3"
+        >
+          <div className="bg-white/90 rounded-lg p-3 shadow-md border border-gray-200/60">
+            <div className="flex items-start gap-2 mb-2">
+              <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-md shadow-md">
+                <MessageSquare className="h-3 w-3 text-white" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-gray-900 text-xs mb-0.5">User Feedback</h4>
+                <p className="text-xs text-gray-600 font-medium">Original comment content</p>
               </div>
             </div>
             
-            <div className="prose prose-sm max-w-none">
-              <p className="text-gray-900 leading-relaxed whitespace-pre-wrap font-medium">
-                {comment.content}
-              </p>
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-md p-2 border border-gray-200/50">
+              <blockquote className="text-gray-800 leading-relaxed text-xs font-medium italic">
+                "{comment.content}"
+              </blockquote>
             </div>
           </div>
         </motion.div>
         
-        {/* Admin Notes */}
+        {/* Admin Notes - Refined */}
         {comment.admin_notes && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="mb-6 p-4 bg-gradient-to-r from-amber-50/80 to-yellow-50/80 backdrop-blur-sm border-l-4 border-amber-400 rounded-xl"
+            transition={{ delay: 0.3 }}
+            className="mb-3"
           >
-            <div className="flex items-center gap-2 mb-2">
-              <Shield className="h-4 w-4 text-amber-600" />
-              <span className="font-medium text-amber-800">Admin Notes</span>
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-2 border-l-2 border-amber-400 shadow-sm">
+              <div className="flex items-start gap-2">
+                <div className="p-1.5 bg-amber-100 rounded-md">
+                  <Shield className="h-3 w-3 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-amber-900 text-xs mb-0.5">Internal Notes</h4>
+                  <p className="text-amber-800 leading-relaxed font-medium text-xs">
+                    {comment.admin_notes}
+                  </p>
+                </div>
+              </div>
             </div>
-            <p className="text-sm text-amber-700 leading-relaxed">
-              {comment.admin_notes}
-            </p>
           </motion.div>
         )}
 
-        {/* Approval Actions */}
+        {/* Elegant Approval Actions */}
         <AnimatePresence>
           {comment.approval_status === 'pending' && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={{ delay: 0.7 }}
-              className="border-t border-gray-200/50 pt-6 space-y-4"
+              transition={{ delay: 0.4 }}
+              className="bg-gradient-to-r from-slate-50 to-gray-50 rounded-lg p-3 border border-gray-200/60"
             >
-              <div className="flex items-center gap-2 mb-4">
-                <Clock className="h-4 w-4 text-orange-500" />
-                <span className="font-medium text-gray-900">Pending Approval</span>
-                <div className="flex-1 border-t border-gray-200/50"></div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1 bg-orange-100 rounded-md">
+                  <Clock className="h-3 w-3 text-orange-600" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-gray-900 text-xs">Awaiting Review</h4>
+                  <p className="text-xs text-gray-600">This comment requires approval</p>
+                </div>
               </div>
 
               {!showApprovalForm && !isRejecting ? (
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
+                    whileHover={{ scale: 1.02, y: -1 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={handleApprove}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-black font-medium rounded-md shadow-md hover:shadow-lg transition-all duration-200"
                   >
-                    <ThumbsUp className="h-4 w-4" />
-                    Approve
+                    <ThumbsUp className="h-3 w-3" />
+                    <span className="text-xs">Approve</span>
                   </motion.button>
                   
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
+                    whileHover={{ scale: 1.02, y: -1 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setIsRejecting(!isRejecting)}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-black font-medium rounded-md shadow-md hover:shadow-lg transition-all duration-200"
                   >
-                    <ThumbsDown className="h-4 w-4" />
-                    Reject
+                    <XCircle className="h-3 w-3" />
+                    <span className="text-xs">Changes</span>
                   </motion.button>
                 </div>
               ) : showApprovalForm ? (
                 <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="space-y-4 bg-green-50/50 backdrop-blur-sm border border-green-200/50 rounded-xl p-4"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="space-y-2 bg-emerald-50 rounded-md p-2 border border-emerald-200"
                 >
-                  <div className="flex items-center gap-2 mb-3">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="font-medium text-green-800">Approval Form</span>
+                  <div className="flex items-center gap-1 mb-1">
+                    <CheckCircle className="h-3 w-3 text-emerald-600" />
+                    <span className="font-bold text-emerald-800 text-xs">Approval Notes</span>
                   </div>
                   
                   <textarea
                     value={approvalComments}
                     onChange={(e) => setApprovalComments(e.target.value)}
-                    placeholder="Add optional approval comments..."
-                    className="w-full p-4 border border-green-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500/50 transition-all duration-200"
-                    rows={3}
+                    placeholder="Add optional approval notes..."
+                    className="w-full p-2 border border-emerald-300 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all duration-200 bg-white/80 text-xs"
+                    rows={2}
                   />
                   
-                  <div className="flex gap-3">
+                  <div className="flex gap-2">
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={handleApprove}
                       disabled={isApproving}
-                      className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-200"
+                      className="flex items-center gap-1 px-2 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium rounded-md transition-all duration-200 text-xs"
                     >
                       {isApproving ? (
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                       ) : (
-                        <Send className="h-4 w-4" />
+                        <CheckCircle className="h-3 w-3" />
                       )}
-                      {isApproving ? 'Approving...' : 'Confirm Approval'}
+                      {isApproving ? 'Approving...' : 'Confirm'}
                     </motion.button>
                     
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setShowApprovalForm(false)}
-                      className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-all duration-200"
+                      className="px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-md transition-all duration-200 text-xs"
                     >
                       Cancel
                     </motion.button>
@@ -478,45 +546,45 @@ export const AdminCommentCard: React.FC<AdminCommentCardProps> = ({
                 </motion.div>
               ) : isRejecting ? (
                 <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="space-y-4 bg-red-50/50 backdrop-blur-sm border border-red-200/50 rounded-xl p-4"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="space-y-2 bg-red-50 rounded-md p-2 border border-red-200"
                 >
-                  <div className="flex items-center gap-2 mb-3">
-                    <XCircle className="h-4 w-4 text-red-600" />
-                    <span className="font-medium text-red-800">Rejection Form</span>
+                  <div className="flex items-center gap-1 mb-1">
+                    <XCircle className="h-3 w-3 text-red-600" />
+                    <span className="font-bold text-red-800 text-xs">Request Changes</span>
                   </div>
                   
                   <textarea
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
-                    placeholder="Please provide a detailed reason for rejection..."
-                    className="w-full p-4 border border-red-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500/50 transition-all duration-200"
-                    rows={3}
+                    placeholder="Explain what changes are needed..."
+                    className="w-full p-2 border border-red-300 rounded-md focus:outline-none focus:ring-1 focus:ring-red-500/30 focus:border-red-500 transition-all duration-200 bg-white/80 text-xs"
+                    rows={2}
                     required
                   />
                   
-                  <div className="flex gap-3">
+                  <div className="flex gap-2">
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={handleReject}
                       disabled={isRejecting || !rejectionReason.trim()}
-                      className="flex items-center gap-2 px-6 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-200"
+                      className="flex items-center gap-1 px-2 py-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium rounded-md transition-all duration-200 text-xs"
                     >
                       {isRejecting ? (
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                       ) : (
-                        <Send className="h-4 w-4" />
+                        <Send className="h-3 w-3" />
                       )}
-                      {isRejecting ? 'Rejecting...' : 'Confirm Rejection'}
+                      {isRejecting ? 'Sending...' : 'Send Request'}
                     </motion.button>
                     
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setIsRejecting(false)}
-                      className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-all duration-200"
+                      className="px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-md transition-all duration-200 text-xs"
                     >
                       Cancel
                     </motion.button>
@@ -527,134 +595,79 @@ export const AdminCommentCard: React.FC<AdminCommentCardProps> = ({
           )}
         </AnimatePresence>
 
-        {/* Priority & Management Tools */}
+        {/* Quick Actions Footer */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-          className="border-t border-gray-200/50 pt-6 mt-6"
+          transition={{ delay: 0.5 }}
+          className="flex items-center justify-between pt-2 border-t border-gray-200/40"
         >
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Settings className="h-4 w-4 text-gray-500" />
-              <span className="font-medium text-gray-700">Management Tools</span>
-            </div>
-            <div className="flex-1 border-t border-gray-200/50 ml-4"></div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Priority Selector */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-600">Priority Level</label>
-              <div className="relative">
-                <select
-                  value={comment.priority}
-                  onChange={(e) => handlePriorityChange(e.target.value as CommentPriority)}
-                  disabled={isUpdatingPriority}
-                  className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {Object.entries(PRIORITY_LEVELS).map(([value, config]) => (
-                    <option key={value} value={value}>
-                      {config.icon} {config.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                {isUpdatingPriority && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-xl">
-                    <div className="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
-                  </div>
-                )}
-              </div>
+          <div className="flex items-center gap-2">
+            {/* Priority Selector - Compact */}
+            <div className="relative">
+              <select
+                value={comment.priority}
+                onChange={(e) => handlePriorityChange(e.target.value as CommentPriority)}
+                disabled={isUpdatingPriority}
+                className="appearance-none bg-white/80 border border-gray-200/60 rounded-md pl-2 pr-4 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-500/50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {Object.entries(PRIORITY_LEVELS).map(([value, config]) => (
+                  <option key={value} value={value}>
+                    {config.icon} {config.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-1 top-1/2 transform -translate-y-1/2 h-2.5 w-2.5 text-gray-400 pointer-events-none" />
+              {isUpdatingPriority && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-md">
+                  <div className="w-2 h-2 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+                </div>
+              )}
             </div>
             
-            {/* Quick Actions */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-600">Quick Actions</label>
-              <div className="flex gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="flex items-center gap-1 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-medium rounded-lg transition-colors"
-                >
-                  <Eye className="h-3 w-3" />
-                  View
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="flex items-center gap-1 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 text-sm font-medium rounded-lg transition-colors"
-                >
-                  <Edit3 className="h-3 w-3" />
-                  Edit
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="flex items-center gap-1 px-3 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 text-sm font-medium rounded-lg transition-colors"
-                >
-                  <Flag className="h-3 w-3" />
-                  Flag
-                </motion.button>
-              </div>
+            <div className="text-xs text-gray-500 font-medium">
+              {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
             </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <motion.button
+              whileHover={{ scale: 1.05, rotate: 5 }}
+              whileTap={{ scale: 0.95 }}
+              className="p-1 bg-gray-100 hover:bg-gray-200 rounded-md transition-all duration-200 group"
+              title="More options"
+            >
+              <MoreHorizontal className="h-2.5 w-2.5 text-gray-600 group-hover:text-gray-800" />
+            </motion.button>
           </div>
         </motion.div>
 
-        {/* Approval Status Information */}
+        {/* Success State - When Approved */}
         {comment.approval_status === 'approved' && comment.approver && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.9 }}
-            className="border-t border-gray-200/50 pt-6 mt-6"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.6 }}
+            className="mt-3 p-2 bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg border-l-2 border-emerald-400"
           >
-            <div className="flex items-center gap-3 p-4 bg-green-50/50 backdrop-blur-sm border border-green-200/50 rounded-xl">
-              <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
-                <CheckCircle className="h-5 w-5 text-white" />
+            <div className="flex items-start gap-2">
+              <div className="p-1.5 bg-emerald-100 rounded-md">
+                <CheckCircle className="h-3 w-3 text-emerald-600" />
               </div>
               <div className="flex-1">
-                <h4 className="font-medium text-green-800">Approved Comment</h4>
-                <p className="text-sm text-green-600">
-                  Approved by <span className="font-medium">{comment.approver.email}</span>
+                <h4 className="font-bold text-emerald-900 text-xs mb-0.5">Comment Approved</h4>
+                <p className="text-emerald-700 font-medium text-xs">
+                  Approved by <span className="font-bold">{comment.approver.email.split('@')[0]}</span>
                   {comment.approved_at && (
-                    <span> on {new Date(comment.approved_at).toLocaleDateString()}</span>
+                    <span className="text-emerald-600"> • {formatDistanceToNow(new Date(comment.approved_at), { addSuffix: true })}</span>
                   )}
                 </p>
               </div>
-              <Star className="h-5 w-5 text-green-500" />
-            </div>
-          </motion.div>
-        )}
-
-        {/* Reply Information */}
-        {comment.reply_count !== undefined && comment.reply_count > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.0 }}
-            className="border-t border-gray-200/50 pt-6 mt-6"
-          >
-            <div className="flex items-center justify-between p-4 bg-blue-50/50 backdrop-blur-sm border border-blue-200/50 rounded-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                  <MessageSquare className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-medium text-blue-800">
-                    {comment.reply_count} {comment.reply_count === 1 ? 'Reply' : 'Replies'}
-                  </h4>
-                  <p className="text-sm text-blue-600">Active conversation thread</p>
-                </div>
+              <div className="flex items-center gap-0.5">
+                <Star className="h-2.5 w-2.5 text-emerald-500 fill-current" />
+                <Star className="h-2 w-2 text-emerald-400 fill-current" />
+                <Star className="h-1.5 w-1.5 text-emerald-300 fill-current" />
               </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-              >
-                <span>View Thread</span>
-                <ArrowRight className="h-3 w-3" />
-              </motion.button>
             </div>
           </motion.div>
         )}

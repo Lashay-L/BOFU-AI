@@ -9,8 +9,6 @@ import {
   BookOpen,
   Lightbulb,
   Zap,
-  Minimize2,
-  Maximize2,
   RotateCcw,
   Send,
   Mic,
@@ -161,7 +159,6 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
   className = ''
 }) => {
   // Component state
-  const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -652,21 +649,17 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
 
   
 
-  if (!isVisible) return null;
-
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ x: 400, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        exit={{ x: 400, opacity: 0 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className={`fixed right-0 top-0 h-full z-40 ${className}`}
-        style={{
-          width: isMinimized ? '80px' : '650px',
-          transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-        }}
-      >
+      {isVisible && (
+        <motion.div
+          initial={{ x: 400, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: 400, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          className={`fixed right-0 top-0 h-full z-40 ${className}`}
+          style={{ width: '650px' }}
+        >
         {/* Main Container */}
         <div className="h-full flex flex-col bg-gray-900 border-l border-gray-700 shadow-2xl">
           {/* Simple Background */}
@@ -692,54 +685,41 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
                   <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-400/5 to-blue-400/5 animate-pulse"></div>
                   <Brain className="w-6 h-6 text-white relative z-10" />
                 </motion.div>
-                {!isMinimized && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="flex-1"
-                  >
-                    <div className="flex items-center gap-3 mb-1">
-                      <h2 className="text-xl font-black text-white tracking-tight">
-                        Strategic AI Co-Pilot
-                      </h2>
-                      {(selectedProduct || productId) && (
-                        <motion.div 
-                          className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 rounded-full text-xs font-semibold border border-emerald-400/30 shadow-lg"
-                          animate={{ scale: [1, 1.02, 1] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                        >
-                          <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-sm shadow-emerald-400/50"></div>
-                          KNOWLEDGE ENHANCED
-                        </motion.div>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-300 font-medium">
-                      {(selectedProduct || productId) ? 'Advanced content intelligence with product expertise' : 'Professional content optimization assistant'}
-                    </p>
-                  </motion.div>
-                )}
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="flex-1"
+                >
+                  <div className="flex items-center gap-3 mb-1">
+                    <h2 className="text-xl font-black text-white tracking-tight">
+                      Strategic AI Co-Pilot
+                    </h2>
+                    {(selectedProduct || productId) && (
+                      <motion.div 
+                        className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 rounded-full text-xs font-semibold border border-emerald-400/30 shadow-lg"
+                        animate={{ scale: [1, 1.02, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-sm shadow-emerald-400/50"></div>
+                        KNOWLEDGE ENHANCED
+                      </motion.div>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-300 font-medium">
+                    {(selectedProduct || productId) ? 'Advanced content intelligence with product expertise' : 'Professional content optimization assistant'}
+                  </p>
+                </motion.div>
               </div>
               
               <div className="flex items-center space-x-3">
-                {!isMinimized && (
-                  <motion.button
-                    onClick={() => setShowHistory(!showHistory)}
-                    className="p-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-all duration-300 border border-gray-600"
-                    whileHover={{ scale: 1.05, y: -1 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <History className="w-4 h-4" />
-                  </motion.button>
-                )}
-                
                 <motion.button
-                  onClick={() => setIsMinimized(!isMinimized)}
+                  onClick={() => setShowHistory(!showHistory)}
                   className="p-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-all duration-300 border border-gray-600"
                   whileHover={{ scale: 1.05, y: -1 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+                  <History className="w-4 h-4" />
                 </motion.button>
                 
                 <motion.button
@@ -754,8 +734,6 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
             </div>
           </motion.div>
 
-          {!isMinimized && (
-            <>
               {/* Product Knowledge Base Selector */}
               <motion.div 
                 className="relative p-6 border-b border-gray-700/50 bg-gray-800/30"
@@ -1052,10 +1030,9 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
                   </div>
                 </div>
               </motion.div>
-            </>
-          )}
         </div>
       </motion.div>
+      )}
     </AnimatePresence>
   );
 };

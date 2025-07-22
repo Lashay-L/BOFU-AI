@@ -337,7 +337,7 @@ export function UserDetailView({
                       <div className="text-xs text-gray-500 space-y-1 bg-gray-700/30 rounded p-3 max-w-sm mx-auto">
                         <p><span className="font-medium">Brief Content:</span> {brief.brief_content ? 'Present but empty' : 'null'}</p>
                         <p><span className="font-medium">Product Name:</span> {brief.product_name || 'Not specified'}</p>
-                        <p className="text-yellow-400 mt-2">💡 Content briefs are generated when users send products to AirOps</p>
+                        <p className="text-yellow-400 mt-2">💡 Content briefs are generated when users send products to Moonlit</p>
                       </div>
                     </div>
                   )}
@@ -350,7 +350,7 @@ export function UserDetailView({
             <BookOpen className="h-12 w-12 text-gray-500 mx-auto mb-4" />
             <p className="text-gray-400">No content briefs generated yet</p>
             <p className="text-gray-500 text-sm mt-2">
-              Content briefs will appear here once the user sends products to AirOps
+              Content briefs will appear here once the user sends products to Moonlit
             </p>
           </div>
         )}

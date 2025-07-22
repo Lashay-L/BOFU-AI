@@ -17,7 +17,6 @@ import { ProductDescription } from './ProductDescription';
 import { TargetPersona } from './TargetPersona';
 import { Capabilities } from './Capabilities';
 import { Loader2, Save, CheckSquare, Send, FileText, ExternalLink } from 'lucide-react';
-import { sendToAirOps } from '../../lib/airops';
 import { toast } from 'react-hot-toast';
 
 // Legacy interface for backward compatibility
@@ -56,7 +55,7 @@ interface EnhancedProductCardProps {
   onDelete?: (product: import('../../types/product/types').ProductAnalysis) => void;
   onShare?: (product: import('../../types/product/types').ProductAnalysis) => void;
   onUpdateSection?: (productIndex: number, sectionType: keyof import('../../types/product/types').ProductAnalysis, newValue: any) => Promise<void>;
-  // AirOps integration props
+  // Moonlit integration props
   researchResultId?: string;
   approvedProductId?: string;
   userUUID?: string;
@@ -378,9 +377,9 @@ export function ProductCard(props: any) {
           maxItems={props.maxItems || 3}
           showExpandButton={false} // Remove the "more" button as requested
           context={context}
-          researchResultId={props.researchResultId} // Pass through researchResultId for AirOps
-          approvedProductId={props.approvedProductId} // Pass through approvedProductId for AirOps
-          userUUID={props.userUUID} // Pass through user information for AirOps
+          researchResultId={props.researchResultId} // Pass through researchResultId for Moonlit
+          approvedProductId={props.approvedProductId} // Pass through approvedProductId for Moonlit
+          userUUID={props.userUUID} // Pass through user information for Moonlit
           userEmail={props.userEmail}
           userCompanyName={props.userCompanyName}
           onSave={props.onSave}

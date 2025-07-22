@@ -159,7 +159,7 @@ interface ProductCardContentProps {
   showExpandButton?: boolean;
   researchResultId?: string;
   approvedProductId?: string;
-  // User information for AirOps integration
+  // User information for Moonlit integration
   userUUID?: string;
   userEmail?: string;
   userCompanyName?: string;
@@ -1670,7 +1670,7 @@ export function ProductCardContent({
                 </svg>
                 <div className="text-xs text-blue-700">
                   <p className="font-medium mb-1">Admin Keywords:</p>
-                  <p>These keywords will be included when sending data to AirOps for content brief generation. Keywords help improve content relevance and SEO targeting.</p>
+                  <p>These keywords will be included when sending data to Moonlit for content brief generation. Keywords help improve content relevance and SEO targeting.</p>
                 </div>
               </div>
             </div>

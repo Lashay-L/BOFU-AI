@@ -53,7 +53,9 @@ export async function createArticleGenerationNotification({
 
     if (error) {
       console.error('Error calling notification Edge Function:', error);
-      throw error;
+      console.log('🔄 Edge Function failed, creating fallback article notifications...');
+      await createArticleFallbackNotifications({ briefId, briefTitle, userId });
+      return { success: true, message: 'Article notifications created via fallback', notifications: 1 };
     }
 
     console.log('✅ Edge Function response:', data);
@@ -109,7 +111,9 @@ export async function createBriefApprovalNotification({
 
     if (error) {
       console.error('Error calling notification Edge Function:', error);
-      throw error;
+      console.log('🔄 Edge Function failed, creating fallback notifications...');
+      await createFallbackNotifications({ briefId, briefTitle, userId });
+      return { success: true, message: 'Notifications created via fallback', notifications: 1 };
     }
 
     console.log('✅ Edge Function response:', data);

@@ -5,7 +5,8 @@ import {
   ExternalLink,
   CalendarDays,
   Trash2,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { ArticleListItem } from '../../types/adminApi';
@@ -16,6 +17,7 @@ interface ArticleCardProps {
   onDeleteArticle?: (article: ArticleListItem) => void;
   className?: string;
   index?: number;
+  isDeleting?: boolean;
 }
 
 const STATUS_COLORS = {
@@ -39,7 +41,8 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({
   onEditArticle,
   onDeleteArticle,
   className = '',
-  index = 0
+  index = 0,
+  isDeleting = false
 }) => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', { 
@@ -123,10 +126,20 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({
 
         <button
           onClick={() => onDeleteArticle?.(article)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100 transition-colors duration-200"
+          disabled={isDeleting}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Trash2 size={16} />
-          Clear All Article Data
+          {isDeleting ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              Deleting...
+            </>
+          ) : (
+            <>
+              <Trash2 size={16} />
+              Clear All Article Data
+            </>
+          )}
         </button>
       </div>
     </motion.div>

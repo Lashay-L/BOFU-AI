@@ -81,9 +81,18 @@ export const useUnreadNotificationCount = (adminRole: 'super_admin' | 'sub_admin
         subscriptionRef.current = subscribeToAdminMentionNotifications(
           user.id,
           assignedClientIds || [],
-          (newNotification: MentionNotification) => {
-            console.log('🔔 Admin notification count received new mention');
-            setUnreadCount(prev => prev + 1);
+          (updatedNotification: MentionNotification) => {
+            console.log('🔔 Admin notification count received mention update:', updatedNotification);
+            
+            // If notification is marked as sent/read, decrease count
+            if (updatedNotification.notification_sent) {
+              console.log('🔔 Admin notification marked as read, decreasing count');
+              setUnreadCount(prev => Math.max(0, prev - 1));
+            } else {
+              // If notification is new/unread, increase count
+              console.log('🔔 New unread admin notification, increasing count');
+              setUnreadCount(prev => prev + 1);
+            }
           }
         );
       } catch (error) {

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAdminContext } from '../../contexts/AdminContext';
+import { useArticleNavigation } from '../../lib/articleNavigation';
 import { 
   Bell, 
   X, 
@@ -20,7 +22,13 @@ import {
   AtSign,
   MessageSquare,
   FileText,
-  Loader2
+  Loader2,
+  ExternalLink,
+  Building,
+  User,
+  Calendar,
+  ArrowRight,
+  AlertTriangle
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -71,6 +79,8 @@ interface AssignmentActivity {
 }
 
 export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentNotificationCenterProps) {
+  const navigate = useNavigate();
+  const { navigateToArticle } = useArticleNavigation();
   const { 
     adminRole, 
     allAdmins, 
@@ -87,12 +97,37 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
   const [filter, setFilter] = useState<'all' | 'unread' | 'assignments' | 'accounts' | 'mentions' | 'briefs' | 'products' | 'articles'>('all');
   const [selectedNotifications, setSelectedNotifications] = useState<Set<string>>(new Set());
   const [unreadMentionCount, setUnreadMentionCount] = useState(0);
+  const [navigationError, setNavigationError] = useState<string | null>(null);
   const mentionSubscriptionRef = useRef<any>(null);
 
   // Only admin users can access this component
   if (!adminRole || (adminRole !== 'super_admin' && adminRole !== 'sub_admin')) {
     return null;
   }
+
+  // Navigation handlers for notifications
+  const handleNavigateToArticle = async (articleId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setNavigationError(null);
+    
+    await navigateToArticle(
+      articleId,
+      navigate,
+      (error) => setNavigationError(error)
+    );
+  };
+
+  const handleNavigateToComment = async (articleId: string, commentId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setNavigationError(null);
+    
+    await navigateToArticleWithComment(
+      articleId,
+      commentId,
+      navigate,
+      (error) => setNavigationError(error)
+    );
+  };
 
   // Set up real-time mention notifications subscription
   useEffect(() => {
@@ -123,8 +158,12 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
             setUnreadMentionCount(prev => prev + 1);
             
             // Show toast notification
+            const articleTitle = newNotification.comment?.content_briefs?.title || 'an article';
+            const productName = newNotification.comment?.content_briefs?.product_name || 'a product';
+            const userName = newNotification.mentioned_by_user?.name || newNotification.mentioned_by_user?.email || 'someone';
+            
             toast.success(
-              `New mention from ${newNotification.mentioned_by_user?.name || newNotification.mentioned_by_user?.email || 'someone'}`,
+              `${userName} mentioned you in ${productName} article "${articleTitle}"`,
               {
                 icon: '🔔',
                 duration: 5000,
@@ -297,20 +336,32 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
     }));
 
     // Convert mention notifications to notification items
-    const mentionNotificationItems: NotificationItem[] = mentions.map((mention) => ({
-      id: `mention-${mention.id}`,
-      type: 'mention' as const,
-      message: 'You were mentioned in a comment',
-      details: `${mention.comment?.user?.email || 'Someone'} mentioned you: "${mention.comment?.content?.substring(0, 100)}..."`,
-      timestamp: mention.created_at,
-      isRead: mention.notification_sent,
-      priority: 'high' as const,
-      metadata: {
-        commentId: mention.comment_id,
-        mentionText: mention.mention_text,
-        commentContent: mention.comment?.content
-      }
-    }));
+    const mentionNotificationItems: NotificationItem[] = mentions.map((mention) => {
+      const articleTitle = mention.comment?.content_briefs?.title || 'Unknown Article';
+      const productName = mention.comment?.content_briefs?.product_name || 'Unknown Product';
+      const commentUser = mention.comment?.user?.name || mention.comment?.user?.email || 'Someone';
+      const articleId = mention.comment?.content_briefs?.id || mention.comment?.article_id;
+      
+      return {
+        id: `mention-${mention.id}`,
+        type: 'mention' as const,
+        message: articleTitle,
+        details: `${commentUser} mentioned you in ${productName}: "${mention.comment?.content?.substring(0, 80)}..."`,
+        timestamp: mention.created_at,
+        isRead: mention.notification_sent,
+        priority: 'high' as const,
+        metadata: {
+          commentId: mention.comment_id,
+          articleId: articleId,
+          mentionText: mention.mention_text,
+          commentContent: mention.comment?.content,
+          articleTitle,
+          productName,
+          userEmail: mention.comment?.user?.email,
+          userName: commentUser
+        }
+      };
+    });
 
     // Convert brief approval notifications to notification items
     const briefApprovalNotificationItems: NotificationItem[] = briefApprovals.map((brief) => {
@@ -766,50 +817,158 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
                 key={notification.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`group p-4 rounded-lg border transition-all cursor-pointer ${
+                className={`group p-5 rounded-xl border transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-blue-500/20 border-blue-500/50'
+                    ? 'bg-blue-500/20 border-blue-500/50 shadow-lg shadow-blue-500/25'
                     : notification.isRead
                     ? 'bg-gray-800/40 border-gray-700/50'
-                    : 'bg-gray-800/80 border-gray-600/50 hover:bg-gray-700/60'
+                    : 'bg-gray-800/80 border-gray-600/50 hover:bg-gray-700/60 shadow-lg'
                 }`}
                 onClick={() => {
                   toggleNotificationSelection(notification.id);
                   if (!notification.isRead) markAsRead(notification.id);
                 }}
               >
-                <div className="flex items-start gap-3">
-                  <div className={`p-2 rounded-lg ${
+                <div className="flex items-start gap-4">
+                  <div className={`p-3 rounded-xl ${
                     notification.priority === 'high' ? 'bg-red-500/20' :
                     notification.priority === 'medium' ? 'bg-yellow-500/20' :
                     'bg-blue-500/20'
                   }`}>
-                    <Icon className={`h-4 w-4 ${getNotificationColor(notification.priority, notification.isRead)}`} />
+                    <Icon className={`h-5 w-5 ${getNotificationColor(notification.priority, notification.isRead)}`} />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className={`font-medium ${notification.isRead ? 'text-gray-300' : 'text-white'}`}>
+                  
+                  <div className="flex-1 min-w-0 space-y-3">
+                    {/* Header */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <h4 className={`font-semibold text-lg ${notification.isRead ? 'text-gray-300' : 'text-white'}`}>
                         {notification.message}
                       </h4>
                       {!notification.isRead && (
-                        <div className="w-2 h-2 bg-blue-400 rounded-full" />
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
                       )}
                     </div>
-                    {notification.details && (
-                      <p className={`text-sm ${notification.isRead ? 'text-gray-500' : 'text-gray-400'} mb-2`}>
+
+                    {/* Rich Context for Mention Notifications */}
+                    {notification.type === 'mention' && notification.metadata && (
+                      <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-blue-400" />
+                            <span className="text-sm text-gray-300">Article:</span>
+                            <span className="text-sm text-white font-medium">{notification.metadata.articleTitle}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Building className="h-4 w-4 text-green-400" />
+                            <span className="text-sm text-gray-300">Product:</span>
+                            <span className="text-sm text-white font-medium">{notification.metadata.productName}</span>
+                          </div>
+                        </div>
+                        
+                        {notification.metadata.commentContent && (
+                          <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-600/20">
+                            <div className="flex items-center gap-2 mb-2">
+                              <MessageSquare className="h-4 w-4 text-purple-400" />
+                              <span className="text-sm text-gray-300 font-medium">Comment Preview</span>
+                            </div>
+                            <p className="text-sm text-gray-300 leading-relaxed">
+                              {notification.metadata.commentContent.length > 150 
+                                ? `${notification.metadata.commentContent.substring(0, 150)}...`
+                                : notification.metadata.commentContent
+                              }
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Navigation Button */}
+                        <div className="flex items-center gap-2 mt-4">
+                          {notification.metadata.articleId && (
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={(e) => handleNavigateToArticle(notification.metadata.articleId, e)}
+                              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                              Go to Article
+                            </motion.button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Rich Context for Brief Approval Notifications */}
+                    {(['brief_approved', 'product_approved', 'article_generated'].includes(notification.type)) && notification.metadata && (
+                      <div className="bg-green-900/20 rounded-lg p-4 border border-green-500/20">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-blue-400" />
+                            <span className="text-sm text-gray-300">User:</span>
+                            <span className="text-sm text-white font-medium">{notification.metadata.userEmail || 'Unknown'}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Building className="h-4 w-4 text-green-400" />
+                            <span className="text-sm text-gray-300">Company:</span>
+                            <span className="text-sm text-white font-medium">{notification.metadata.userCompany || 'Unknown'}</span>
+                          </div>
+                        </div>
+                        
+                        {notification.metadata.briefTitle && (
+                          <div className="flex items-center gap-2 mb-3">
+                            <FileText className="h-4 w-4 text-purple-400" />
+                            <span className="text-sm text-gray-300">Brief:</span>
+                            <span className="text-sm text-white font-medium">{notification.metadata.briefTitle}</span>
+                          </div>
+                        )}
+
+                        {/* Navigation Button */}
+                        {notification.metadata.briefId && (
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={(e) => handleNavigateToArticle(notification.metadata.briefId, e)}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            View Content Brief
+                          </motion.button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Standard Details */}
+                    {notification.details && !['mention', 'brief_approved', 'product_approved', 'article_generated'].includes(notification.type) && (
+                      <p className={`text-sm ${notification.isRead ? 'text-gray-500' : 'text-gray-400'} leading-relaxed`}>
                         {notification.details}
                       </p>
                     )}
+                    
+                    {/* Timestamp */}
                     <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <Clock className="h-3 w-3" />
+                      <Calendar className="h-3 w-3" />
                       {new Date(notification.timestamp).toLocaleString()}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {isSelected && (
-                      <CheckCircle className="h-4 w-4 text-blue-400" />
+
+                    {/* Navigation Error */}
+                    {navigationError && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="mt-3 p-3 bg-red-50/10 border border-red-500/20 rounded-lg"
+                      >
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-red-400" />
+                          <span className="text-sm text-red-400">{navigationError}</span>
+                        </div>
+                      </motion.div>
                     )}
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    {isSelected && (
+                      <CheckCircle className="h-5 w-5 text-blue-400" />
+                    )}
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full ${
                       notification.priority === 'high' ? 'bg-red-500/20 text-red-300' :
                       notification.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
                       'bg-blue-500/20 text-blue-300'
@@ -818,7 +977,7 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
                     </span>
                     <button
                       onClick={(e) => deleteNotification(notification.id, e)}
-                      className="p-1 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                      className="p-2 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                       title="Delete notification"
                     >
                       <Trash2 className="h-4 w-4" />

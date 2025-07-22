@@ -886,4 +886,216 @@ export async function deleteArticle(articleId: string): Promise<{ success: boole
       error: 'Unexpected error occurred while clearing article content'
     };
   }
-} 
+}
+
+/**
+ * Delete article content as admin (preserves original brief)
+ */
+export const deleteArticleAsAdmin = async (
+  articleId: string,
+  adminUserId: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // Verify admin permissions
+    const { data: adminProfile, error: adminError } = await supabase
+      .from('admin_profiles')
+      .select('id, email, role, permissions')
+      .eq('id', adminUserId)
+      .single();
+
+    if (adminError || !adminProfile) {
+      return {
+        success: false,
+        error: 'Admin access denied - user not found in admin_profiles'
+      };
+    }
+
+    console.log('🗑️ Admin clearing article content:', { articleId, adminId: adminUserId, adminEmail: adminProfile.email });
+
+    // Get the article to verify existence and get metadata for cleanup
+    const { data: articleData, error: fetchError } = await supabase
+      .from('content_briefs')
+      .select('id, product_name, user_id, article_content, link')
+      .eq('id', articleId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching article for admin deletion:', fetchError);
+      return {
+        success: false,
+        error: `Article not found: ${fetchError.message}`
+      };
+    }
+
+    if (!articleData) {
+      return {
+        success: false,
+        error: 'Article not found'
+      };
+    }
+
+    // Delete related data first (comments, images, etc.)
+    try {
+      console.log('🔍 Admin starting cleanup process...');
+      
+      // Delete all comments for this article
+      const commentDeletionResult = await deleteAllCommentsForArticle(articleId);
+      
+      if (!commentDeletionResult.success) {
+        console.warn('⚠️ Comment deletion had issues:', commentDeletionResult.error);
+      } else {
+        console.log(`✅ Successfully deleted ${commentDeletionResult.deletedCount} comments`);
+      }
+
+      // Delete article images and their metadata
+      const { data: imageData, error: imagesError } = await supabase
+        .from('article_images')
+        .select('storage_path')
+        .eq('article_id', articleId);
+
+      if (imagesError) {
+        console.warn('Warning: Could not fetch article images for cleanup:', imagesError);
+      } else if (imageData && imageData.length > 0) {
+        // Import the reliable deletion helper
+        const { deleteFromStorageWithVerification } = await import('./storage');
+        
+        // Delete images from storage with verification
+        const imagePaths = imageData.map(img => img.storage_path);
+        console.log(`🖼️ Deleting ${imagePaths.length} article images...`);
+        
+        const { success: storageSuccess, errors: storageErrors } = await deleteFromStorageWithVerification(
+          'article-images',
+          imagePaths
+        );
+
+        if (!storageSuccess) {
+          console.error('❌ Failed to delete some article images:', storageErrors);
+        } else {
+          console.log('✅ Successfully deleted all article images from storage');
+        }
+
+        // Delete image metadata
+        const { error: imageMetaError } = await supabase
+          .from('article_images')
+          .delete()
+          .eq('article_id', articleId);
+
+        if (imageMetaError) {
+          console.warn('Warning: Could not delete image metadata:', imageMetaError);
+        } else {
+          console.log('✅ Successfully deleted article image metadata');
+        }
+      }
+
+      // Handle embedded images in article content
+      if (articleData.article_content) {
+        const embeddedImageUrls = extractImageUrlsFromContent(articleData.article_content);
+        const articleStorageImages = embeddedImageUrls.filter(url => 
+          url.includes('article-images') || url.includes('media-library')
+        );
+        
+        if (articleStorageImages.length > 0) {
+          console.log(`🖼️ Found ${articleStorageImages.length} embedded images in article content`);
+          
+          // Extract paths from URLs
+          const embeddedPaths = articleStorageImages.map(url => {
+            try {
+              const urlObj = new URL(url);
+              const pathParts = urlObj.pathname.split('/');
+              const bucketIndex = pathParts.findIndex(part => 
+                part === 'article-images' || part === 'media-library'
+              );
+              if (bucketIndex !== -1 && bucketIndex < pathParts.length - 1) {
+                return pathParts.slice(bucketIndex + 1).join('/');
+              }
+              return null;
+            } catch (e) {
+              console.warn('Could not parse image URL:', url);
+              return null;
+            }
+          }).filter(path => path !== null) as string[];
+
+          if (embeddedPaths.length > 0) {
+            const { deleteFromStorageWithVerification } = await import('./storage');
+            
+            const articleImagePaths = embeddedPaths.filter(path => !path.includes('media-library'));
+            if (articleImagePaths.length > 0) {
+              const { success, errors } = await deleteFromStorageWithVerification(
+                'article-images',
+                articleImagePaths
+              );
+              if (!success) {
+                console.warn('Failed to delete some embedded article images:', errors);
+              }
+            }
+            
+            console.log('✅ Processed embedded image cleanup');
+          }
+        }
+      }
+
+      // Delete version history
+      const { error: versionError } = await supabase
+        .from('article_version_history')
+        .delete()
+        .eq('article_id', articleId);
+
+      if (versionError) {
+        console.warn('Warning: Could not delete version history:', versionError);
+      }
+
+    } catch (cleanupError) {
+      console.warn('Warning: Some cleanup operations failed:', cleanupError);
+    }
+
+    // Clear article content and all related metadata (reset to original brief state)
+    const { error: updateError } = await supabase
+      .from('content_briefs')
+      .update({
+        article_content: null,
+        link: null,
+        editing_status: null,
+        last_edited_at: null,
+        last_edited_by: null,
+        article_version: null,
+        current_version: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', articleId);
+
+    if (updateError) {
+      console.error('Error clearing article content:', updateError);
+      return {
+        success: false,
+        error: `Failed to clear article content: ${updateError.message}`
+      };
+    }
+
+    // Log admin deletion action
+    await auditLogger.logAction(
+      articleId,
+      'delete',
+      `Admin ${adminProfile.email} cleared article content and metadata for "${articleData.product_name}"`,
+      {
+        admin_id: adminUserId,
+        admin_email: adminProfile.email,
+        original_author: articleData.user_id,
+        product_name: articleData.product_name,
+        action_type: 'admin_article_reset'
+      }
+    );
+
+    console.log('✅ Admin article content and metadata cleared successfully:', articleId);
+
+    return {
+      success: true
+    };
+
+  } catch (error) {
+    console.error('Unexpected error clearing article content as admin:', error);
+    return {
+      success: false,
+      error: 'Unexpected error occurred while clearing article content'
+    };
+  }
+}; 

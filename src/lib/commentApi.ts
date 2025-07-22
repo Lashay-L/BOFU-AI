@@ -46,6 +46,7 @@ export interface CreateCommentData {
   selected_text?: string; // Store the original selected text for accurate reference
   parent_comment_id?: string;
   image_url?: string; // For image comments
+  mentions?: string[]; // Array of mentioned user emails
   // Admin-specific fields
   admin_comment_type?: 'admin_note' | 'approval_comment' | 'priority_comment' | 'review_comment' | 'escalation_comment';
   priority?: 'low' | 'normal' | 'high' | 'urgent' | 'critical';
@@ -81,8 +82,11 @@ export async function createComment(data: CreateCommentData): Promise<ArticleCom
       isCurrentUserAdmin = false;
     }
 
+    // Extract mentions before creating the database record (mentions is not a database field)
+    const { mentions, ...dataWithoutMentions } = data;
+    
     const commentData = {
-      ...data,
+      ...dataWithoutMentions,
       user_id: user.user.id,
       content_type: data.content_type || 'text',
       status: 'active' as const,
@@ -1293,7 +1297,9 @@ export async function getMentionableUsers(
       userId: user.id 
     });
 
-    const { data, error } = await supabase.rpc('get_mentionable_users', {
+    // Use admin-aware filtering for better multi-tenant support
+    const { data, error } = await supabase.rpc('get_mentionable_users_admin_fixed', {
+      current_user_id: user.id,
       article_id_param: articleId || null,
       search_term: searchTerm
     });
@@ -1309,19 +1315,25 @@ export async function getMentionableUsers(
       
       // Check if it's a function not found error
       if (error.code === '42883') {
-        console.error('❌ Function get_mentionable_users does not exist or has wrong signature');
-        console.error('🔧 Please run the COMPLETE_MENTION_SYSTEM_FIX.sql migration');
+        console.error('❌ Function get_mentionable_users_admin_fixed does not exist or has wrong signature');
+        console.error('🔧 Please run the updated mention system migration');
       }
       
       throw error;
     }
 
+    // Remove any potential duplicates as a safety measure
+    const uniqueUsers = data ? data.filter((user: MentionableUser, index: number, self: MentionableUser[]) => 
+      index === self.findIndex(u => u.user_id === user.user_id)
+    ) : [];
+
     console.log('✅ Retrieved mentionable users:', {
-      count: data?.length || 0,
-      users: data?.map((u: MentionableUser) => ({ email: u.email, isAdmin: u.is_admin, mentionText: u.mention_text })) || []
+      count: uniqueUsers.length,
+      originalCount: data?.length || 0,
+      users: uniqueUsers.map((u: MentionableUser) => ({ email: u.email, isAdmin: u.is_admin, mentionText: u.mention_text }))
     });
     
-    return data || [];
+    return uniqueUsers;
   } catch (error) {
     console.error('❌ Exception in getMentionableUsers:', error);
     throw error;
@@ -1512,7 +1524,13 @@ export interface MentionNotification {
   created_at: string;
   updated_at: string;
   // Joined data
-  comment?: ArticleComment;
+  comment?: ArticleComment & {
+    content_briefs?: {
+      id: string;
+      title: string;
+      product_name: string;
+    };
+  };
   mentioned_by_user?: {
     id: string;
     email: string;
@@ -1523,18 +1541,19 @@ export interface MentionNotification {
 // Create notifications for mentioned users
 export const createMentionNotifications = async (
   commentId: string, 
-  mentions: string[]
+  mentions: string[],
+  articleId: string
 ): Promise<MentionNotification[]> => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    console.log('🔔 Creating mention notifications:', { commentId, mentions, userId: user.id });
+    console.log('🔔 Creating mention notifications:', { commentId, mentions, articleId, userId: user.id });
 
     const notifications: MentionNotification[] = [];
 
     // Get all mentionable users first to match against
-    const mentionableUsers = await getMentionableUsers();
+    const mentionableUsers = await getMentionableUsers(articleId, '');
     console.log('📝 Available mentionable users:', mentionableUsers.map(u => ({ email: u.email, mentionText: u.mention_text })));
 
     for (const mentionText of mentions) {
@@ -1560,6 +1579,7 @@ export const createMentionNotifications = async (
             mentioned_user_id: mentionedUser.user_id,
             mentioned_by_user_id: user.id,
             mention_text: mentionText,
+            user_type: mentionedUser.is_admin ? 'admin' : 'user',
             notification_sent: false
           })
           .select('*')
@@ -1598,7 +1618,8 @@ export const createMentionNotifications = async (
 // Get mention notifications for a user with client filtering for sub-admins
 export const getMentionNotifications = async (
   userId?: string,
-  assignedClientIds?: string[]
+  assignedClientIds?: string[],
+  includeRead: boolean = false
 ): Promise<MentionNotification[]> => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -1607,11 +1628,17 @@ export const getMentionNotifications = async (
     if (!targetUserId) throw new Error('User ID required');
 
     // First get the basic mention data
-    const { data: mentions, error: mentionsError } = await supabase
+    let query = supabase
       .from('comment_mentions')
       .select('*')
-      .eq('mentioned_user_id', targetUserId)
-      .eq('notification_sent', false)
+      .eq('mentioned_user_id', targetUserId);
+    
+    // Only filter by notification_sent if we don't want to include read notifications
+    if (!includeRead) {
+      query = query.eq('notification_sent', false);
+    }
+    
+    const { data: mentions, error: mentionsError } = await query
       .order('created_at', { ascending: false });
 
     if (mentionsError) throw mentionsError;
@@ -1637,24 +1664,60 @@ export const getMentionNotifications = async (
 
     if (commentsError) throw commentsError;
 
-    // Get user profiles separately
+    // Get article information for these comments
+    const articleIds = [...new Set((comments || []).map(c => c.article_id))];
+    const { data: contentBriefs, error: briefsError } = await supabase
+      .from('content_briefs')
+      .select('id, title, product_name')
+      .in('id', articleIds);
+
+    if (briefsError) throw briefsError;
+
+    // Get user profiles from both admin and user tables
     const userIds = [
       ...mentions.map(m => m.mentioned_by_user_id),
       ...(comments || []).map(c => c.user_id)
     ].filter((id, index, self) => self.indexOf(id) === index); // Remove duplicates
 
-    const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
+    // Get admin profiles
+    const { data: adminProfiles, error: adminProfilesError } = await supabase
+      .from('admin_profiles')
       .select('id, email, name')
       .in('id', userIds);
 
-    if (profilesError) throw profilesError;
+    if (adminProfilesError) throw adminProfilesError;
+
+    // Get user profiles 
+    const { data: userProfiles, error: userProfilesError } = await supabase
+      .from('user_profiles')
+      .select('id, email, user_name')
+      .in('id', userIds);
+
+    if (userProfilesError) throw userProfilesError;
+
+    // Combine profiles - normalize user_name to name for consistency
+    const profiles = [
+      ...(adminProfiles || []),
+      ...(userProfiles || []).map(profile => ({
+        ...profile,
+        name: profile.user_name
+      }))
+    ];
 
     // Combine the data
     const result: MentionNotification[] = mentions.map(mention => {
       const comment = comments?.find(c => c.id === mention.comment_id);
       const commentUser = profiles?.find(p => p.id === comment?.user_id);
       const mentionedByUser = profiles?.find(p => p.id === mention.mentioned_by_user_id);
+      const articleInfo = contentBriefs?.find(brief => brief.id === comment?.article_id);
+
+      console.log('🔍 Building mention notification:', {
+        mentionId: mention.id,
+        commentId: comment?.id,
+        articleId: comment?.article_id,
+        articleInfo,
+        hasContentBriefs: !!articleInfo
+      });
 
       return {
         ...mention,
@@ -1664,7 +1727,8 @@ export const getMentionNotifications = async (
             id: commentUser.id,
             email: commentUser.email,
             name: commentUser.name
-          } : undefined
+          } : undefined,
+          content_briefs: articleInfo
         } as any : undefined,
         mentioned_by_user: mentionedByUser ? {
           id: mentionedByUser.id,
@@ -1700,24 +1764,59 @@ export const markMentionNotificationsAsSent = async (
   notificationIds: string[]
 ): Promise<boolean> => {
   try {
-    const { error } = await supabase
+    console.log('🔄 markMentionNotificationsAsSent called with IDs:', notificationIds);
+    
+    const { data, error } = await supabase
       .from('comment_mentions')
       .update({ 
-        notification_sent: true,
-        updated_at: new Date().toISOString()
+        notification_sent: true
       })
-      .in('id', notificationIds);
+      .in('id', notificationIds)
+      .select();
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Database error marking notifications as sent:', error);
+      throw error;
+    }
+    
+    console.log('✅ Successfully marked notifications as sent:', data);
     return true;
   } catch (error) {
-    console.error('Error marking notifications as sent:', error);
+    console.error('❌ Error marking notifications as sent:', error);
     return false;
   }
 };
 
 // Enhanced comment creation with mention processing
 export const createCommentWithMentions = async (
+  data: CreateCommentData
+): Promise<ArticleComment> => {
+  try {
+    console.log('📝 Creating comment with mentions:', {
+      article_id: data.article_id,
+      content: data.content.substring(0, 50) + '...',
+      mentions: data.mentions || [],
+      mentionsCount: (data.mentions || []).length
+    });
+
+    // Create the comment first
+    const comment = await createComment(data);
+    
+    // Create mention notifications if mentions provided
+    if (data.mentions && data.mentions.length > 0) {
+      console.log('🔔 Creating mention notifications for emails:', data.mentions);
+      await createMentionNotifications(comment.id, data.mentions, data.article_id);
+    }
+    
+    return comment;
+  } catch (error) {
+    console.error('❌ Error creating comment with mentions:', error);
+    throw error;
+  }
+};
+
+// Legacy function with individual parameters for backward compatibility
+export const createCommentWithMentionsLegacy = async (
   articleId: string,
   content: string,
   contentType: 'text' | 'image' | 'suggestion' = 'text',
@@ -1760,7 +1859,7 @@ export const createCommentWithMentions = async (
     
     // Create mention notifications if mentions found
     if (mentions.length > 0) {
-      await createMentionNotifications(comment.id, mentions);
+      await createMentionNotifications(comment.id, mentions, articleId);
     }
 
     return comment;
@@ -1926,6 +2025,65 @@ export function subscribeToMentionNotifications(
           }
         } catch (error) {
           console.error('❌ Error processing mention notification:', error);
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'comment_mentions',
+        filter: `mentioned_user_id=eq.${userId}`
+      },
+      async (payload) => {
+        console.log('🔔 Mention notification updated:', payload);
+        
+        try {
+          // Get the full mention data with related information
+          const { data: mentionData, error } = await supabase
+            .from('comment_mentions')
+            .select(`
+              *,
+              mentioned_by_user:profiles!comment_mentions_mentioned_by_user_id_fkey(
+                id,
+                email,
+                name
+              ),
+              comment:article_comments!comment_mentions_comment_id_fkey(
+                id,
+                article_id,
+                content,
+                created_at,
+                user_id
+              )
+            `)
+            .eq('id', payload.new.id)
+            .single();
+
+          if (error) {
+            console.error('❌ Error fetching updated mention data:', error);
+            return;
+          }
+
+          if (mentionData) {
+            const notification: MentionNotification = {
+              id: mentionData.id,
+              comment_id: mentionData.comment_id,
+              mentioned_user_id: mentionData.mentioned_user_id,
+              mentioned_by_user_id: mentionData.mentioned_by_user_id,
+              mention_text: mentionData.mention_text,
+              notification_sent: mentionData.notification_sent,
+              created_at: mentionData.created_at,
+              updated_at: mentionData.updated_at,
+              comment: mentionData.comment,
+              mentioned_by_user: mentionData.mentioned_by_user
+            };
+
+            callback(notification);
+          }
+        } catch (error) {
+          console.error('❌ Error processing updated mention notification:', error);
         }
       }
     )

@@ -63,6 +63,16 @@ export interface AdminArticleComment {
   };
   replies?: AdminArticleComment[];
   reply_count?: number;
+  
+  // Article information for context
+  article?: {
+    id: string;
+    title: string;
+    product_name?: string;
+    user_id: string;
+    status?: string;
+    created_at: string;
+  };
 }
 
 // Admin comment creation data

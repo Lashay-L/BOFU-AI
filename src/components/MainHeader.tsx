@@ -80,13 +80,14 @@ export function MainHeader({
         
         // Check if user is admin and get brief approval notifications
         try {
-          const { data: adminProfile } = await supabase
+          const { data: adminProfile, error: adminError } = await supabase
             .from('admin_profiles')
             .select('id, admin_role')
             .eq('id', user.id)
             .single();
             
-          if (adminProfile) {
+          // Only proceed if we have a valid admin profile and no error
+          if (adminProfile && !adminError) {
             console.log('🔔 Admin user detected, loading brief approval notifications');
             const briefNotifications = await getBriefApprovalNotifications(
               adminProfile.id, 
@@ -95,16 +96,26 @@ export function MainHeader({
             const unreadBriefCount = briefNotifications.filter(n => !n.is_read).length;
             unreadCount += unreadBriefCount;
             console.log('🔔 Brief notifications loaded:', { total: briefNotifications.length, unread: unreadBriefCount });
+          } else if (adminError) {
+            // Check if this is a 406 error or user not found error - this is normal for regular users
+            if (adminError.code === 'PGRST116' || adminError.code === '406' || adminError.message?.includes('406')) {
+              // This is expected for regular users, no need to log
+              console.log('🔔 User is not an admin (expected)');
+            } else {
+              // Log unexpected errors
+              console.log('🔔 Admin check failed (unexpected):', adminError);
+            }
           }
         } catch (adminError) {
           // User is not an admin - this is normal, no need to log
-          // Only log if it's an unexpected error
-          if (adminError && typeof adminError === 'object' && 'code' in adminError && adminError.code !== 'PGRST116') {
+          // Only log if it's an unexpected error (not PGRST116 or 406 errors)
+          if (adminError && typeof adminError === 'object' && 'code' in adminError && 
+              adminError.code !== 'PGRST116' && adminError.code !== '406') {
             console.log('🔔 Admin check failed (unexpected):', adminError);
           }
         }
         
-        console.log('🔔 Total notifications:', { unread: unreadCount });
+        console.log('🔔 Total notifications:', unreadCount);
         setUnreadNotificationCount(unreadCount);
       } catch (error) {
         console.error('❌ Error loading notification count:', error);
@@ -112,6 +123,24 @@ export function MainHeader({
       }
     }
   };
+
+  // Refresh notification count manually (can be called from outside)
+  const refreshNotificationCount = async () => {
+    console.log('🔄 Manually refreshing notification count for user:', user?.email);
+    try {
+      await loadNotificationCount();
+      console.log('✅ Manual refresh completed successfully');
+    } catch (error) {
+      console.error('❌ Error during manual refresh:', error);
+    }
+  };
+
+  // Expose refresh function globally for debugging/manual refresh
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).refreshNotificationCount = refreshNotificationCount;
+    }
+  }, []);
 
   // Set up real-time mention notification subscription to update count
   useEffect(() => {
@@ -133,17 +162,35 @@ export function MainHeader({
           mentionSubscriptionRef.current = subscribeToAdminMentionNotifications(
             user.id,
             assignedClientIds || [],
-            (newNotification: MentionNotification) => {
-              console.log('🔔 Header received new mention notification, updating count');
-              setUnreadNotificationCount(prev => prev + 1);
+            (updatedNotification: MentionNotification) => {
+              console.log('🔔 Header received admin mention notification update:', updatedNotification);
+              
+              // If notification is marked as sent/read, decrease count
+              if (updatedNotification.notification_sent) {
+                console.log('🔔 Admin notification marked as read, decreasing count');
+                setUnreadNotificationCount(prev => Math.max(0, prev - 1));
+              } else {
+                // If notification is new/unread, increase count
+                console.log('🔔 New unread admin notification, increasing count');
+                setUnreadNotificationCount(prev => prev + 1);
+              }
             }
           );
         } else {
           mentionSubscriptionRef.current = subscribeToMentionNotifications(
             user.id,
-            (newNotification: MentionNotification) => {
-              console.log('🔔 Header received new mention notification, updating count');
-              setUnreadNotificationCount(prev => prev + 1);
+            (updatedNotification: MentionNotification) => {
+              console.log('🔔 Header received mention notification update:', updatedNotification);
+              
+              // If notification is marked as sent/read, decrease count
+              if (updatedNotification.notification_sent) {
+                console.log('🔔 Notification marked as read, decreasing count');
+                setUnreadNotificationCount(prev => Math.max(0, prev - 1));
+              } else {
+                // If notification is new/unread, increase count
+                console.log('🔔 New unread notification, increasing count');
+                setUnreadNotificationCount(prev => prev + 1);
+              }
             }
           );
         }

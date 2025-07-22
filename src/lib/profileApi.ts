@@ -108,10 +108,7 @@ export class ProfileApi {
       // First try to get profile from active session
       const { data: session } = await supabase
         .from('user_profile_sessions')
-        .select(`
-          profile_id,
-          company_profiles (*)
-        `)
+        .select('profile_id')
         .eq('user_id', user.id)
         .eq('is_active', true)
         .gte('expires_at', new Date().toISOString())
@@ -119,17 +116,21 @@ export class ProfileApi {
         .limit(1)
         .single();
 
-      if (session?.profile_id && session.company_profiles) {
-        // Handle joined data - company_profiles comes as array from join
-        const profileData = Array.isArray(session.company_profiles) 
-          ? session.company_profiles[0] 
-          : session.company_profiles;
-        
-        if (profileData) {
-          console.log('[ProfileApi] Found profile from session:', profileData);
-          return { success: true, data: profileData as CompanyProfile };
+      // If we found an active session, get the profile separately
+      if (session?.profile_id) {
+        const { data: sessionProfile } = await supabase
+          .from('company_profiles')
+          .select('*')
+          .eq('id', session.profile_id)
+          .eq('is_active', true)
+          .single();
+
+        if (sessionProfile) {
+          console.log('[ProfileApi] Found profile from session:', sessionProfile);
+          return { success: true, data: sessionProfile };
         }
       }
+
 
       // No active session, try to get default profile first
       const { data: defaultProfile } = await supabase
