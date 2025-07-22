@@ -86,6 +86,7 @@ export async function fetchSlackChannels(): Promise<{ success: boolean; channels
     }
 
     const response = await supabase.functions.invoke('slack-channels', {
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
       }
@@ -220,7 +221,10 @@ export async function sendTestSlackNotification(): Promise<{ success: boolean; e
 
     if (response.error) {
       console.error('Error sending test notification:', response.error);
-      return { success: false, error: 'Failed to send test notification' };
+      console.error('Full response data:', response.data);
+      // Try to extract the detailed error message from the response
+      const errorMessage = response.data?.message || response.data?.error || response.error.message || 'Failed to send test notification';
+      return { success: false, error: errorMessage };
     }
 
     return { success: true };

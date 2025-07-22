@@ -66,19 +66,9 @@ serve(async (req) => {
     const emailResults = []
     let slackSent = false
 
-    // Send Slack notification to user if enabled (only once per notification)
-    try {
-      const slackResult = await sendSlackNotification({
-        supabaseAdmin,
-        userProfile,
-        briefTitle,
-        notificationType
-      })
-      slackSent = slackResult
-      console.log('Slack notification result:', slackSent ? 'sent' : 'skipped')
-    } catch (error) {
-      console.error('Error sending Slack notification:', error)
-    }
+    // Slack notifications are now handled by user notification system (send-user-notification)
+    // Admin notifications are email + in-app only
+    console.log('Slack notifications disabled for admin notifications - handled by user notification system')
 
     // Create notifications for each admin
     for (const adminId of adminIds) {
@@ -145,7 +135,7 @@ serve(async (req) => {
         message: 'Notifications processed',
         notifications: notifications.length,
         emails: emailResults,
-        slack_sent: slackSent
+        slack_sent: false
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
@@ -547,150 +537,5 @@ async function sendEmailNotification({
   }
 }
 
-/**
- * Send Slack notification to user's connected Slack channel
- */
-async function sendSlackNotification({
-  supabaseAdmin,
-  userProfile,
-  briefTitle,
-  notificationType = 'brief_approved'
-}: {
-  supabaseAdmin: any
-  userProfile: any
-  briefTitle: string
-  notificationType?: string
-}) {
-  try {
-    // Get user's Slack integration details
-    const { data: slackData, error: slackError } = await supabaseAdmin
-      .from('user_profiles')
-      .select('slack_access_token, slack_channel_id, slack_channel_name, slack_notifications_enabled')
-      .eq('id', userProfile.id)
-      .single()
-
-    if (slackError || !slackData) {
-      console.log('No Slack data found for user:', userProfile.id)
-      return false
-    }
-
-    if (!slackData.slack_notifications_enabled || !slackData.slack_access_token || !slackData.slack_channel_id) {
-      console.log('Slack notifications not enabled or configured for user:', userProfile.id)
-      return false
-    }
-
-    console.log('Sending Slack notification to channel:', slackData.slack_channel_name)
-
-    // Create Slack message based on notification type
-    const isArticleGenerated = notificationType === 'article_generated'
-    const emoji = isArticleGenerated ? '📄' : '🎉'
-    const action = isArticleGenerated ? 'generated an article' : 'approved a content brief'
-    const title = isArticleGenerated ? 'Article Generated!' : 'Content Brief Approved!'
-
-    // Prepare Slack message with rich formatting
-    const slackMessage = {
-      channel: slackData.slack_channel_id,
-      text: `${emoji} ${title}`,
-      blocks: [
-        {
-          type: 'header',
-          text: {
-            type: 'plain_text',
-            text: `${emoji} ${title}`,
-            emoji: true
-          }
-        },
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: `Great news! Your team has ${action} and it's ready for review.`
-          }
-        },
-        {
-          type: 'section',
-          fields: [
-            {
-              type: 'mrkdwn',
-              text: `*Company:*\n${userProfile.company_name || 'Unknown Company'}`
-            },
-            {
-              type: 'mrkdwn',
-              text: `*User:*\n${userProfile.email}`
-            }
-          ]
-        },
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: `*${isArticleGenerated ? 'Article' : 'Brief'} Title:*\n"${briefTitle}"`
-          }
-        },
-        {
-          type: 'divider'
-        },
-        {
-          type: 'context',
-          elements: [
-            {
-              type: 'mrkdwn',
-              text: `📅 ${isArticleGenerated ? 'Generated' : 'Approved'} on ${new Date().toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                timeZoneName: 'short'
-              })} | 🤖 BOFU AI`
-            }
-          ]
-        }
-      ]
-    }
-
-    // Send message to Slack using Web API
-    const slackResponse = await fetch('https://slack.com/api/chat.postMessage', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${slackData.slack_access_token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(slackMessage)
-    })
-
-    const slackResult = await slackResponse.json()
-    console.log('Slack API response:', { ok: slackResult.ok, error: slackResult.error })
-
-    if (!slackResult.ok) {
-      console.error('Slack API error:', slackResult.error)
-      
-      // Handle token expiration or revocation
-      if (slackResult.error === 'invalid_auth' || slackResult.error === 'token_revoked') {
-        console.log('Slack token invalid, clearing user integration')
-        await supabaseAdmin
-          .from('user_profiles')
-          .update({
-            slack_access_token: null,
-            slack_team_id: null,
-            slack_team_name: null,
-            slack_user_id: null,
-            slack_channel_id: null,
-            slack_channel_name: null,
-            slack_notifications_enabled: false
-          })
-          .eq('id', userProfile.id)
-      }
-      
-      return false
-    }
-
-    console.log('✅ Slack notification sent successfully:', slackResult.ts)
-    return true
-
-  } catch (error) {
-    console.error('❌ Error sending Slack notification:', error)
-    return false
-  }
-} 
+// Slack notifications removed - now handled by user notification system (send-user-notification)
+// Admin notifications are email + in-app only 

@@ -3,7 +3,7 @@ import { toast } from 'react-hot-toast';
 import { Loader2, CheckCircle } from 'lucide-react';
 import { approveContentBriefWithMoonlit } from '../../lib/moonlit';
 import { supabase } from '../../lib/supabase';
-import { createBriefApprovalNotification } from '../../lib/briefApprovalNotifications';
+import { createArticleGenerationNotification } from '../../lib/userNotifications';
 import { ContentGenerationSuccessModal } from '../ui/ContentGenerationSuccessModal';
 
 interface ApproveContentBriefProps {
@@ -68,21 +68,23 @@ export function ApproveContentBrief({
         throw new Error('User not authenticated');
       }
 
-      // Fetch research_result_id from content_briefs table
+      // Fetch brief data and research_result_id from content_briefs table
       let researchResultId: string | null = null;
+      let productName: string | null = null;
       if (briefId) {
         const { data: briefData, error: briefError } = await supabase
           .from('content_briefs')
-          .select('research_result_id')
+          .select('research_result_id, product_name')
           .eq('id', briefId)
           .single();
 
         if (briefError) {
-          console.error('Error fetching research_result_id:', briefError);
+          console.error('Error fetching brief data:', briefError);
           // Decide if you want to proceed without it or show an error
         }
         if (briefData) {
           researchResultId = briefData.research_result_id;
+          productName = briefData.product_name;
         }
       }
 
@@ -94,17 +96,18 @@ export function ApproveContentBrief({
         research_result_id: researchResultId
       });
       
-      // Create notification for admins (both in-app and email)
+      // Create notification for user (in-app, email, and Slack)
       if (briefId && currentUser.user) {
         try {
-          await createBriefApprovalNotification({
+          await createArticleGenerationNotification({
+            userId: currentUser.user.id,
             briefId,
             briefTitle: articleTitle,
-            userId: currentUser.user.id
+            productName: productName || undefined
           });
-          console.log('Admin notifications (in-app and email) sent successfully');
+          console.log('User notifications (in-app, email, and Slack) sent successfully');
         } catch (notificationError) {
-          console.error('Failed to send admin notifications:', notificationError);
+          console.error('Failed to send user notifications:', notificationError);
           // Don't fail the approval process if notifications fail
         }
       }
@@ -116,7 +119,7 @@ export function ApproveContentBrief({
           <CheckCircle className="h-5 w-5 text-green-500" />
           <div>
             <p className="font-medium">Article Generation Started</p>
-            <p className="text-sm text-gray-400">Your content brief has been successfully processed via Moonlit. Admins have been notified via email and in-app notifications.</p>
+            <p className="text-sm text-gray-400">Your content brief has been successfully processed via Moonlit. You will receive notifications via email, Slack, and in-app when your article is ready.</p>
           </div>
         </div>
       );
