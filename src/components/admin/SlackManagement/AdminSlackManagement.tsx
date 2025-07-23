@@ -20,7 +20,10 @@ import {
   assignCompanySlackChannel,
   testCompanySlackNotification,
   disconnectAdminSlack,
+  getCompanySlackChannel,
+  removeCompanySlackChannel,
   AdminSlackConnectionStatus,
+  CompanySlackSettings,
   SlackChannel
 } from '../../../lib/adminSlackService';
 import { BaseModal } from '../../ui/BaseModal';
@@ -44,8 +47,9 @@ export function AdminSlackManagement({
   const [actionLoading, setActionLoading] = useState('');
   const [selectedChannel, setSelectedChannel] = useState('');
   const [testResult, setTestResult] = useState<{ success?: boolean; error?: string } | null>(null);
+  const [assignedChannel, setAssignedChannel] = useState<CompanySlackSettings | null>(null);
 
-  // Load connection status and channels
+  // Load connection status, channels, and current assignment
   const loadConnectionStatus = async () => {
     try {
       setLoading(true);
@@ -57,6 +61,12 @@ export function AdminSlackManagement({
         if (channelsResult.success && channelsResult.channels) {
           setChannels(channelsResult.channels);
         }
+      }
+
+      // Load current channel assignment for this company
+      if (companyId) {
+        const currentAssignment = await getCompanySlackChannel(companyId);
+        setAssignedChannel(currentAssignment);
       }
     } catch (error) {
       console.error('Error loading admin Slack connection status:', error);
@@ -95,6 +105,9 @@ export function AdminSlackManagement({
       if (success) {
         setTestResult({ success: true });
         setSelectedChannel('');
+        // Reload the assignment to show updated UI
+        const updatedAssignment = await getCompanySlackChannel(companyId);
+        setAssignedChannel(updatedAssignment);
         // Optionally close modal after successful assignment
         setTimeout(() => {
           onClose();
@@ -134,6 +147,7 @@ export function AdminSlackManagement({
         setConnectionStatus({ connected: false });
         setChannels([]);
         setSelectedChannel('');
+        setAssignedChannel(null);
         setTestResult({ success: true });
       } else {
         setTestResult({ error: 'Failed to disconnect Slack' });
@@ -141,6 +155,27 @@ export function AdminSlackManagement({
     } catch (error) {
       console.error('Error disconnecting admin Slack:', error);
       setTestResult({ error: 'Failed to disconnect Slack' });
+    } finally {
+      setActionLoading('');
+    }
+  };
+
+  const handleRemoveChannelAssignment = async () => {
+    if (!companyId) return;
+
+    setActionLoading('removing');
+    try {
+      const success = await removeCompanySlackChannel(companyId);
+      if (success) {
+        setAssignedChannel(null);
+        setSelectedChannel('');
+        setTestResult({ success: true });
+      } else {
+        setTestResult({ error: 'Failed to remove channel assignment' });
+      }
+    } catch (error) {
+      console.error('Error removing channel assignment:', error);
+      setTestResult({ error: 'Failed to remove channel assignment' });
     } finally {
       setActionLoading('');
     }
@@ -252,66 +287,126 @@ export function AdminSlackManagement({
 
             {companyName && companyId && (
               <>
-                {/* Channel Assignment */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg border border-blue-500">
-                    <div className="p-2 bg-blue-500/20 rounded-lg">
-                      <Building2 className="w-4 h-4 text-blue-400" />
-                    </div>
-                    <h4 className="text-base font-bold text-white">Assign Channel to {companyName}</h4>
-                  </div>
-
-                  <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-200 mb-2">
-                          Select Slack Channel
-                        </label>
-                        <select
-                          value={selectedChannel}
-                          onChange={(e) => setSelectedChannel(e.target.value)}
-                          className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-600"
-                        >
-                          <option value="" className="text-gray-400">Choose a channel for {companyName}...</option>
-                          {channels.map((channel) => (
-                            <option key={channel.id} value={channel.id} className="text-white">
-                              #{channel.name} {channel.is_private ? '(private)' : ''} 
-                              {channel.is_member ? '' : ' (bot not added)'}
-                            </option>
-                          ))}
-                        </select>
+                {assignedChannel?.slack_channel_id ? (
+                  /* Currently Assigned Channel */
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg border border-green-500">
+                      <div className="p-2 bg-green-500/20 rounded-lg">
+                        <Hash className="w-4 h-4 text-green-400" />
                       </div>
-                      
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          onClick={handleChannelAssignment}
-                          disabled={!selectedChannel || actionLoading === 'assigning'}
-                          className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors text-sm"
-                        >
-                          {actionLoading === 'assigning' ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Hash className="w-4 h-4" />
-                          )}
-                          <span>Assign</span>
-                        </button>
+                      <h4 className="text-base font-bold text-white">Assigned Channel for {companyName}</h4>
+                    </div>
 
-                        <button
-                          onClick={handleTestNotification}
-                          disabled={actionLoading === 'testing'}
-                          className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors text-sm"
-                        >
-                          {actionLoading === 'testing' ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Bell className="w-4 h-4" />
-                          )}
-                          <span>Test</span>
-                        </button>
+                    <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3 p-3 bg-green-900/30 border border-green-500/30 rounded-lg">
+                          <div className="p-2 bg-green-500/20 rounded-lg">
+                            <Hash className="w-4 h-4 text-green-400" />
+                          </div>
+                          <div className="flex-1">
+                            <h5 className="text-base font-bold text-green-400">#{assignedChannel.slack_channel_name}</h5>
+                            <p className="text-gray-300 text-sm">
+                              Assigned on {new Date(assignedChannel.assigned_at || '').toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                            <span className="text-green-400 font-semibold text-xs">ASSIGNED</span>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            onClick={handleTestNotification}
+                            disabled={actionLoading === 'testing'}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors text-sm"
+                          >
+                            {actionLoading === 'testing' ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Bell className="w-4 h-4" />
+                            )}
+                            <span>Test</span>
+                          </button>
+
+                          <button
+                            onClick={handleRemoveChannelAssignment}
+                            disabled={actionLoading === 'removing'}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors text-sm"
+                          >
+                            {actionLoading === 'removing' ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <X className="w-4 h-4" />
+                            )}
+                            <span>Remove</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  /* Channel Assignment (No Channel Assigned Yet) */
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg border border-blue-500">
+                      <div className="p-2 bg-blue-500/20 rounded-lg">
+                        <Building2 className="w-4 h-4 text-blue-400" />
+                      </div>
+                      <h4 className="text-base font-bold text-white">Assign Channel to {companyName}</h4>
+                    </div>
+
+                    <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-200 mb-2">
+                            Select Slack Channel
+                          </label>
+                          <select
+                            value={selectedChannel}
+                            onChange={(e) => setSelectedChannel(e.target.value)}
+                            className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-600"
+                          >
+                            <option value="" className="text-gray-400">Choose a channel for {companyName}...</option>
+                            {channels.map((channel) => (
+                              <option key={channel.id} value={channel.id} className="text-white">
+                                #{channel.name} {channel.is_private ? '(private)' : ''} 
+                                {channel.is_member ? '' : ' (bot not added)'}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            onClick={handleChannelAssignment}
+                            disabled={!selectedChannel || actionLoading === 'assigning'}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors text-sm"
+                          >
+                            {actionLoading === 'assigning' ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Hash className="w-4 h-4" />
+                            )}
+                            <span>Assign</span>
+                          </button>
+
+                          <button
+                            onClick={handleTestNotification}
+                            disabled={actionLoading === 'testing'}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors text-sm"
+                          >
+                            {actionLoading === 'testing' ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Bell className="w-4 h-4" />
+                            )}
+                            <span>Test</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
