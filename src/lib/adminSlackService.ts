@@ -121,8 +121,7 @@ export async function assignCompanySlackChannel(
         admin_assigned_slack_channel_name: channelName,
         admin_slack_assigned_at: new Date().toISOString()
       })
-      .eq('id', companyId)
-      .eq('user_type', 'main'); // Only update main accounts
+      .eq('id', companyId);
 
     if (error) {
       console.error('Error assigning Slack channel to company:', error);
@@ -152,7 +151,6 @@ export async function getCompanySlackChannel(companyId: string): Promise<Company
         admin_slack_assigned_at
       `)
       .eq('id', companyId)
-      .eq('user_type', 'main')
       .single();
 
     if (error || !profile) {
@@ -248,7 +246,6 @@ export async function getAllCompaniesSlackSettings(): Promise<CompanySlackSettin
         slack_notifications_enabled,
         admin_slack_assigned_at
       `)
-      .eq('user_type', 'main')
       .order('company_name');
 
     if (error) {
@@ -283,8 +280,7 @@ export async function updateCompanySlackNotifications(
       .update({
         slack_notifications_enabled: enabled
       })
-      .eq('id', companyId)
-      .eq('user_type', 'main');
+      .eq('id', companyId);
 
     if (error) {
       console.error('Error updating company Slack notifications:', error);
@@ -311,8 +307,7 @@ export async function removeCompanySlackChannel(companyId: string): Promise<bool
         admin_slack_assigned_at: null,
         slack_notifications_enabled: false
       })
-      .eq('id', companyId)
-      .eq('user_type', 'main');
+      .eq('id', companyId);
 
     if (error) {
       console.error('Error removing company Slack channel:', error);

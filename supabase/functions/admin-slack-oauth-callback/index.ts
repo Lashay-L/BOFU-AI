@@ -4,6 +4,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Max-Age': '86400',
 }
 
 serve(async (req: Request) => {
@@ -35,10 +37,16 @@ serve(async (req: Request) => {
     }
 
     // Initialize Supabase client with service role key for admin operations
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error('Missing required environment variables')
+      const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}/admin?slack_error=configuration_error`
+      return Response.redirect(redirectUrl, 302)
+    }
+    
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
 
     // Exchange authorization code for access token
     const SLACK_CLIENT_ID = "5930579212176.9234329054229"
