@@ -24,7 +24,6 @@ export function generateAdminSlackOAuthURL(): string {
   const REDIRECT_URI = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-slack-oauth-callback`;
   
   const scopes = [
-    'bot',
     'chat:write',
     'channels:read',
     'groups:read',
