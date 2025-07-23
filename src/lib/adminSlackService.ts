@@ -140,8 +140,6 @@ export async function assignCompanySlackChannel(
  */
 export async function getCompanySlackChannel(companyId: string): Promise<CompanySlackSettings | null> {
   try {
-    console.log('getCompanySlackChannel called with companyId:', companyId);
-    
     if (!supabaseAdmin) {
       console.error('supabaseAdmin is null - missing service role key');
       return null;
@@ -160,14 +158,11 @@ export async function getCompanySlackChannel(companyId: string): Promise<Company
       .eq('id', companyId)
       .single();
 
-    console.log('getCompanySlackChannel query result:', { profile, error });
-
     if (error || !profile) {
-      console.error('Error fetching company slack channel:', error);
       return null;
     }
 
-    const result = {
+    return {
       company_id: profile.id,
       company_name: profile.company_name,
       slack_channel_id: profile.admin_assigned_slack_channel_id,
@@ -175,9 +170,6 @@ export async function getCompanySlackChannel(companyId: string): Promise<Company
       notifications_enabled: profile.slack_notifications_enabled || false,
       assigned_at: profile.admin_slack_assigned_at
     };
-    
-    console.log('getCompanySlackChannel returning:', result);
-    return result;
   } catch (error) {
     console.error('Error in getCompanySlackChannel:', error);
     return null;

@@ -53,7 +53,6 @@ export function AdminSlackManagement({
   const loadConnectionStatus = async () => {
     try {
       setLoading(true);
-      console.log('Loading Slack connection status for company:', { companyId, companyName });
       const status = await getAdminSlackConnectionStatus();
       setConnectionStatus(status);
 
@@ -66,9 +65,7 @@ export function AdminSlackManagement({
 
       // Load current channel assignment for this company
       if (companyId) {
-        console.log('Fetching assigned channel for companyId:', companyId);
         const currentAssignment = await getCompanySlackChannel(companyId);
-        console.log('Current assignment result:', currentAssignment);
         setAssignedChannel(currentAssignment);
       }
     } catch (error) {
@@ -290,10 +287,6 @@ export function AdminSlackManagement({
 
             {companyName && companyId && (
               <>
-                {/* Debug info - remove after testing */}
-                <div className="p-2 bg-gray-900 text-xs text-gray-400 font-mono rounded">
-                  Debug: assignedChannel = {JSON.stringify(assignedChannel, null, 2)}
-                </div>
                 {assignedChannel?.slack_channel_id ? (
                   /* Currently Assigned Channel */
                   <div className="space-y-3">
