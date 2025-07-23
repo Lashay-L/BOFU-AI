@@ -17,10 +17,10 @@ import {
 import { ProfileEditForm } from '../components/settings/ProfileEditForm';
 import { SecuritySettingsForm } from '../components/settings/SecuritySettingsForm';
 import { PreferencesForm } from '../components/settings/PreferencesForm';
-import SlackIntegration from '../components/settings/SlackIntegration';
+// SlackIntegration moved to admin dashboard - no longer needed here
 import { getCurrentUser } from '../lib/auth';
 
-type TabKey = 'profile' | 'security' | 'preferences' | 'integrations';
+type TabKey = 'profile' | 'security' | 'preferences';
 
 interface Tab {
   key: TabKey;
@@ -55,14 +55,6 @@ const tabs: Tab[] = [
     description: 'Theme, notifications, and accessibility',
     color: 'text-purple-400',
     gradient: 'from-purple-500/20 to-pink-500/20'
-  },
-  {
-    key: 'integrations',
-    label: 'Integrations',
-    icon: Zap,
-    description: 'Connect Slack and other external services',
-    color: 'text-yellow-400',
-    gradient: 'from-yellow-500/20 to-orange-500/20'
   }
 ];
 
@@ -266,7 +258,6 @@ export function UserSettingsPage() {
                   {activeTab === 'profile' && <ProfileEditForm user={user} onUpdate={handleUpdate} />}
                   {activeTab === 'security' && <SecuritySettingsForm user={user} />}
                   {activeTab === 'preferences' && <PreferencesForm user={user} onUpdate={handleUpdate} />}
-                  {activeTab === 'integrations' && <SlackIntegration />}
                 </motion.div>
               </AnimatePresence>
             </div>

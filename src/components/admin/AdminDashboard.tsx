@@ -4,7 +4,7 @@ import { supabase, supabaseAdmin } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
-import { Eye, EyeOff, Loader2, RefreshCw, UserCircle, ArrowLeft, Users, FileText, Shield, MessageSquare, BarChart3, TrendingUp, Clock, AlertCircle, Plus, Search, Filter, Calendar, Bell, LogOut, Home, Zap, Activity, BookOpen, UserPlus, Crown, Building2, UserCog, ChevronRight, Badge, ChevronDown, Edit, X, Mail, KeyRound, AlertTriangle, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, RefreshCw, UserCircle, ArrowLeft, Users, FileText, Shield, MessageSquare, BarChart3, TrendingUp, Clock, AlertCircle, Plus, Search, Filter, Calendar, Bell, LogOut, Home, Zap, Activity, BookOpen, UserPlus, Crown, Building2, UserCog, ChevronRight, Badge, ChevronDown, Edit, X, Mail, KeyRound, AlertTriangle, Trash2, Slack } from 'lucide-react';
 import { useUserDeletion } from './ContentBriefManagement/hooks/useUserDeletion';
 import { BaseModal } from '../ui/BaseModal';
 import { AuditLogViewer } from './AuditLogViewer';
@@ -13,6 +13,7 @@ import { useAdminContext } from '../../contexts/AdminContext';
 import { AssignmentNotificationCenter } from './AssignmentNotificationCenter';
 import { ContentBriefManagement } from './ContentBriefManagement';
 import { AdminAssignmentHub } from './AdminAssignmentHub';
+import { AdminSlackManagement } from './SlackManagement/AdminSlackManagement';
 import { sendPasswordResetEmail } from '../../lib/auth';
 import { AdminStatsCard, AdminActivityFeed, AdminQuickActions } from './ui';
 import { AdminUserArticlesModal, AdminDirectPasswordChangeModal } from './modals';
@@ -98,6 +99,8 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
   const [isMainAdmin, setIsMainAdmin] = useState(false);
   const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
   const [showNotificationCenter, setShowNotificationCenter] = useState(false);
+  const [showSlackManagement, setShowSlackManagement] = useState(false);
+  const [selectedCompanyForSlack, setSelectedCompanyForSlack] = useState<{ name: string; id: string } | null>(null);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [dataInitialized, setDataInitialized] = useState(false);
 
@@ -591,6 +594,12 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
     setShowDeleteConfirmation(true);
   };
 
+  // Handle Slack management for company
+  const handleOpenSlackManagement = (companyName: string, companyId: string) => {
+    setSelectedCompanyForSlack({ name: companyName, id: companyId });
+    setShowSlackManagement(true);
+  };
+
   // Handle confirmed deletion
   const handleConfirmedDelete = async () => {
     if (!isMainAdmin || !userToDelete) {
@@ -827,6 +836,20 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
                                         <KeyRound className="w-4 h-4" />
                                       </motion.button>
                                     )}
+                                    
+                                    {/* Slack Integration Button */}
+                                    <motion.button
+                                      whileHover={{ scale: 1.05 }}
+                                      whileTap={{ scale: 0.95 }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenSlackManagement(companyGroup.company_name, companyGroup.main_account.id);
+                                      }}
+                                      className="p-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 hover:text-purple-300 rounded-lg transition-colors border border-purple-500/30 hover:border-purple-500/50"
+                                      title="Manage Slack Integration"
+                                    >
+                                      <Slack className="w-4 h-4" />
+                                    </motion.button>
                                     
                                     {/* Delete User Button - Only visible to main admin */}
                                     {isMainAdmin && (
@@ -1353,6 +1376,17 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
           setDirectPasswordChangeUser(null);
         }}
         onPasswordChange={handleDirectPasswordChange}
+      />
+
+      {/* Slack Management Modal */}
+      <AdminSlackManagement
+        isOpen={showSlackManagement}
+        onClose={() => {
+          setShowSlackManagement(false);
+          setSelectedCompanyForSlack(null);
+        }}
+        companyName={selectedCompanyForSlack?.name}
+        companyId={selectedCompanyForSlack?.id}
       />
 
       {/* Delete Confirmation Dialog */}

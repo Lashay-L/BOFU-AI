@@ -67,10 +67,10 @@ serve(async (req) => {
       )
     }
 
-    // Get user profile
+    // Get user profile with admin-assigned Slack channels
     const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
-      .select('email, company_name, name, slack_access_token, slack_channel_id, slack_channel_name, slack_notifications_enabled')
+      .select('email, company_name, name, slack_access_token, slack_channel_id, slack_channel_name, slack_notifications_enabled, admin_assigned_slack_channel_id, admin_assigned_slack_channel_name')
       .eq('id', userId)
       .single()
 
@@ -186,14 +186,52 @@ serve(async (req) => {
 
     console.log('✅ User notification created:', notification.id)
 
-    // 2. Send Slack notification (if enabled)
+    // 2. Send Slack notification (prioritize admin-assigned channels)
     let slackSent = false
-    if (userProfile.slack_notifications_enabled && 
-        userProfile.slack_access_token && 
-        userProfile.slack_channel_id) {
+    
+    // Check if company has admin-assigned channel
+    if (userProfile.admin_assigned_slack_channel_id) {
+      console.log('Using admin-assigned Slack channel:', userProfile.admin_assigned_slack_channel_name)
       
-      console.log('Sending Slack notification to user:', userProfile.slack_channel_name)
+      // Get admin Slack access token
+      const { data: adminProfile, error: adminError } = await supabaseAdmin
+        .from('admin_profiles')
+        .select('slack_access_token')
+        .eq('email', 'lashay@bofu.ai')
+        .single()
       
+      if (adminError || !adminProfile || !adminProfile.slack_access_token) {
+        console.error('Admin Slack access token not found:', adminError)
+      } else {
+        // Send notification using admin token to company's assigned channel
+        await sendSlackNotification(
+          adminProfile.slack_access_token,
+          userProfile.admin_assigned_slack_channel_id,
+          userProfile.admin_assigned_slack_channel_name,
+          title,
+          slackBlocks
+        )
+        slackSent = true
+      }
+    }
+    // Fallback to user-level Slack integration if no admin assignment
+    else if (userProfile.slack_notifications_enabled && 
+             userProfile.slack_access_token && 
+             userProfile.slack_channel_id) {
+      
+      console.log('Using user-level Slack integration:', userProfile.slack_channel_name)
+      await sendSlackNotification(
+        userProfile.slack_access_token,
+        userProfile.slack_channel_id,
+        userProfile.slack_channel_name,
+        title,
+        slackBlocks
+      )
+      slackSent = true
+    }
+
+    // Helper function to send Slack notification
+    async function sendSlackNotification(accessToken: string, channelId: string, channelName: string, title: string, slackBlocks: any[]) {
       // Add common footer blocks
       const commonFooterBlocks = [
         {
@@ -226,7 +264,7 @@ serve(async (req) => {
       ]
 
       const slackMessage = {
-        channel: userProfile.slack_channel_id,
+        channel: channelId,
         text: title,
         blocks: [...slackBlocks, ...commonFooterBlocks]
       }
@@ -235,24 +273,24 @@ serve(async (req) => {
         const slackResponse = await fetch('https://slack.com/api/chat.postMessage', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${userProfile.slack_access_token}`,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(slackMessage)
         })
 
         const slackResult = await slackResponse.json()
-        console.log('Slack API response:', { ok: slackResult.ok, error: slackResult.error })
+        console.log('Slack API response:', { ok: slackResult.ok, error: slackResult.error, channel: channelName })
 
         if (slackResult.ok) {
-          slackSent = true
-          console.log('✅ Slack notification sent successfully')
+          console.log('✅ Slack notification sent successfully to', channelName)
         } else {
           console.error('Slack API error:', slackResult.error)
           
-          // Handle token expiration
-          if (slackResult.error === 'invalid_auth' || slackResult.error === 'token_revoked') {
-            console.log('Slack token invalid, clearing user integration')
+          // Handle token expiration (only for user-level tokens, not admin tokens)
+          if ((slackResult.error === 'invalid_auth' || slackResult.error === 'token_revoked') && 
+              accessToken === userProfile.slack_access_token) {
+            console.log('User Slack token invalid, clearing user integration')
             await supabaseAdmin
               .from('user_profiles')
               .update({
@@ -270,8 +308,6 @@ serve(async (req) => {
       } catch (slackError) {
         console.error('Error sending Slack notification:', slackError)
       }
-    } else {
-      console.log('Slack notifications disabled or not configured for user')
     }
 
     // 3. Send Email notification
