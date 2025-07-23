@@ -16,6 +16,7 @@ import {
   MentionNotification
 } from '../lib/commentApi';
 import { getBriefApprovalNotifications } from '../lib/briefApprovalNotifications';
+import { getUnreadUserNotificationCount } from '../lib/userNotifications';
 import { useAdminContext } from '../contexts/AdminContext';
 
 
@@ -77,6 +78,11 @@ export function MainHeader({
         const clientIdsForFiltering = adminRole === 'sub_admin' ? assignedClientIds : undefined;
         const notifications = await getMentionNotifications(undefined, clientIdsForFiltering);
         let unreadCount = notifications.filter(n => !n.notification_sent).length;
+        
+        // Get user notifications (content brief and article notifications)
+        const userUnreadCount = await getUnreadUserNotificationCount();
+        unreadCount += userUnreadCount;
+        console.log('🔔 User notifications loaded:', { unread: userUnreadCount });
         
         // Check if user is admin and get brief approval notifications
         try {

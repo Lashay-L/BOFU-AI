@@ -32,6 +32,7 @@ import { useUserNotifications } from '../../hooks/useUserNotifications';
 import { getNotificationTypeLabel } from '../../lib/userNotifications';
 import { formatDistanceToNow } from 'date-fns';
 import { BaseModal } from '../ui/BaseModal';
+import { sanitizeNotificationTitle } from '../../utils/notificationUtils';
 
 interface NotificationCenterProps {
   isVisible: boolean;
@@ -155,6 +156,19 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
     ...mentions.map(n => ({ ...n, type: 'mention' as const }))
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+  // Debug logging for notifications
+  console.log('🔔 All notifications loaded:', {
+    userNotifications: userNotifications.length,
+    mentions: mentions.length,
+    total: allNotifications.length,
+    notifications: allNotifications.map(n => ({
+      id: n.id,
+      type: n.type,
+      title: n.type === 'user' ? n.title : n.comment?.content_briefs?.title,
+      briefId: n.type === 'user' ? n.brief_id : n.comment?.content_briefs?.id
+    }))
+  });
+
   const filteredNotifications = allNotifications.filter(notification => {
     switch (filter) {
       case 'unread':
@@ -272,8 +286,8 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
     setNavigationError(null);
     
     try {
-      // Navigate to content brief management page - user's content briefs
-      navigate('/content-briefs');
+      // Navigate to specific content brief edit page
+      navigate(`/dashboard/content-briefs/edit/${briefId}`);
       onClose(); // Close the notification modal
     } catch (error) {
       console.error('Error navigating to content brief:', error);
@@ -370,9 +384,22 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
               const articleId = isMention 
                 ? (notification.comment?.content_briefs?.id || notification.comment?.article_id)
                 : notification.brief_id;
-              const articleTitle = isMention
-                ? (notification.comment?.content_briefs?.title || 'Unknown Article') 
+              const rawTitle = isMention
+                ? notification.comment?.content_briefs?.title || 'Unknown Article'
                 : notification.title;
+              
+              // Debug logging for file path issues
+              if (rawTitle && (rawTitle.includes('/') || rawTitle.includes('Screenshot'))) {
+                console.warn('🚨 File path detected in notification:', {
+                  rawTitle,
+                  isMention,
+                  notificationType: notification.type,
+                  notificationId: notification.id
+                });
+              }
+              
+              const articleTitle = sanitizeNotificationTitle(rawTitle, 
+                isMention ? 'Unknown Article' : 'Content Brief Generated');
               const productName = isMention
                 ? notification.comment?.content_briefs?.product_name
                 : undefined;
@@ -434,7 +461,7 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                           <div className="flex items-center gap-2">
                             <FileText className="h-4 w-4 text-blue-500" />
-                            <span className="text-sm text-gray-600 dark:text-gray-300">Article:</span>
+                            <span className="text-sm text-gray-600 dark:text-gray-300">Content Brief:</span>
                             <span className="text-sm text-gray-900 dark:text-white font-medium">{articleTitle}</span>
                           </div>
                           {productName && (
