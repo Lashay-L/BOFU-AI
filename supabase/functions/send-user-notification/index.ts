@@ -58,19 +58,29 @@ serve(async (req) => {
       }
     )
 
-    // Get current user from session
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    // Check if this is a service role call (from database trigger) or user session call
+    const isServiceRoleCall = authHeader.includes('sbp_')
+    let user = null
+    
+    if (isServiceRoleCall) {
+      // Skip user validation for service role calls from database triggers
+      console.log('🔑 Service role call detected, bypassing user auth')
+    } else {
+      // Get current user from session for regular API calls
+      const { data: { user: sessionUser }, error: userError } = await supabase.auth.getUser()
+      if (userError || !sessionUser) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      user = sessionUser
     }
 
     // Get user profile with admin-assigned Slack channels
     const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
-      .select('email, company_name, name, slack_access_token, slack_channel_id, slack_channel_name, slack_notifications_enabled, admin_assigned_slack_channel_id, admin_assigned_slack_channel_name')
+      .select('email, company_name, name, slack_access_token, slack_bot_token, slack_channel_id, slack_channel_name, slack_notifications_enabled, admin_assigned_slack_channel_id, admin_assigned_slack_channel_name')
       .eq('id', userId)
       .single()
 
@@ -161,30 +171,35 @@ serve(async (req) => {
       )
     }
 
-    // 1. Create in-app notification
-    console.log('Creating in-app user notification...')
-    const { data: notification, error: notificationError } = await supabaseAdmin
-      .from('user_notifications')
-      .insert({
-        user_id: userId,
-        brief_id: briefId,
-        notification_type: notificationType,
-        title,
-        message,
-        is_read: false
-      })
-      .select()
-      .single()
+    // 1. Create in-app notification (only if not service role call to avoid duplicates)
+    let notification = null
+    if (!isServiceRoleCall) {
+      console.log('Creating in-app user notification...')
+      const { data: notificationData, error: notificationError } = await supabaseAdmin
+        .from('user_notifications')
+        .insert({
+          user_id: userId,
+          brief_id: briefId,
+          notification_type: notificationType,
+          title,
+          message,
+          is_read: false
+        })
+        .select()
+        .single()
 
-    if (notificationError) {
-      console.error('Error creating user notification:', notificationError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to create notification' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      if (notificationError) {
+        console.error('Error creating user notification:', notificationError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to create notification' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      notification = notificationData
+      console.log('✅ User notification created:', notification.id)
+    } else {
+      console.log('⏭️ Skipping in-app notification creation (service role call)')
     }
-
-    console.log('✅ User notification created:', notification.id)
 
     // 2. Send Slack notification (prioritize admin-assigned channels)
     let slackSent = false
@@ -196,7 +211,7 @@ serve(async (req) => {
       // Get admin Slack access token
       const { data: adminProfile, error: adminError } = await supabaseAdmin
         .from('admin_profiles')
-        .select('slack_access_token')
+        .select('slack_access_token, slack_bot_token')
         .eq('email', 'lashay@bofu.ai')
         .single()
       
@@ -206,6 +221,7 @@ serve(async (req) => {
         // Send notification using admin token to company's assigned channel
         await sendSlackNotification(
           adminProfile.slack_access_token,
+          adminProfile.slack_bot_token,
           userProfile.admin_assigned_slack_channel_id,
           userProfile.admin_assigned_slack_channel_name,
           title,
@@ -222,6 +238,7 @@ serve(async (req) => {
       console.log('Using user-level Slack integration:', userProfile.slack_channel_name)
       await sendSlackNotification(
         userProfile.slack_access_token,
+        userProfile.slack_bot_token,
         userProfile.slack_channel_id,
         userProfile.slack_channel_name,
         title,
@@ -231,7 +248,7 @@ serve(async (req) => {
     }
 
     // Helper function to send Slack notification
-    async function sendSlackNotification(accessToken: string, channelId: string, channelName: string, title: string, slackBlocks: any[]) {
+    async function sendSlackNotification(accessToken: string, botToken: string | null, channelId: string, channelName: string, title: string, slackBlocks: any[]) {
       // Add common footer blocks
       const commonFooterBlocks = [
         {
@@ -273,7 +290,7 @@ serve(async (req) => {
         const slackResponse = await fetch('https://slack.com/api/chat.postMessage', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
+            'Authorization': `Bearer ${botToken || accessToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(slackMessage)
@@ -341,9 +358,9 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         message: 'User notification sent successfully',
-        notification_id: notification.id,
+        notification_id: notification?.id || 'skipped',
         channels: {
-          in_app: true,
+          in_app: !isServiceRoleCall,
           slack: slackSent,
           email: emailSent
         }

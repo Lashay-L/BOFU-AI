@@ -126,12 +126,10 @@ export function AdminSlackManagement({
   const handleTestNotification = async () => {
     if (!companyId) return;
 
-    console.log('Testing notification for company ID:', companyId);
     setActionLoading('testing');
     setTestResult(null);
     try {
       const result = await testCompanySlackNotification(companyId);
-      console.log('Test notification result:', result);
       setTestResult(result);
     } catch (error) {
       console.error('Error sending test notification:', error);

@@ -127,14 +127,16 @@ serve(async (req) => {
 
     // Extract token and team info
     const accessToken = tokenData.access_token
+    const botToken = tokenData.bot?.bot_access_token
+    const botUserId = tokenData.bot?.bot_user_id
     const teamId = tokenData.team?.id
     const teamName = tokenData.team?.name
     const slackUserId = tokenData.authed_user?.id
 
-    // Fetch available channels
+    // Fetch available channels using bot token for better permissions
     const channelsResponse = await fetch('https://slack.com/api/conversations.list?types=public_channel,private_channel&limit=50', {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${botToken || accessToken}`,
         'Content-Type': 'application/json'
       }
     })
@@ -154,6 +156,8 @@ serve(async (req) => {
       .from('user_profiles')
       .update({
         slack_access_token: accessToken,
+        slack_bot_token: botToken,
+        slack_bot_user_id: botUserId,
         slack_team_id: teamId,
         slack_team_name: teamName,
         slack_user_id: slackUserId,

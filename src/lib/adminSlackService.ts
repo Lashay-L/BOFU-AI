@@ -24,6 +24,7 @@ export function generateAdminSlackOAuthURL(): string {
   const REDIRECT_URI = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-slack-oauth-callback`;
   
   const scopes = [
+    'bot',
     'chat:write',
     'channels:read',
     'groups:read',
@@ -197,14 +198,10 @@ export async function testCompanySlackNotification(companyId: string): Promise<{
     });
 
     const data = await response.json();
-    console.log('Raw response status:', response.status);
-    console.log('Raw response data:', data);
 
     if (!response.ok) {
       const errorMessage = data?.error || data?.message || `HTTP ${response.status}: ${response.statusText}`;
-      const debugInfo = data?.debug || 'No debug info available';
       console.error('Test notification failed:', errorMessage);
-      console.error('Debug info:', debugInfo);
       return { success: false, error: errorMessage };
     }
 

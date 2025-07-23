@@ -24,6 +24,7 @@ export function generateSlackOAuthURL(userId: string): string {
   const REDIRECT_URI = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/slack-oauth-callback`;
   
   const scopes = [
+    'bot',
     'chat:write',
     'channels:read',
     'groups:read',

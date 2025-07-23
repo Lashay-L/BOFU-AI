@@ -89,6 +89,8 @@ serve(async (req: Request) => {
       .from('admin_profiles')
       .update({
         slack_access_token: tokenData.access_token,
+        slack_bot_token: tokenData.bot?.bot_access_token,
+        slack_bot_user_id: tokenData.bot?.bot_user_id,
         slack_team_id: tokenData.team.id,
         slack_team_name: tokenData.team.name,
         slack_user_id: tokenData.authed_user.id,
