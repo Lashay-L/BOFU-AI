@@ -559,36 +559,128 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
     };
   }, [articleId, adminMode]);
 
-  // Create stable comment click handler
+  // Create stable comment click handler with layout context integration
   const handleCommentClick = useCallback((comment) => {
     console.log('🔥 handleCommentClick called with comment:', comment.id);
     console.log('📊 Current state - highlightedCommentId:', highlightedCommentId, 'showComments:', showComments);
+    
+    // Set the highlighted comment first
     setHighlightedCommentId(comment.id);
-    setShowComments(true); // Always open sidebar when clicking a comment
-    console.log('✅ Updated state - setting highlightedCommentId to:', comment.id, 'and showComments to: true');
-  }, [setHighlightedCommentId, setShowComments, highlightedCommentId, showComments]);
-
-  // Global click debugging
-  useEffect(() => {
-    const handleGlobalClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      const hasCommentClass = target?.classList?.contains('comment-highlight-tiptap');
-      const commentId = target?.getAttribute('data-comment-id');
+    
+    // Open the comments sidebar using both methods for compatibility
+    setShowComments(true);
+    setCommentsSidebarVisible(true);
+    
+    console.log('✅ Updated state - setting highlightedCommentId to:', comment.id, 'and opening sidebar');
+    
+    // Scroll to the comment in the sidebar after a brief delay to ensure sidebar is open
+    setTimeout(() => {
+      scrollToCommentInSidebar(comment.id);
+    }, 300);
+  }, [setHighlightedCommentId, setShowComments, setCommentsSidebarVisible, highlightedCommentId, showComments]);
+  
+  // Function to scroll to a specific comment in the sidebar
+  const scrollToCommentInSidebar = useCallback((commentId: string) => {
+    console.log('📍 Scrolling to comment in sidebar:', commentId);
+    
+    // Find the comment element in the sidebar
+    const commentElement = document.querySelector(`[data-comment-id="${commentId}"]`);
+    if (commentElement) {
+      // Find the closest scrollable container (likely the sidebar content area)
+      const scrollContainer = commentElement.closest('.overflow-y-auto') || 
+                            commentElement.closest('[class*="scroll"]') ||
+                            document.querySelector('.comments-sidebar-container');
       
-      if (hasCommentClass || commentId) {
-        console.log('🌍 Global click on comment element:', {
-          target,
-          hasCommentClass,
-          commentId,
-          classList: Array.from(target?.classList || []),
-          textContent: target?.textContent?.substring(0, 50) + '...'
+      if (scrollContainer) {
+        console.log('🎯 Found scroll container, scrolling to comment:', commentId);
+        
+        // Calculate the position relative to the scroll container
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const commentRect = commentElement.getBoundingClientRect();
+        const relativeTop = commentRect.top - containerRect.top + scrollContainer.scrollTop;
+        
+        // Scroll to the comment with some offset for better visibility
+        const scrollTop = Math.max(0, relativeTop - 100);
+        
+        scrollContainer.scrollTo({
+          top: scrollTop,
+          behavior: 'smooth'
         });
+        
+        console.log('✅ Scrolled to comment in sidebar:', { commentId, scrollTop });
+      } else {
+        // Fallback: use scrollIntoView
+        console.log('🔄 Using fallback scrollIntoView for comment:', commentId);
+        commentElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+          inline: 'nearest'
+        });
+      }
+    } else {
+      console.warn('⚠️ Comment element not found in sidebar:', commentId);
+    }
+  }, []);
+
+  // Enhanced editor-specific click handler for comments
+  useEffect(() => {
+    if (!editorRef.current) return;
+
+    const editorElement = editorRef.current;
+    
+    const handleEditorMouseDown = (event: MouseEvent) => {
+      console.log('🎯 Editor mousedown detected:', { target: event.target, type: event.type });
+      
+      const target = event.target as HTMLElement;
+      
+      // Immediately check if we're clicking on comment highlighted text
+      const elementsAtPoint = document.elementsFromPoint(event.clientX, event.clientY);
+      console.log('🔍 All elements at click point:', elementsAtPoint.map(el => ({ 
+        tag: el.tagName, 
+        classes: Array.from(el.classList || []),
+        isCommentHighlight: el.classList.contains('comment-highlight-tiptap'),
+        commentId: el.getAttribute('data-comment-id')
+      })));
+      
+      // Look for comment highlights in the elements at click point
+      for (const element of elementsAtPoint) {
+        if (element.classList.contains('comment-highlight-tiptap')) {
+          const commentId = element.getAttribute('data-comment-id');
+          const comment = comments.find(c => c.id === commentId);
+          
+          console.log('🎯 Found comment at click point:', { commentId, comment: !!comment, status: comment?.status });
+          
+          if (comment && comment.status !== 'resolved') {
+            console.log('✅ Editor mousedown: Preventing default and calling handleCommentClick');
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            
+            // Call our comment click handler directly
+            handleCommentClick(comment);
+            return false;
+          }
+          break;
+        }
       }
     };
 
-    document.addEventListener('click', handleGlobalClick);
-    return () => document.removeEventListener('click', handleGlobalClick);
-  }, []);
+    // Add mousedown listener to the editor with high priority
+    editorElement.addEventListener('mousedown', handleEditorMouseDown, true);
+    
+    // Also add a click listener as backup
+    const handleEditorClick = (event: MouseEvent) => {
+      console.log('🎯 Editor click backup handler');
+      handleEditorMouseDown(event);
+    };
+    
+    editorElement.addEventListener('click', handleEditorClick, true);
+
+    return () => {
+      editorElement.removeEventListener('mousedown', handleEditorMouseDown, true);
+      editorElement.removeEventListener('click', handleEditorClick, true);
+    };
+  }, [editorRef, comments, handleCommentClick]);
 
   const getEditorExtensions = useMemo(() => {
     return [

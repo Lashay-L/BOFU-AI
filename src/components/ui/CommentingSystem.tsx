@@ -448,7 +448,7 @@ const CommentingSystemComponent = React.memo(({
     setShowPopover(true);
   };
 
-  // Scroll to commented text in the editor
+  // Enhanced scroll to commented text in the editor with better highlighting detection
   const scrollToCommentText = useCallback((comment: ArticleComment) => {
     if (!editorRef.current || !comment.selected_text) {
       console.log('⚠️ Cannot scroll: missing editor ref or selected text');
@@ -463,13 +463,30 @@ const CommentingSystemComponent = React.memo(({
         const editorElement = editorRef.current;
         if (!editorElement) return;
 
-        // First try to find highlighted text (which might have the comment highlight class)
+        // First try to find highlighted text by comment ID (most accurate)
+        const commentSpecificElement = editorElement.querySelector(`[data-comment-id="${comment.id}"]`);
+        if (commentSpecificElement) {
+          console.log('🎯 Found comment-specific highlighted element, scrolling...');
+          commentSpecificElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          });
+          return;
+        }
+
+        // Second try: find highlighted text by class and content match
         const highlightedElements = editorElement.querySelectorAll('.comment-highlight-tiptap');
         
         for (const element of highlightedElements) {
           const elementText = element.textContent || '';
-          if (elementText.includes(comment.selected_text) || comment.selected_text.includes(elementText)) {
-            console.log('🎯 Found highlighted element, scrolling...');
+          const elementCommentId = element.getAttribute('data-comment-id');
+          
+          // Check both comment ID and text content for accuracy
+          if (elementCommentId === comment.id || 
+              elementText.includes(comment.selected_text) || 
+              comment.selected_text.includes(elementText)) {
+            console.log('🎯 Found highlighted element by content match, scrolling...');
             element.scrollIntoView({
               behavior: 'smooth',
               block: 'center',
@@ -1418,6 +1435,7 @@ const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
             {filteredThreadedComments.map((comment, index) => (
               <motion.div
                 key={comment.id}
+                data-comment-id={comment.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}

@@ -15,6 +15,13 @@ export interface CommentHighlightStorage {
   onCommentClick: (comment: ArticleComment) => void;
 }
 
+// Extend the extension type to include our global click handler
+declare module '@tiptap/core' {
+  interface Extension {
+    globalClickHandler?: (event: Event) => void;
+  }
+}
+
 const commentHighlightPluginKey = new PluginKey('commentHighlight');
 
 // Get color based on comment status - Google Docs style with yellow highlighting
@@ -134,6 +141,87 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
     };
   },
 
+  onCreate() {
+    // Add a persistent global click listener with HIGH PRIORITY to intercept clicks before text selection
+    this.globalClickHandler = (event: Event) => {
+      const mouseEvent = event as MouseEvent;
+      const target = event.target as HTMLElement;
+      
+      console.log('🌟 High-priority global click handler triggered:', { target: target.tagName, classes: Array.from(target.classList || []) });
+      
+      // First, check if we clicked directly on a comment highlight
+      if (target.classList?.contains('comment-highlight-tiptap')) {
+        const commentId = target.getAttribute('data-comment-id');
+        const comment = this.storage.comments.find(c => c.id === commentId);
+        
+        console.log('🎯 Direct hit on comment highlight:', { commentId, comment: !!comment, status: comment?.status });
+        
+        if (comment && comment.status !== 'resolved') {
+          console.log('✅ Direct hit: Calling onCommentClick for comment:', comment.id);
+          event.preventDefault();
+          event.stopPropagation();
+          this.storage.onCommentClick(comment);
+          return;
+        }
+      }
+      
+      // Second, use elementsFromPoint to find comment highlights at click coordinates
+      const elementsAtPoint = document.elementsFromPoint(mouseEvent.clientX, mouseEvent.clientY);
+      console.log('🔍 Elements at click point:', elementsAtPoint.map(el => ({ tag: el.tagName, classes: Array.from(el.classList || []) })));
+      
+      for (const element of elementsAtPoint) {
+        if (element.classList.contains('comment-highlight-tiptap')) {
+          const commentId = element.getAttribute('data-comment-id');
+          const comment = this.storage.comments.find(c => c.id === commentId);
+          
+          console.log('🎯 Found comment via elementsFromPoint:', { commentId, comment: !!comment, status: comment?.status });
+          
+          if (comment && comment.status !== 'resolved') {
+            console.log('✅ elementsFromPoint: Calling onCommentClick for comment:', comment.id);
+            event.preventDefault();
+            event.stopPropagation();
+            this.storage.onCommentClick(comment);
+            return;
+          }
+          break;
+        }
+      }
+      
+      // Third, traverse up the DOM tree
+      let commentElement = target;
+      for (let i = 0; i < 8 && commentElement; i++) {
+        if (commentElement?.classList?.contains('comment-highlight-tiptap')) {
+          const commentId = commentElement.getAttribute('data-comment-id');
+          const comment = this.storage.comments.find(c => c.id === commentId);
+          
+          console.log('🎯 Found comment via DOM traversal:', { commentId, comment: !!comment, status: comment?.status });
+          
+          if (comment && comment.status !== 'resolved') {
+            console.log('✅ DOM traversal: Calling onCommentClick for comment:', comment.id);
+            event.preventDefault();
+            event.stopPropagation();
+            this.storage.onCommentClick(comment);
+            return;
+          }
+          break;
+        }
+        commentElement = commentElement.parentElement as HTMLElement;
+      }
+    };
+    
+    // Add the listener with CAPTURE=true and HIGH PRIORITY to intercept before text selection
+    document.addEventListener('mousedown', this.globalClickHandler, true);
+    document.addEventListener('click', this.globalClickHandler, true);
+  },
+
+  onDestroy() {
+    // Clean up the global listeners
+    if (this.globalClickHandler) {
+      document.removeEventListener('mousedown', this.globalClickHandler, true);
+      document.removeEventListener('click', this.globalClickHandler, true);
+    }
+  },
+
   addProseMirrorPlugins() {
     const extension = this;
     
@@ -216,6 +304,31 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
           decorations(state) {
             return this.getState(state);
           },
+          handleClick(view, pos, event) {
+            // This is a more reliable click handler that doesn't get lost during decoration updates
+            console.log('🖱️ ProseMirror handleClick:', { pos, event, target: event.target });
+            const target = event.target as HTMLElement;
+            
+            // Check if we clicked on a comment highlight
+            let commentElement = target;
+            for (let i = 0; i < 5 && commentElement; i++) {
+              if (commentElement.classList?.contains('comment-highlight-tiptap')) {
+                const commentId = commentElement.getAttribute('data-comment-id');
+                const comment = extension.storage.comments.find(c => c.id === commentId);
+                
+                if (comment && comment.status !== 'resolved') {
+                  console.log('✅ handleClick: Calling onCommentClick for comment:', comment.id);
+                  event.preventDefault();
+                  event.stopPropagation();
+                  extension.storage.onCommentClick(comment);
+                  return true;
+                }
+                break;
+              }
+              commentElement = commentElement.parentElement as HTMLElement;
+            }
+            return false;
+          },
           handleDOMEvents: {
             click(view, event) {
               console.log('🖱️ Click event in CommentHighlightExtension:', event.target);
@@ -227,20 +340,49 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
               console.log('🔍 All comment elements found:', allCommentElements.length, Array.from(allCommentElements).map(el => ({
                 id: el.getAttribute('data-comment-id'),
                 text: el.textContent?.substring(0, 30) + '...',
-                style: el.getAttribute('style')
+                style: el.getAttribute('style'),
+                isTransparent: el.getAttribute('style')?.includes('transparent'),
+                backgroundColor: el.style.backgroundColor,
+                borderColor: el.style.borderColor,
+                cursor: el.style.cursor,
+                pointerEvents: el.style.pointerEvents
               })));
               
-              // Check target and parent elements for comment class
+              // Enhanced click detection with better DOM traversal
               let commentElement = target;
               let found = false;
               
-              // Look up the DOM tree for comment elements
-              for (let i = 0; i < 5 && commentElement; i++) {
+              // Look up the DOM tree for comment elements (increased depth for better detection)
+              for (let i = 0; i < 8 && commentElement; i++) {
+                console.log(`🔍 Checking level ${i}:`, {
+                  nodeName: commentElement.nodeName,
+                  classes: Array.from(commentElement.classList || []),
+                  hasCommentClass: commentElement.classList?.contains('comment-highlight-tiptap'),
+                  dataCommentId: commentElement.getAttribute?.('data-comment-id'),
+                  textContent: commentElement.textContent?.substring(0, 30) + '...'
+                });
+                
                 if (commentElement.classList && commentElement.classList.contains('comment-highlight-tiptap')) {
                   found = true;
                   break;
                 }
                 commentElement = commentElement.parentElement as HTMLElement;
+              }
+              
+              // Fallback: Direct query selector search around the clicked area
+              if (!found) {
+                console.log('🔍 No comment element found via traversal, trying direct search...');
+                const clickedRect = target.getBoundingClientRect();
+                const elementsAtPoint = document.elementsFromPoint(clickedRect.left + clickedRect.width/2, clickedRect.top + clickedRect.height/2);
+                
+                for (const element of elementsAtPoint) {
+                  if (element.classList.contains('comment-highlight-tiptap')) {
+                    commentElement = element as HTMLElement;
+                    found = true;
+                    console.log('✅ Found comment element via elementsFromPoint:', element);
+                    break;
+                  }
+                }
               }
               
               if (found && commentElement) {
@@ -250,7 +392,13 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
                 console.log('📝 Found comment object:', comment);
                 
                 if (comment) {
-                  console.log('✅ Calling onCommentClick for comment:', comment.id);
+                  // Check if comment is active (not resolved/archived) before allowing click
+                  if (comment.status === 'resolved') {
+                    console.log('🚫 Comment is resolved, ignoring click:', comment.id);
+                    return false;
+                  }
+                  
+                  console.log('✅ Calling onCommentClick for active comment:', comment.id);
                   event.preventDefault();
                   event.stopPropagation();
                   extension.storage.onCommentClick(comment);
@@ -258,6 +406,8 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
                 } else {
                   console.warn('❌ Comment not found in storage for ID:', commentId);
                 }
+              } else {
+                console.log('❌ No comment element found after exhaustive search');
               }
               return false;
             },
