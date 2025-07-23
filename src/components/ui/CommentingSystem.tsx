@@ -101,7 +101,6 @@ const CommentingSystemComponent = React.memo(({
   const [isLoading, setIsLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
-  const [showResolutionManagement, setShowResolutionManagement] = useState(false);
   const [contentDriftDetected, setContentDriftDetected] = useState(false);
   const [layoutStable, setLayoutStable] = useState(false);
 
@@ -201,8 +200,10 @@ const CommentingSystemComponent = React.memo(({
       .channel(`article_comments_${articleId}`)
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'article_comments', filter: `article_id=eq.${articleId}` },
-        () => {
-          console.log('🔄 Comment change detected, reloading...');
+        (payload) => {
+          console.log('🔄 Comment change detected:', payload);
+          console.log('🔄 Event type:', payload.eventType);
+          console.log('🔄 Changed data:', payload.new || payload.old);
           loadComments();
         }
       )
@@ -447,8 +448,98 @@ const CommentingSystemComponent = React.memo(({
     setShowPopover(true);
   };
 
+  // Scroll to commented text in the editor
+  const scrollToCommentText = useCallback((comment: ArticleComment) => {
+    if (!editorRef.current || !comment.selected_text) {
+      console.log('⚠️ Cannot scroll: missing editor ref or selected text');
+      return;
+    }
+
+    try {
+      console.log('📍 Scrolling to comment text:', comment.selected_text.substring(0, 50) + '...');
+      
+      // Small delay to ensure highlighting has been applied
+      setTimeout(() => {
+        const editorElement = editorRef.current;
+        if (!editorElement) return;
+
+        // First try to find highlighted text (which might have the comment highlight class)
+        const highlightedElements = editorElement.querySelectorAll('.comment-highlight-tiptap');
+        
+        for (const element of highlightedElements) {
+          const elementText = element.textContent || '';
+          if (elementText.includes(comment.selected_text) || comment.selected_text.includes(elementText)) {
+            console.log('🎯 Found highlighted element, scrolling...');
+            element.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+              inline: 'nearest'
+            });
+            return;
+          }
+        }
+
+        // Fallback: search through all text nodes
+        const textContent = editorElement.textContent || '';
+        const textIndex = textContent.indexOf(comment.selected_text);
+        
+        if (textIndex === -1) {
+          console.log('⚠️ Comment text not found in editor');
+          return;
+        }
+
+        // Try to find an element containing this text
+        const walker = document.createTreeWalker(
+          editorElement,
+          NodeFilter.SHOW_TEXT,
+          null
+        );
+
+        let currentPosition = 0;
+        let targetElement = null;
+
+        while (walker.nextNode()) {
+          const node = walker.currentNode;
+          const nodeText = node.textContent || '';
+          const nodeStart = currentPosition;
+          const nodeEnd = currentPosition + nodeText.length;
+
+          // Check if our target text falls within this node
+          if (textIndex >= nodeStart && textIndex < nodeEnd) {
+            targetElement = node.parentElement;
+            break;
+          }
+
+          currentPosition = nodeEnd;
+        }
+
+        if (targetElement) {
+          console.log('🎯 Found target element via text search, scrolling...');
+          
+          // Scroll the target element into view with smooth behavior
+          targetElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          });
+        } else {
+          console.log('⚠️ Could not find target element for text');
+        }
+      }, 100); // Small delay to ensure highlighting is applied
+
+    } catch (error) {
+      console.error('❌ Error scrolling to comment text:', error);
+    }
+  }, [editorRef]);
+
   // Enhanced comment click handler with immediate interaction flag setting
   const handleCommentClick = useCallback((comment: ArticleComment) => {
+    // Prevent clicks during delete operations
+    if (loadingAction === `delete-${comment.id}`) {
+      console.log('🚫 Ignoring click - comment is being deleted:', comment.id);
+      return;
+    }
+    
     console.log('🖱️ Comment clicked:', comment.id);
     
     // Set interaction flag IMMEDIATELY to prevent any selection changes
@@ -462,10 +553,10 @@ const CommentingSystemComponent = React.memo(({
       console.log('🔄 Selecting comment:', comment.id);
       onHighlightComment(comment.id);
       
-      // Note: Removed automatic scrolling to prevent unwanted page jumps
-      // The comment will be highlighted but won't automatically scroll to the referenced text
+      // Scroll to the commented text in the editor
+      scrollToCommentText(comment);
     }
-  }, [highlightedCommentId, onHighlightComment, setInteractionFlag]);
+  }, [highlightedCommentId, onHighlightComment, setInteractionFlag, scrollToCommentText]);
 
   const handleClosePopover = () => {
     console.log('❌ Closing popover');
@@ -595,26 +686,88 @@ const CommentingSystemComponent = React.memo(({
   const handleDeleteComment = async (commentId: string) => {
     console.log('🗑️ Deleting comment:', commentId);
     
+    // Find the comment to check ownership
+    const commentToDelete = comments.find(c => c.id === commentId) || 
+                           comments.find(c => c.replies?.find(r => r.id === commentId));
+    const actualComment = commentToDelete?.id === commentId ? commentToDelete : 
+                         commentToDelete?.replies?.find(r => r.id === commentId);
+    
+    console.log('🔍 Comment to delete details:', {
+      commentId,
+      foundComment: !!actualComment,
+      commentUserId: actualComment?.user_id,
+      commentStatus: actualComment?.status,
+      userInfo: actualComment?.user
+    });
+    
     setInteractionFlag(true, 1000);
 
     try {
       setLoadingAction(`delete-${commentId}`);
       
+      // Optimistically remove the comment from local state immediately
+      const removeCommentFromList = (commentList: ArticleComment[]): ArticleComment[] => {
+        return commentList.filter(comment => {
+          if (comment.id === commentId) {
+            return false; // Remove this comment
+          }
+          if (comment.replies && comment.replies.length > 0) {
+            comment.replies = removeCommentFromList(comment.replies);
+          }
+          return true;
+        });
+      };
+      
+      const updatedComments = removeCommentFromList(comments);
+      onCommentsChange(updatedComments);
+      
+      console.log('✅ Comment removed optimistically, deleting from database...');
+      
+      // Get current user for debugging
+      const { data: currentUser } = await supabase.auth.getUser();
+      console.log('👤 Current user info:', {
+        userId: currentUser?.user?.id,
+        email: currentUser?.user?.email
+      });
+      
       // Actually delete the comment using the API
-      const { error } = await supabase
+      console.log('🔄 Attempting database deletion for comment:', commentId);
+      const { data, error } = await supabase
         .from('article_comments')
         .delete()
-        .eq('id', commentId);
+        .eq('id', commentId)
+        .select(); // Add select to see what was deleted
       
       if (error) {
-        console.error('❌ Error deleting comment:', error);
+        console.error('❌ Database deletion error:', error);
+        console.error('❌ Error details:', { code: error.code, message: error.message, details: error.details });
+        // Revert optimistic update on error
+        await loadComments();
         throw error;
       }
       
-      console.log('✅ Comment deleted successfully:', commentId);
-      await loadComments(); // Refresh after delete
+      console.log('✅ Database deletion response:', { data, deletedCount: data?.length || 0 });
+      
+      if (!data || data.length === 0) {
+        console.warn('⚠️ No rows were deleted - comment may not exist or permission denied');
+        // Revert optimistic update
+        await loadComments();
+        throw new Error('Comment could not be deleted - it may not exist or you may not have permission');
+      }
+      
+      console.log('✅ Comment deleted successfully from database:', commentId);
+      
+      // Force UI update and reload from database to ensure consistency
+      setInteractionFlag(true, 500);
+      setTimeout(async () => {
+        await loadComments();
+        console.log('✅ Comments reloaded after deletion');
+        setInteractionFlag(true, 200);
+      }, 100);
+      
     } catch (error) {
       console.error('❌ Error deleting comment:', error);
+      alert('Failed to delete comment. Please try again.');
     } finally {
       setLoadingAction(null);
     }
@@ -651,9 +804,42 @@ const CommentingSystemComponent = React.memo(({
     try {
       setLoadingAction(`resolve-${commentId}`);
       await resolveCommentWithReason(commentId, reason);
-      await loadComments(); // Refresh after resolution
+      
+      // Optimistically update the local comment status immediately
+      const updateCommentStatus = (commentList: ArticleComment[]): ArticleComment[] => {
+        return commentList.map(comment => {
+          if (comment.id === commentId) {
+            return { ...comment, status: 'resolved' as const };
+          }
+          if (comment.replies && comment.replies.length > 0) {
+            return { ...comment, replies: updateCommentStatus(comment.replies) };
+          }
+          return comment;
+        });
+      };
+      
+      // Optimistically update the local comments
+      const updatedComments = updateCommentStatus(comments);
+      onCommentsChange(updatedComments);
+      
+      console.log('✅ Comment resolved, triggering UI updates...');
+      
+      // Force re-render of the component by updating interaction state
+      setInteractionFlag(true, 500);
+      
+      // Wait a bit then reload from database to ensure consistency
+      setTimeout(async () => {
+        await loadComments();
+        console.log('✅ Comments reloaded after resolution');
+        // Update interaction flag again to ensure proper re-render
+        setInteractionFlag(true, 200);
+      }, 150);
+      
+      console.log('✅ Comment resolved successfully:', commentId);
     } catch (error) {
       console.error('❌ Error resolving comment:', error);
+      // TODO: Add user-facing error notification here
+      alert('Failed to resolve comment. Please check your permissions and try again.');
     } finally {
       setLoadingAction(null);
     }
@@ -951,7 +1137,7 @@ const CommentingSystemComponent = React.memo(({
                   onDelete={handleDeleteComment}
                   onReply={handleReply}
                   onEdit={handleEdit}
-                  showResolutionDetails={showResolutionManagement}
+                  showResolutionDetails={true}
                   loadingAction={loadingAction}
                   highlightedCommentId={highlightedCommentId}
                 />
@@ -961,7 +1147,7 @@ const CommentingSystemComponent = React.memo(({
 
           {/* Resolution Management Panel */}
           <AnimatePresence>
-            {showResolutionManagement && adminMode && (
+            {adminMode && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
@@ -982,16 +1168,6 @@ const CommentingSystemComponent = React.memo(({
           <div className="flex-shrink-0 p-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setShowResolutionManagement(!showResolutionManagement)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors shadow-sm"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span>{showResolutionManagement ? 'Hide Panel' : 'Manage'}</span>
-                </motion.button>
-                
                 {commentMetrics.recent > 0 && (
                   <motion.div 
                     initial={{ scale: 0 }}
@@ -1018,43 +1194,10 @@ const CommentingSystemComponent = React.memo(({
 // Enhanced comparison function with detailed logging
 CommentingSystemComponent.displayName = 'CommentingSystem';
 
-const CommentingSystemMemoized = React.memo(CommentingSystemComponent, (prevProps, nextProps) => {
-  console.log('🔍 CommentingSystem memo comparison triggered');
-  
-  // Log what changed for debugging
-  const changes: string[] = [];
-  
-  if (prevProps.articleId !== nextProps.articleId) changes.push('articleId');
-  if (prevProps.adminMode !== nextProps.adminMode) changes.push('adminMode');
-  if (prevProps.showResolutionPanel !== nextProps.showResolutionPanel) changes.push('showResolutionPanel');
-  if (prevProps.highlightedCommentId !== nextProps.highlightedCommentId) changes.push('highlightedCommentId');
-  if (prevProps.comments.length !== nextProps.comments.length) changes.push('comments.length');
-  if (!!prevProps.editorRef?.current !== !!nextProps.editorRef?.current) changes.push('editorRef');
-  if (prevProps.inlineMode !== nextProps.inlineMode) changes.push('inlineMode');
-  
-  // Deep comparison of comment IDs to detect actual comment changes
-  const prevCommentIds = prevProps.comments.map(c => c.id).sort().join(',');
-  const nextCommentIds = nextProps.comments.map(c => c.id).sort().join(',');
-  if (prevCommentIds !== nextCommentIds) changes.push('comment IDs');
-  
-  // Function reference comparison - these will always be different but we don't care
-  if (prevProps.onCommentsChange !== nextProps.onCommentsChange) changes.push('onCommentsChange (callback)');
-  if (prevProps.onHighlightComment !== nextProps.onHighlightComment) changes.push('onHighlightComment (callback)');
-  
-  const shouldRerender = changes.some(change => 
-    !change.includes('callback') // Ignore callback changes
-  );
-  
-  console.log('🔍 Memo comparison result:', {
-    changes,
-    shouldRerender,
-    timestamp: Date.now()
-  });
-  
-  return !shouldRerender; // Return true to skip re-render, false to re-render
-});
+// Memo temporarily disabled for debugging
+// const CommentingSystemMemoized = React.memo(CommentingSystemComponent);
 
-export { CommentingSystemMemoized as CommentingSystem };
+export { CommentingSystemComponent as CommentingSystem };
 
 // Helper component for the comment button that appears on text selection
 interface CommentSelectionButtonProps {
@@ -1143,7 +1286,7 @@ const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
   loadingAction,
   highlightedCommentId
 }) => {
-  const [filter, setFilter] = useState<'all' | 'active' | 'resolved' | 'archived'>('all');
+  const [filter, setFilter] = useState<'all' | 'active' | 'resolved' | 'archived'>('active');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Function to recursively collect all comments (including nested replies) for filtering

@@ -493,9 +493,9 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
 
                   {/* Dropdown Menu */}
                   {showMenu && (
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden max-h-60">
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
                       <div 
-                        className="py-2 max-h-48 overflow-y-auto comment-menu-scroll"
+                        className="py-1"
                         style={{
                           scrollbarWidth: 'thin',
                           scrollbarColor: '#d1d5db transparent'
@@ -506,13 +506,10 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                             onReply(comment);
                             setShowMenu(false);
                           }}
-                          className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-3 transition-colors"
+                          className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-2 transition-colors"
                         >
                           <Reply className="w-4 h-4 text-blue-500" />
-                          <div>
-                            <div className="font-medium">Reply</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">Respond to this comment</div>
-                          </div>
+                          <span className="font-medium">Reply</span>
                         </button>
                         
                         <button
@@ -520,27 +517,35 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                             onEdit(comment);
                             setShowMenu(false);
                           }}
-                          className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-3 transition-colors"
+                          className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-2 transition-colors"
                         >
                           <Edit2 className="w-4 h-4 text-gray-500" />
-                          <div>
-                            <div className="font-medium">Edit</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">Modify this comment</div>
-                          </div>
+                          <span className="font-medium">Edit</span>
                         </button>
+                        
+                        {/* Resolve Button - only show for active comments */}
+                        {comment.status === 'active' && (
+                          <button
+                            onClick={() => {
+                              setShowResolutionDialog(true);
+                              setShowMenu(false);
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center space-x-2 transition-colors"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="font-medium">Resolve</span>
+                          </button>
+                        )}
                         
                         <button
                           onClick={() => {
                             onDelete(comment.id);
                             setShowMenu(false);
                           }}
-                          className="w-full px-4 py-2.5 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-3 transition-colors"
+                          className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2 transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
-                          <div>
-                            <div className="font-medium">Delete</div>
-                            <div className="text-xs text-red-500 dark:text-red-400">Remove permanently</div>
-                          </div>
+                          <span className="font-medium">Delete</span>
                         </button>
                       </div>
                     </div>
@@ -553,26 +558,6 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
             <div className="mb-4">
               {renderCommentContent()}
 
-              {/* Selection Context */}
-              {comment.selection_start !== undefined && comment.selection_end !== undefined && (
-                <div className="mt-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-l-4 border-blue-500">
-                  <div className="space-y-3">
-                    {/* Header */}
-                    <div className="flex items-center space-x-2 text-sm text-blue-700 dark:text-blue-300">
-                      <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                      <span className="font-medium">Text Reference</span>
-                      <span>•</span>
-                      <span>Characters {comment.selection_start}-{comment.selection_end}</span>
-                    </div>
-                    
-                    {/* Coordinate Validation and Content Display */}
-                    {(() => {
-                      // Removed coordinate mismatch warning section
-                      return null;
-                    })()}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Replies Section - render inside the same card */}
@@ -755,6 +740,89 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                 </p>
               </div>
             )}
+          </div>
+        </BaseModal>
+      )}
+
+      {/* Resolution Dialog Modal */}
+      {showResolutionDialog && (
+        <BaseModal
+          isOpen={showResolutionDialog}
+          onClose={() => {
+            setShowResolutionDialog(false);
+            setSelectedTemplate('');
+            setCustomReason('');
+          }}
+          title="Resolve Comment"
+          size="md"
+          theme="dark"
+        >
+          <div className="space-y-6">
+            {/* Resolution Templates */}
+            <div>
+              <h4 className="text-sm font-medium text-white mb-3">
+                Choose Resolution Reason:
+              </h4>
+              <div className="space-y-2">
+                {resolutionTemplates.map((template) => (
+                  <button
+                    key={template.id}
+                    onClick={() => setSelectedTemplate(template.id)}
+                    className={`w-full text-left p-3 rounded-lg border transition-all ${
+                      selectedTemplate === template.id
+                        ? 'border-green-500 bg-green-900/30 text-green-300'
+                        : 'border-gray-600 hover:border-gray-500 text-gray-100 hover:bg-gray-700/50'
+                    }`}
+                  >
+                    <div className="font-medium text-white">{template.label}</div>
+                    <div className="text-sm text-gray-300 mt-1">
+                      {template.reason}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Reason */}
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
+                Custom Reason (Optional):
+              </label>
+              <textarea
+                value={customReason}
+                onChange={(e) => setCustomReason(e.target.value)}
+                placeholder="Enter a custom resolution reason..."
+                className="w-full h-20 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => {
+                  setShowResolutionDialog(false);
+                  setSelectedTemplate('');
+                  setCustomReason('');
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResolveWithTemplate}
+                disabled={!selectedTemplate && !customReason.trim()}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  selectedTemplate || customReason.trim()
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                    : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Resolve Comment</span>
+                </div>
+              </button>
+            </div>
           </div>
         </BaseModal>
       )}

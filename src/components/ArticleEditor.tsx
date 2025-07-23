@@ -559,6 +559,37 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
     };
   }, [articleId, adminMode]);
 
+  // Create stable comment click handler
+  const handleCommentClick = useCallback((comment) => {
+    console.log('🔥 handleCommentClick called with comment:', comment.id);
+    console.log('📊 Current state - highlightedCommentId:', highlightedCommentId, 'showComments:', showComments);
+    setHighlightedCommentId(comment.id);
+    setShowComments(true); // Always open sidebar when clicking a comment
+    console.log('✅ Updated state - setting highlightedCommentId to:', comment.id, 'and showComments to: true');
+  }, [setHighlightedCommentId, setShowComments, highlightedCommentId, showComments]);
+
+  // Global click debugging
+  useEffect(() => {
+    const handleGlobalClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      const hasCommentClass = target?.classList?.contains('comment-highlight-tiptap');
+      const commentId = target?.getAttribute('data-comment-id');
+      
+      if (hasCommentClass || commentId) {
+        console.log('🌍 Global click on comment element:', {
+          target,
+          hasCommentClass,
+          commentId,
+          classList: Array.from(target?.classList || []),
+          textContent: target?.textContent?.substring(0, 50) + '...'
+        });
+      }
+    };
+
+    document.addEventListener('click', handleGlobalClick);
+    return () => document.removeEventListener('click', handleGlobalClick);
+  }, []);
+
   const getEditorExtensions = useMemo(() => {
     return [
       StarterKit.configure({
@@ -631,15 +662,10 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       CommentHighlightExtension.configure({
         comments: comments,
         highlightedCommentId: highlightedCommentId,
-        onCommentClick: (comment) => {
-          setHighlightedCommentId(comment.id);
-          if (!showComments) {
-            setShowComments(true); // Auto-open sidebar when clicking a comment
-          }
-        },
+        onCommentClick: handleCommentClick,
       }),
     ];
-  }, [comments, highlightedCommentId, showComments]);
+  }, [comments, highlightedCommentId, handleCommentClick]);
 
   // Comment highlighting is now handled by CommentHighlightExtension
 
@@ -1686,12 +1712,7 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
                 return null;
               }
             }}
-            onCommentClick={(comment) => {
-              setHighlightedCommentId(comment.id);
-              if (!showComments) {
-                setShowComments(true); // Auto-open sidebar when clicking a comment
-              }
-            }}
+            onCommentClick={handleCommentClick}
             onCommentStatusChange={async (commentId, status) => {
               try {
                 // Update comment status

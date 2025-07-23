@@ -19,10 +19,14 @@ const commentHighlightPluginKey = new PluginKey('commentHighlight');
 
 // Get color based on comment status - Google Docs style with yellow highlighting
 const getCommentColor = (comment: ArticleComment, isHighlighted: boolean = false): string => {
+  // Don't highlight resolved comments at all
+  if (comment.status === 'resolved') {
+    return 'transparent';
+  }
+
   if (isHighlighted) {
     // Darker yellow when comment is selected/highlighted
     switch (comment.status) {
-      case 'resolved': return 'rgba(251, 191, 36, 0.5)'; // darker yellow-orange for resolved
       case 'archived': return 'rgba(161, 161, 170, 0.4)'; // gray for archived
       default: return 'rgba(254, 240, 138, 0.7)'; // darker yellow for active
     }
@@ -30,7 +34,6 @@ const getCommentColor = (comment: ArticleComment, isHighlighted: boolean = false
 
   // Light yellow for all commented text by default
   switch (comment.status) {
-    case 'resolved': return 'rgba(251, 191, 36, 0.25)'; // light yellow-orange for resolved
     case 'archived': return 'rgba(161, 161, 170, 0.15)'; // light gray for archived
     default: return 'rgba(254, 240, 138, 0.4)'; // light yellow for active comments
   }
@@ -39,7 +42,7 @@ const getCommentColor = (comment: ArticleComment, isHighlighted: boolean = false
 // Get border color for comment status - yellow theme
 const getBorderColor = (comment: ArticleComment): string => {
   switch (comment.status) {
-    case 'resolved': return '#f59e0b'; // yellow-orange border for resolved
+    case 'resolved': return 'transparent'; // no border for resolved comments
     case 'archived': return '#6b7280'; // gray border for archived
     default: return '#eab308'; // yellow border for active comments
   }
@@ -155,6 +158,14 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
                 const isHighlighted = storage.highlightedCommentId === comment.id;
                 const backgroundColor = getCommentColor(comment, isHighlighted);
                 const borderColor = getBorderColor(comment);
+                
+                console.log('🎨 Creating decoration for comment:', {
+                  commentId: comment.id,
+                  isHighlighted,
+                  backgroundColor,
+                  highlightedCommentId: storage.highlightedCommentId,
+                  selectedText: comment.selected_text.substring(0, 30) + '...'
+                });
 
                 // Find text in document and get ProseMirror positions
                 const positions = findTextInDocument(tr.doc, comment.selected_text);
@@ -207,15 +218,45 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
           },
           handleDOMEvents: {
             click(view, event) {
+              console.log('🖱️ Click event in CommentHighlightExtension:', event.target);
               const target = event.target as HTMLElement;
-              if (target && target.classList.contains('comment-highlight-tiptap')) {
-                const commentId = target.getAttribute('data-comment-id');
+              console.log('🎯 Target element:', target, 'Has comment class:', target?.classList.contains('comment-highlight-tiptap'));
+              
+              // Debug: Check if we can find any comment highlight elements near the click
+              const allCommentElements = document.querySelectorAll('.comment-highlight-tiptap');
+              console.log('🔍 All comment elements found:', allCommentElements.length, Array.from(allCommentElements).map(el => ({
+                id: el.getAttribute('data-comment-id'),
+                text: el.textContent?.substring(0, 30) + '...',
+                style: el.getAttribute('style')
+              })));
+              
+              // Check target and parent elements for comment class
+              let commentElement = target;
+              let found = false;
+              
+              // Look up the DOM tree for comment elements
+              for (let i = 0; i < 5 && commentElement; i++) {
+                if (commentElement.classList && commentElement.classList.contains('comment-highlight-tiptap')) {
+                  found = true;
+                  break;
+                }
+                commentElement = commentElement.parentElement as HTMLElement;
+              }
+              
+              if (found && commentElement) {
+                const commentId = commentElement.getAttribute('data-comment-id');
+                console.log('💭 Found comment ID:', commentId);
                 const comment = extension.storage.comments.find(c => c.id === commentId);
+                console.log('📝 Found comment object:', comment);
+                
                 if (comment) {
+                  console.log('✅ Calling onCommentClick for comment:', comment.id);
                   event.preventDefault();
                   event.stopPropagation();
                   extension.storage.onCommentClick(comment);
                   return true;
+                } else {
+                  console.warn('❌ Comment not found in storage for ID:', commentId);
                 }
               }
               return false;

@@ -408,14 +408,22 @@ export async function resolveCommentWithReason(
     const resolutionTimeDays = (resolvedAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
 
     // Update comment status
-    const { data: comment, error } = await supabase
+    const { data: updatedComments, error } = await supabase
       .from('article_comments')
       .update({ status: 'resolved' })
       .eq('id', commentId)
-      .select('*')
-      .single();
+      .select('*');
 
-    if (error) throw error;
+    if (error) {
+      console.error('Update error details:', error);
+      throw error;
+    }
+
+    if (!updatedComments || updatedComments.length === 0) {
+      throw new Error(`No comment found or permission denied for comment ID: ${commentId}`);
+    }
+
+    const comment = updatedComments[0];
 
     // Record status change with metadata
     if (oldStatus !== 'resolved') {
