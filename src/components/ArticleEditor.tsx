@@ -2077,7 +2077,7 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
           onImageInsert={handleImageInsert}
           onClose={() => setShowImageUpload(false)}
           articleId={articleId}
-          companyName={adminUser?.company_name || userCompany}
+          companyName={adminMode ? originalAuthor?.company_name || userCompany : userCompany}
         />
       )}
 

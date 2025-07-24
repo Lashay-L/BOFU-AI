@@ -234,11 +234,29 @@ function AdminArticleManagementPage({ user }: AdminArticleManagementPageProps) {
   const handleEditArticle = async (article: ArticleListItem) => {
     console.log('🔥 handleEditArticle called with article:', article.id, article.title);
     try {
-      // Create a mock user profile for the original author
+      // Fetch the original author's company from user_profiles table
+      let userCompanyName = 'Unknown Company';
+      try {
+        const { supabase } = await import('../lib/supabase');
+        const { data: userProfile, error } = await supabase
+          .from('user_profiles')
+          .select('company_name')
+          .eq('id', article.user_id)
+          .single();
+        
+        if (!error && userProfile) {
+          userCompanyName = userProfile.company_name || 'Unknown Company';
+        }
+        console.log('🏢 Fetched user company:', userCompanyName, 'for user:', article.user_id);
+      } catch (dbError) {
+        console.error('❌ Error fetching user company:', dbError);
+      }
+
+      // Create user profile for the original author with fetched company
       const originalAuthor: UserProfile = {
         id: article.user_id,
-        email: article.user_email,
-        company_name: article.user_company || 'Unknown Company',
+        email: article.user_email || 'unknown@example.com',
+        company_name: userCompanyName,
         created_at: article.created_at,
         updated_at: article.updated_at,
         article_count: 0 // This would be fetched from API in real implementation
