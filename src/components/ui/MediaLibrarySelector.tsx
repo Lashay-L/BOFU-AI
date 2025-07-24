@@ -36,16 +36,20 @@ export const MediaLibrarySelector: React.FC<MediaLibrarySelectorProps> = ({
 
   const handleMediaSelect = async (media: MediaFile) => {
     try {
+      console.log('Media selected:', media);
+      
       // Get the public URL for the selected media file
       const { data: urlData } = supabase.storage
         .from('media-library')
         .getPublicUrl(media.file_path);
+      
+      console.log('Generated URL:', urlData.publicUrl);
 
       // Convert MediaFile to ImageMetadata format
       const metadata: ImageMetadata = {
         id: media.id,
-        filename: media.filename,
-        altText: '', // No alt_text field in database
+        filename: media.original_filename || media.filename,
+        altText: media.original_filename || media.filename, // Use filename as alt text
         caption: '', // No caption field in database
         width: media.width || 0,
         height: media.height || 0,
@@ -54,6 +58,7 @@ export const MediaLibrarySelector: React.FC<MediaLibrarySelectorProps> = ({
         storagePath: media.file_path
       };
 
+      console.log('Calling onImageInsert with:', urlData.publicUrl, metadata);
       onImageInsert(urlData.publicUrl, metadata);
       onClose();
     } catch (error) {
@@ -63,9 +68,9 @@ export const MediaLibrarySelector: React.FC<MediaLibrarySelectorProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg max-w-5xl w-full h-[80vh] mx-4 flex flex-col">
+      <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] mx-4 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
+        <div className="flex items-center justify-between p-6 border-b flex-shrink-0">
           <h2 className="text-xl font-semibold text-gray-900">Select Image</h2>
           <button
             onClick={onClose}
@@ -76,7 +81,7 @@ export const MediaLibrarySelector: React.FC<MediaLibrarySelectorProps> = ({
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b">
+        <div className="flex border-b flex-shrink-0">
           <button
             onClick={() => setActiveTab('upload')}
             className={`px-6 py-3 font-medium transition-colors relative ${
@@ -106,9 +111,9 @@ export const MediaLibrarySelector: React.FC<MediaLibrarySelectorProps> = ({
         </div>
 
         {/* Tab Content */}
-        <div className="flex-1 p-6 overflow-hidden">
+        <div className="flex-1 p-6 overflow-y-auto min-h-0">
           {activeTab === 'upload' ? (
-            <div className="h-full flex items-start justify-center">
+            <div className="flex items-start justify-center">
               <div className="w-full max-w-md">
                 <ImageUpload
                   onImageInsert={(url, metadata) => {
