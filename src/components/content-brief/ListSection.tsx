@@ -190,134 +190,20 @@ export const ListSection: React.FC<ListSectionProps> = ({
   useEffect(() => {
     if (isCapabilitiesSection && showDropdown) {
       const getCapabilities = async () => {
-        console.log('Loading capabilities data...', { researchResultId });
+        console.log('Loading capabilities data using dual-ID system...', { sourceProductId, researchResultId });
         
         try {
-          // First try to fetch from research result if researchResultId is available
-          if (researchResultId) {
-            console.log('Fetching capabilities from research result:', researchResultId);
-            
-            const { supabase } = await import('../../lib/supabase');
-            
-            // Try research_results table first
-            const { data: researchData, error } = await supabase
-              .from('research_results')
-              .select('data')
-              .eq('id', researchResultId)
-              .single();
-              
-            if (error) {
-              console.error('Error fetching research result:', error);
-            } else if (researchData?.data && Array.isArray(researchData.data)) {
-              console.log('Research result data found:', researchData.data);
-              
-              // Extract combined features and capabilities from all products in this research result
-              const allCapabilities: any[] = [];
-              
-              researchData.data.forEach((product: any, productIndex: number) => {
-                // Combine features (titles) with capabilities (descriptions) as pairs
-                const features = product.features || [];
-                const capabilities = product.capabilities || [];
-                
-                console.log(`Product ${productIndex}: ${features.length} features, ${capabilities.length} capabilities`);
-                
-                // Method 1: Try to pair features with capabilities by index
-                const maxLength = Math.max(features.length, capabilities.length);
-                for (let i = 0; i < maxLength; i++) {
-                  const feature = features[i];
-                  const capability = capabilities[i];
-                  
-                  if (feature || capability) {
-                    let title = '';
-                    let description = '';
-                    let fullText = '';
-                    
-                    // If we have both feature and capability, combine them
-                    if (feature && capability) {
-                      if (typeof capability === 'object' && capability.content) {
-                        title = feature;
-                        description = capability.content;
-                        fullText = `${feature}: ${capability.content}`;
-                      } else if (typeof capability === 'string') {
-                        title = feature;
-                        description = capability;
-                        fullText = `${feature}: ${capability}`;
-                      } else {
-                        title = feature;
-                        description = capability.description || capability.title || 'No description';
-                        fullText = `${feature}: ${description}`;
-                      }
-                    } else if (feature) {
-                      // Only feature available
-                      title = feature;
-                      description = 'Product feature';
-                      fullText = feature;
-                    } else if (capability) {
-                      // Only capability available
-                      if (typeof capability === 'object' && capability.content) {
-                        title = capability.title || 'Capability';
-                        description = capability.content;
-                        fullText = capability.content;
-                      } else {
-                        title = String(capability);
-                        description = '';
-                        fullText = String(capability);
-                      }
-                    }
-                    
-                    allCapabilities.push({
-                      title: title,
-                      description: description,
-                      fullText: fullText,
-                      displayText: description ? `${title} - ${description.substring(0, 80)}${description.length > 80 ? '...' : ''}` : title,
-                      images: (typeof capability === 'object' && capability.images) ? capability.images : [],
-                      source: 'research_result'
-                    });
-                  }
-                }
-              });
-              
-              if (allCapabilities.length > 0) {
-                console.log(`Successfully extracted ${allCapabilities.length} capabilities from research result`);
-                setAvailableCapabilities(allCapabilities);
-                return;
-              } else {
-                console.log('No capabilities found in research result data');
-              }
-            }
-            
-            // If research result doesn't have good data, try approved_products table
-            console.log('Trying approved_products table as fallback...');
-            const { data: approvedData, error: approvedError } = await supabase
-              .from('approved_products')
-              .select('product_data')
-              .eq('id', researchResultId)
-              .single();
-              
-            if (!approvedError && approvedData?.product_data) {
-              console.log('Approved product data found:', approvedData.product_data);
-              
-              const productData = approvedData.product_data;
-              const capabilities = productData.capabilities || [];
-              
-              if (capabilities.length > 0) {
-                const allCapabilities = capabilities.map((cap: any) => ({
-                  title: cap.title || 'Unnamed Capability',
-                  description: cap.content || cap.description || '',
-                  fullText: cap.content || cap.description || cap.title || 'No description available',
-                  displayText: `${cap.title || 'Unnamed'} - ${(cap.content || cap.description || 'No description').substring(0, 80)}...`,
-                  images: cap.images || [],
-                  source: 'approved_product'
-                }));
-                
-                console.log(`Successfully extracted ${allCapabilities.length} capabilities from approved product`);
-                setAvailableCapabilities(allCapabilities);
-                return;
-              }
+          // Use dual-ID system - prioritize sourceProductId, fallback to researchResultId
+          if (sourceProductId || researchResultId) {
+            const fetchedCapabilities = await fetchCapabilities(sourceProductId, researchResultId);
+            if (fetchedCapabilities.length > 0) {
+              console.log('Capabilities fetched from database using dual-ID system:', fetchedCapabilities);
+              setAvailableCapabilities(fetchedCapabilities);
+              return;
             }
           }
           
-          // Fallback to default capabilities if no data from research result
+          // Fallback to default capabilities if no data from database
           console.log('Using fallback capabilities data...');
           setAvailableCapabilities([
             {
@@ -327,15 +213,9 @@ export const ListSection: React.FC<ListSectionProps> = ({
               displayText: 'AI-Powered Automation - Intelligent workflow automation'
             },
             {
-              title: 'Real-time Monitoring',
-              description: 'Live system performance tracking',
-              fullText: 'Real-time Monitoring - Live system performance tracking and alerting for proactive issue resolution',
-              displayText: 'Real-time Monitoring - Live system performance tracking'
-            },
-            {
               title: 'Enterprise Integration',
               description: 'Seamless system connectivity',
-              fullText: 'Enterprise Integration - Seamless connectivity with existing enterprise systems and workflows',
+              fullText: 'Enterprise Integration - Connect seamlessly with existing enterprise systems and third-party applications',
               displayText: 'Enterprise Integration - Seamless system connectivity'
             },
             {
@@ -347,36 +227,35 @@ export const ListSection: React.FC<ListSectionProps> = ({
             {
               title: 'Scalable Infrastructure',
               description: 'Cloud-based scaling solutions',
-              fullText: 'Scalable Infrastructure - Cloud-native architecture that grows with your business needs',
+              fullText: 'Scalable Infrastructure - Robust cloud infrastructure that grows with your business needs',
               displayText: 'Scalable Infrastructure - Cloud-based scaling solutions'
             },
             {
               title: 'Security Framework',
               description: 'Enterprise-grade security measures',
-              fullText: 'Security Framework - Comprehensive security protocols and compliance standards',
+              fullText: 'Security Framework - Comprehensive security protocols and compliance features to protect your data',
               displayText: 'Security Framework - Enterprise-grade security measures'
             }
           ]);
-          console.log('Capabilities data loaded successfully');
+          console.log('Capabilities fallback data loaded successfully');
         } catch (error) {
           console.error('Error loading capabilities:', error);
-          // Use fallback data on error
+          // Use minimal fallback data on error
           setAvailableCapabilities([
             {
               title: 'Generic Capability',
               description: 'Placeholder capability',
-              fullText: 'Generic capability placeholder',
-              displayText: 'Generic Capability - Placeholder'
+              fullText: 'Generic Capability - A standard feature or capability',
+              displayText: 'Generic Capability - Placeholder capability'
             }
           ]);
         }
       };
-
       getCapabilities();
     }
-  }, [isCapabilitiesSection, showDropdown, researchResultId]);
-
-  // New useEffect for USPs
+  }, [isCapabilitiesSection, showDropdown, sourceProductId, researchResultId]);
+  
+  // New useEffect for USPs  
   useEffect(() => {
     if (isUSPsSection && showDropdown) {
       const getUSPs = async () => {
@@ -424,7 +303,8 @@ export const ListSection: React.FC<ListSectionProps> = ({
 
       getUSPs();
     }
-  }, [isUSPsSection, showDropdown, researchResultId]);
+  }, [isUSPsSection, showDropdown, sourceProductId, researchResultId]);
+
 
   // New useEffect for Competitors
   useEffect(() => {
