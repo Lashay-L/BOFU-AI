@@ -375,9 +375,17 @@ export default function EditContentBrief() {
               )}
               
               {/* Status Indicator */}
-              <div className="flex items-center space-x-2 px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm font-medium border border-green-200">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span>Auto-saving</span>
+              <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium border transition-all duration-300 ${
+                saving 
+                  ? 'bg-blue-50 text-blue-700 border-blue-200' 
+                  : 'bg-green-50 text-green-700 border-green-200'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${
+                  saving 
+                    ? 'bg-blue-500 animate-pulse' 
+                    : 'bg-green-500'
+                }`}></div>
+                <span>{saving ? 'Saving...' : 'Saved'}</span>
               </div>
             </div>
           </div>
