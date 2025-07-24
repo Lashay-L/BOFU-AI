@@ -258,6 +258,7 @@ interface ArticleEditorProps {
   initialContent?: string;
   onSave?: (content: string) => void;
   onAutoSave?: (content: string) => void;
+  onContentChange?: (content: string) => void;
   className?: string;
   // Admin-specific props
   adminMode?: boolean;
@@ -281,6 +282,7 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
   initialContent = '',
   onSave,
   onAutoSave,
+  onContentChange,
   className = '',
   // Admin-specific props
   adminMode = false,
@@ -834,11 +836,28 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
         setContent(newContent);
         setHasUnsavedChanges(true);
         
+        // Call the onContentChange callback if provided
+        if (onContentChange) {
+          console.log('🔄 ArticleEditor calling onContentChange callback');
+          onContentChange(newContent);
+        } else {
+          console.log('⚠️ ArticleEditor: No onContentChange callback provided');
+        }
+        
         // Force UI update to ensure changes are visible
         setUpdateCounter(prev => prev + 1);
         
         if (articleId && newContent.trim() !== content.trim()) {
+          console.log('🔄 Triggering debouncedAutoSave...', { articleId, newContentLength: newContent.trim().length, oldContentLength: content.trim().length });
+          console.log('🔄 debouncedAutoSave function reference:', typeof debouncedAutoSave);
           debouncedAutoSave(newContent);
+        } else {
+          console.log('⚠️ Auto-save condition not met:', { 
+            hasArticleId: !!articleId, 
+            contentChanged: newContent.trim() !== content.trim(),
+            newContentLength: newContent.trim().length,
+            oldContentLength: content.trim().length
+          });
         }
       }
     },
@@ -1036,23 +1055,38 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
   
   // Auto-save functionality with stable debounced function
   const debouncedAutoSave = useMemo(
-    () => debounce(async (content: string) => {
-      if (!articleId || !content.trim()) return;
+    () => {
+      console.log('🔧 Creating new debouncedAutoSave function...');
+      return debounce(async (content: string) => {
+      console.log('🚀 debouncedAutoSave function executing...', { articleId, contentLength: content.trim().length });
+      
+      if (!articleId || !content.trim()) {
+        console.log('⚠️ debouncedAutoSave early return:', { hasArticleId: !!articleId, hasContent: !!content.trim() });
+        return;
+      }
       
       try {
         setIsAutoSaving(true);
         setSaveStatus('saving');
         
+        // Get current values without creating dependencies
+        const currentOnAutoSave = onAutoSave;
+        const currentAdminMode = adminMode;
+        const currentAdminUser = adminUser;
+        const currentOriginalAuthor = originalAuthor;
+
         // Use unified auto-save function if provided, otherwise fallback to old API
-        if (onAutoSave) {
-          console.log('🔄 Using unified auto-save function for:', { adminMode, articleId });
-          await onAutoSave(content);
+        if (currentOnAutoSave) {
+          console.log('🔄 Using unified auto-save function for:', { adminMode: currentAdminMode, articleId });
+          console.log('🔄 About to call onAutoSave function...');
+          await currentOnAutoSave(content);
+          console.log('✅ onAutoSave function completed successfully');
           setSaveStatus('saved');
           setLastSaved(new Date());
           setHasUnsavedChanges(false);
         } else {
           console.warn('⚠️ No unified auto-save function provided, falling back to old API');
-          const result = await autoSaveArticleContent(articleId, content, adminMode, adminUser?.id, originalAuthor?.id);
+          const result = await autoSaveArticleContent(articleId, content, currentAdminMode, currentAdminUser?.id, currentOriginalAuthor?.id);
           
           if (result.success) {
             setSaveStatus('saved');
@@ -1069,8 +1103,9 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       } finally {
         setIsAutoSaving(false);
       }
-    }, 2000),
-    [articleId, adminMode, adminUser, originalAuthor, onAutoSave] // Stable dependencies only
+      }, 2000);
+    },
+    [articleId] // Only include absolutely necessary stable dependencies
   );
 
   // Manual save functionality

@@ -244,18 +244,33 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
   }, [articleId, permissions]);
 
   /**
+   * Handle content changes to track unsaved changes
+   */
+  const handleContentChange = useCallback((content: string) => {
+    console.log('🔄 UnifiedArticleEditor handleContentChange called, setting hasUnsavedChanges to true');
+    setHasUnsavedChanges(true);
+    setCurrentArticleContent(content); // Update content for AI copilot
+  }, []);
+
+  /**
    * Auto-save functionality
    */
   const handleAutoSave = useCallback(async (content: string) => {
-    if (!hasUnsavedChanges) return;
+    console.log('🚀 UnifiedArticleEditor handleAutoSave called:', { hasUnsavedChanges, contentLength: content.length });
     
+    console.log('✅ Auto-save proceeding...');
     setCurrentArticleContent(content); // Update content for AI copilot
     
-    await saveArticle(content, { 
+    const result = await saveArticle(content, { 
       isAutoSave: true, 
       showToast: false 
     });
-  }, [hasUnsavedChanges, saveArticle]);
+    
+    // Only clear hasUnsavedChanges if save was successful
+    if (result.success) {
+      setHasUnsavedChanges(false);
+    }
+  }, [saveArticle]);
 
   // Load article immediately on mount (auth check is handled internally)
   useEffect(() => {
@@ -555,6 +570,7 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
           initialContent={article.content}
           onSave={(content) => saveArticle(content, { showToast: true })}
           onAutoSave={handleAutoSave}
+          onContentChange={handleContentChange}
           adminMode={uiMode === 'admin'}
           adminUser={userContext.isAdmin ? userContext as any : undefined}
           originalAuthor={article.user_id !== userContext.id ? { id: article.user_id } as any : undefined}
