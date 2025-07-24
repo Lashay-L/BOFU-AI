@@ -102,8 +102,11 @@ export default function MediaGrid({
       {files.map((file) => (
         <div
           key={file.id}
-          className="group relative bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 
-                     transition-all duration-200 overflow-hidden"
+          className={`group relative bg-gray-800 rounded-lg border border-gray-700 overflow-hidden transition-all duration-200 ${
+            onMediaSelect 
+              ? 'hover:border-blue-500 hover:ring-2 hover:ring-blue-500/50 hover:shadow-lg hover:shadow-blue-500/20 cursor-pointer transform hover:scale-[1.02]' 
+              : 'hover:border-gray-600'
+          }`}
         >
           {/* Selection Checkbox */}
           {allowSelection && (
@@ -187,6 +190,22 @@ export default function MediaGrid({
               <EyeIcon className="h-4 w-4" />
             </button>
             
+            {/* Insert Button - Only show when onMediaSelect is available */}
+            {onMediaSelect && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMediaSelect(file);
+                }}
+                className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
+                title="Insert into article"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+              </button>
+            )}
+            
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -251,8 +270,11 @@ export default function MediaGrid({
       {files.map((file) => (
         <div
           key={file.id}
-          className="flex items-center space-x-4 p-4 bg-gray-800 rounded-lg border border-gray-700 
-                     hover:border-gray-600 transition-colors group"
+          className={`flex items-center space-x-4 p-4 bg-gray-800 rounded-lg border border-gray-700 transition-all duration-200 group ${
+            onMediaSelect 
+              ? 'hover:border-blue-500 hover:ring-1 hover:ring-blue-500/50 hover:bg-gray-750 cursor-pointer' 
+              : 'hover:border-gray-600'
+          }`}
         >
           {/* Selection Checkbox */}
           {allowSelection && (
@@ -337,6 +359,22 @@ export default function MediaGrid({
             >
               <EyeIcon className="h-4 w-4" />
             </button>
+            
+            {/* Insert Button - Only show when onMediaSelect is available */}
+            {onMediaSelect && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMediaSelect(file);
+                }}
+                className="p-2 text-blue-400 hover:text-blue-300 hover:bg-blue-700/20 rounded transition-colors"
+                title="Insert into article"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+              </button>
+            )}
             
             <button
               onClick={(e) => {

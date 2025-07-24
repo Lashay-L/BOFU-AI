@@ -192,6 +192,9 @@ export const adminArticlesApi = {
       }
       // Super admins see all articles (no additional filtering)
 
+      // Filter to only show articles with content
+      query = query.not('article_content', 'is', null);
+
       // Apply other filters
       if (search) {
         query = query.or(`product_name.ilike.%${search}%,article_content.ilike.%${search}%,possible_article_titles.ilike.%${search}%`);

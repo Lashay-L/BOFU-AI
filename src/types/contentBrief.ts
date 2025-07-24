@@ -28,6 +28,8 @@ export interface ContentBrief {
   suggested_titles?: SuggestedTitle[]; 
   suggested_links?: SuggestedLink[]; 
   research_result_id?: string; // Added for connecting to approved_products
+  source_product_id?: string; // Added for dual-ID system - links to approved_products.id
+  sourceProductData?: any; // Cached source product data for browsing
 }
 
 // Core content brief data structure

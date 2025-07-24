@@ -149,6 +149,18 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
       
       console.log('🌟 High-priority global click handler triggered:', { target: target.tagName, classes: Array.from(target.classList || []) });
       
+      // Skip image elements and image control buttons
+      if (target.tagName === 'IMG' ||
+          target.classList?.contains('image-edit-caption') || 
+          target.classList?.contains('image-delete') || 
+          target.classList?.contains('resize-handle') ||
+          target.closest('.image-resize-handle') ||
+          target.closest('.image-toolbar') ||
+          target.closest('.image-controls')) {
+        console.log('🖼️ Skipping comment handling for image element or control button');
+        return;
+      }
+      
       // First, check if we clicked directly on a comment highlight
       if (target.classList?.contains('comment-highlight-tiptap')) {
         const commentId = target.getAttribute('data-comment-id');

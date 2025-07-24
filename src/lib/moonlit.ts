@@ -23,6 +23,7 @@ interface MoonlitProductInput {
     userCompanyName?: string;
   };
   researchResultId?: string;
+  sourceProductId?: string;
 }
 
 /**
@@ -247,11 +248,13 @@ export async function sendProductCardToMoonlit(productData: MoonlitProductInput)
     // Create JSON body to match API requirements
     const body = JSON.stringify({
       "Product Card": JSON.stringify(productCardData),
-      "Research Result ID": productData.researchResultId || ''
+      "Research Result ID": productData.researchResultId || '',
+      "text_input_3": productData.sourceProductId || ''
     });
 
     console.log('Product card data being sent to Moonlit:', productCardData);
     console.log('Research Result ID:', productData.researchResultId || '');
+    console.log('Source Product ID (text_input_3):', productData.sourceProductId || '');
     
     // Create Bearer token header (matching Node.js example format)
     console.log('🔑 Moonlit API Key:', MOONLIT_API_KEY ? 'Present' : 'Missing', 'Length:', MOONLIT_API_KEY?.length);

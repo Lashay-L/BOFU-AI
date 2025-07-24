@@ -10,6 +10,7 @@ interface ContentBriefEditorSimpleProps {
   onUpdate: (content: string, links: string[], titles: string[], keywords?: string[]) => void;
   briefId?: string;
   researchResultId?: string; // Added for pain points dropdown
+  sourceProductId?: string; // Added for dual-ID system
 }
 
 // Define expected structure from Supabase
@@ -21,6 +22,7 @@ interface ExtendedContentBrief {
   possible_article_titles?: string[];
   suggested_titles?: Array<{title: string} | string>;
   research_result_id?: string; // Added for connecting to approved_products data
+  source_product_id?: string; // Added for dual-ID system
 }
 
 // Helper function to clean content - removes markdown code blocks and formatting issues
@@ -105,7 +107,7 @@ const cleanContent = (content: any): string => {
   return cleanedContent;
 };
 
-export function ContentBriefEditorSimple({ initialContent, onUpdate, briefId, researchResultId: propResearchResultId }: ContentBriefEditorSimpleProps): JSX.Element {
+export function ContentBriefEditorSimple({ initialContent, onUpdate, briefId, researchResultId: propResearchResultId, sourceProductId }: ContentBriefEditorSimpleProps): JSX.Element {
   // Use plain text rather than trying to parse JSON
   const [content, setContent] = useState(cleanContent(initialContent) || '');
   const [isSaving, setIsSaving] = useState(false);
@@ -611,6 +613,7 @@ export function ContentBriefEditorSimple({ initialContent, onUpdate, briefId, re
           additionalLinks={internalLinks || []}
           possibleTitles={suggestedTitles || []}
           researchResultId={researchResultId} // Pass the research result ID for pain points dropdown
+          sourceProductId={sourceProductId} // Pass the source product ID for dual-ID system
           onInternalLinksChange={(links) => {
             console.log('Links changed in ContentBriefDisplay:', links);
             

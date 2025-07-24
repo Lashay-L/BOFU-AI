@@ -6,6 +6,7 @@ import { ContentBrief } from '../../../types/contentBrief';
 import { ContentBriefEditorSimple } from '../../content-brief/ContentBriefEditorSimple';
 import { ResponsiveApprovalButton } from '../../common/ResponsiveApprovalButton';
 import { updateBrief } from '../../../lib/contentBriefs';
+import { SourceProductBrowser } from '../../content-brief/SourceProductBrowser';
 import { toast } from 'react-hot-toast';
 
 export function ContentBriefsSection({
@@ -191,6 +192,31 @@ export function ContentBriefsSection({
                     if (hasValidContent) {
                       return (
                         <div className="space-y-6">
+                          {/* Source Product Browser - Show original product data */}
+                          <SourceProductBrowser
+                            sourceProductId={brief.source_product_id}
+                            sourceProductData={brief.sourceProductData}
+                            briefTitle={brief.title || brief.product_name}
+                            onNavigateToProduct={(sourceProductId) => {
+                              // Navigate to the approved products section and expand the product
+                              const element = document.getElementById(`approved-product-${sourceProductId}`);
+                              if (element) {
+                                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                // Trigger expand action - you can customize this based on your expand logic
+                                setTimeout(() => {
+                                  element.classList.add('ring-2', 'ring-blue-400', 'ring-opacity-50');
+                                  setTimeout(() => {
+                                    element.classList.remove('ring-2', 'ring-blue-400', 'ring-opacity-50');
+                                  }, 2000);
+                                }, 100);
+                              } else {
+                                // Show notification if product card not found
+                                console.log('Product card not found on this page:', sourceProductId);
+                                toast.error('Product card is not visible on this page. It may be on another company section.');
+                              }
+                            }}
+                          />
+                          
                           {/* Editable Content Brief Display */}
                           <div className="bg-gray-700/20 rounded-lg p-4 border border-gray-600/30">
                             <div className="flex items-center justify-between mb-3">
@@ -210,6 +236,7 @@ export function ContentBriefsSection({
                               initialContent={contentToPass}
                               briefId={brief.id}
                               researchResultId={brief.research_result_id}
+                              sourceProductId={brief.source_product_id}
                               onUpdate={async (content: string, links: string[], titles: string[]) => {
                                 try {
                                   console.log('Admin dashboard: Auto-saving content brief changes');

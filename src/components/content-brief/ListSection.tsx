@@ -9,7 +9,7 @@ import {
   ListChecks
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { fetchUSPs, fetchCompetitors, fetchPainPoints } from '../../lib/contentBriefs';
+import { fetchUSPs, fetchCompetitors, fetchPainPoints, fetchCapabilities } from '../../lib/contentBriefs';
 
 interface ListSectionProps {
   sectionKey: string;
@@ -20,6 +20,7 @@ interface ListSectionProps {
   onRemoveItem: (sectionKey: string, index: number) => void;
   readOnly?: boolean;
   researchResultId?: string;
+  sourceProductId?: string; // Added for dual-ID system
   suggestedItems?: any[];
   className?: string;
 }
@@ -37,6 +38,7 @@ export const ListSection: React.FC<ListSectionProps> = ({
   onRemoveItem,
   readOnly = false,
   researchResultId,
+  sourceProductId,
   suggestedItems,
   className = ""
 }) => {
@@ -151,11 +153,12 @@ export const ListSection: React.FC<ListSectionProps> = ({
       const getPainPoints = async () => {
         console.log('Loading pain points from database...');
         try {
-          if (researchResultId) {
-            const fetchedPainPoints = await fetchPainPoints(researchResultId);
+          // Use dual-ID system - prioritize sourceProductId, fallback to researchResultId
+          if (sourceProductId || researchResultId) {
+            const fetchedPainPoints = await fetchPainPoints(sourceProductId, researchResultId);
             if (fetchedPainPoints.length > 0) {
               setAvailablePainPoints(fetchedPainPoints);
-              console.log('Pain points data loaded from database:', fetchedPainPoints.length);
+              console.log('Pain points data loaded from database using dual-ID system:', fetchedPainPoints.length);
               return;
             }
           }
@@ -379,11 +382,11 @@ export const ListSection: React.FC<ListSectionProps> = ({
       const getUSPs = async () => {
         console.log('Loading USPs data...');
         try {
-          // First try to fetch from database if researchResultId is available
-          if (researchResultId) {
-            const fetchedUSPs = await fetchUSPs(researchResultId);
+          // Use dual-ID system - prioritize sourceProductId, fallback to researchResultId
+          if (sourceProductId || researchResultId) {
+            const fetchedUSPs = await fetchUSPs(sourceProductId, researchResultId);
             if (fetchedUSPs.length > 0) {
-              console.log('USPs fetched from database:', fetchedUSPs);
+              console.log('USPs fetched from database using dual-ID system:', fetchedUSPs);
               setAvailableUSPs(fetchedUSPs);
               return;
             }
@@ -434,15 +437,15 @@ export const ListSection: React.FC<ListSectionProps> = ({
         console.log('sectionKey:', sectionKey);
         
         try {
-          // First try to fetch from database if researchResultId is available
-          if (researchResultId) {
-            console.log('Calling fetchCompetitors with researchResultId:', researchResultId);
-            const fetchedCompetitors = await fetchCompetitors(researchResultId);
+          // Use dual-ID system - prioritize sourceProductId, fallback to researchResultId
+          if (sourceProductId || researchResultId) {
+            console.log('Calling fetchCompetitors with dual-ID system - sourceProductId:', sourceProductId, 'researchResultId:', researchResultId);
+            const fetchedCompetitors = await fetchCompetitors(sourceProductId, researchResultId);
             console.log('fetchCompetitors returned:', fetchedCompetitors);
             console.log('fetchedCompetitors.length:', fetchedCompetitors.length);
             
             if (fetchedCompetitors.length > 0) {
-              console.log('✅ Competitors fetched from database:', fetchedCompetitors);
+              console.log('✅ Competitors fetched from database using dual-ID system:', fetchedCompetitors);
               setAvailableCompetitors(fetchedCompetitors);
               return;
             } else {

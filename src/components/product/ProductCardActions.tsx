@@ -444,6 +444,10 @@ export function ProductCardActions({
       try {
         let completeProductData = product;
         
+        // Determine the source product ID for dual-ID system
+        // This should be the approved_products.id for proper linking
+        let sourceProductId = approvedProductId;
+        
         // If we have an approved product ID, fetch the complete data from approved_products table
         if (approvedProductId) {
           console.log('🔍 Fetching complete approved product data from database...');
@@ -497,6 +501,25 @@ export function ProductCardActions({
               googleDoc: completeProductData.google_doc
             });
           }
+        } else if (!sourceProductId && product.name) {
+          // If no approvedProductId but we have a product name, try to find the approved product
+          console.log('🔍 No approvedProductId provided, searching by product name:', product.name);
+          
+          const { data: approvedProductByName, error: searchError } = await supabase
+            .from('approved_products')
+            .select('id, product_name')
+            .ilike('product_name', `%${product.name}%`)
+            .single();
+            
+          if (approvedProductByName && !searchError) {
+            sourceProductId = approvedProductByName.id;
+            console.log('✅ Found approved product by name:', {
+              productName: approvedProductByName.product_name,
+              approvedProductId: sourceProductId
+            });
+          } else {
+            console.warn('⚠️ Could not find approved product for:', product.name);
+          }
         }
         
         // Format data according to MoonlitProductInput interface
@@ -508,14 +531,18 @@ export function ProductCardActions({
             userEmail: completeProductData.userEmail || userEmail,
             userCompanyName: completeProductData.userCompanyName || userCompanyName
           },
-          researchResultId: uniqueResearchResultId
+          researchResultId: uniqueResearchResultId,
+          sourceProductId: sourceProductId
         };
 
-        // Log framework being sent to Moonlit for verification
-        console.log('🎯 Framework being sent to Moonlit:', {
+        // Log framework and dual-ID system being sent to Moonlit for verification
+        console.log('🎯 Data being sent to Moonlit:', {
           framework: completeProductData.framework,
           frameworkType: typeof completeProductData.framework,
-          hasFramework: !!completeProductData.framework
+          hasFramework: !!completeProductData.framework,
+          researchResultId: uniqueResearchResultId,
+          sourceProductId: sourceProductId,
+          productName: product.name
         });
 
         const moonlitResponse = await sendProductCardToMoonlit(moonlitData);

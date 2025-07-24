@@ -52,7 +52,8 @@ export async function getBriefById(briefId: string) {
       title,
       created_at,
       updated_at,
-      research_result_id
+      research_result_id,
+      source_product_id
     `)
     .eq('id', briefId)
     .single();
@@ -65,29 +66,57 @@ export async function getBriefById(briefId: string) {
   console.log('Fetched brief:', data);
   if (!data) throw new Error('Brief not found');
 
-  // Fetch keywords from approved product data if research_result_id exists
+  // Fetch keywords from approved product data using dual-ID system
   let keywords: string[] = [];
-  if (data.research_result_id) {
+  let sourceProductData: any = null;
+  
+  // Try source_product_id first (primary method for dual-ID system)
+  if (data.source_product_id) {
     try {
+      console.log('Fetching source product data using source_product_id:', data.source_product_id);
       const { data: approvedProduct, error: productError } = await supabase
         .from('approved_products')
         .select('product_data')
-        .eq('id', data.research_result_id)
+        .eq('id', data.source_product_id)
         .single();
 
       if (!productError && approvedProduct?.product_data) {
-        // Extract keywords from product_data
-        const productData = typeof approvedProduct.product_data === 'string' 
+        sourceProductData = typeof approvedProduct.product_data === 'string' 
           ? JSON.parse(approvedProduct.product_data) 
           : approvedProduct.product_data;
         
-        if (productData.keywords && Array.isArray(productData.keywords)) {
-          keywords = productData.keywords;
-          console.log('Found keywords for content brief:', keywords);
+        if (sourceProductData.keywords && Array.isArray(sourceProductData.keywords)) {
+          keywords = sourceProductData.keywords;
+          console.log('Found keywords from source product:', keywords);
         }
       }
     } catch (productError) {
-      console.warn('Could not fetch keywords from approved product:', productError);
+      console.warn('Could not fetch keywords from source product:', productError);
+    }
+  }
+  
+  // Fallback to research_result_id if source_product_id didn't work
+  if (!sourceProductData && data.research_result_id) {
+    try {
+      console.log('Fallback: fetching using research_result_id:', data.research_result_id);
+      const { data: approvedProduct, error: productError } = await supabase
+        .from('approved_products')
+        .select('product_data')
+        .or(`id.eq.${data.research_result_id},research_result_id.eq.${data.research_result_id}`)
+        .single();
+
+      if (!productError && approvedProduct?.product_data) {
+        sourceProductData = typeof approvedProduct.product_data === 'string' 
+          ? JSON.parse(approvedProduct.product_data) 
+          : approvedProduct.product_data;
+        
+        if (sourceProductData.keywords && Array.isArray(sourceProductData.keywords)) {
+          keywords = sourceProductData.keywords;
+          console.log('Found keywords from research result fallback:', keywords);
+        }
+      }
+    } catch (productError) {
+      console.warn('Could not fetch keywords from approved product fallback:', productError);
     }
   }
 
@@ -176,7 +205,9 @@ export async function getBriefById(briefId: string) {
       relevance: 1
     })),
     suggested_titles: parsedArticleTitles.map((title: string) => ({ title })),
-    research_result_id: data.research_result_id || undefined // Include research_result_id in the returned data
+    research_result_id: data.research_result_id || undefined, // Include research_result_id in the returned data
+    source_product_id: data.source_product_id || undefined, // Include source_product_id for dual-ID system
+    sourceProductData: sourceProductData || undefined // Include the fetched source product data
   };
   return transformedData;
 }
@@ -332,17 +363,23 @@ export async function updateBrief(id: string, updates: { brief_content?: string;
 }
 
 /**
- * Fetches pain points from the approved_products table
- * This function can be used without a specific research_result_id to get all available pain points
+ * Fetches pain points from the approved_products table using dual-ID system
+ * Prioritizes source_product_id, falls back to research_result_id
  */
-export async function fetchPainPoints(researchResultId?: string) {
+export async function fetchPainPoints(sourceProductId?: string, researchResultId?: string) {
   try {
     let query = supabase
       .from('approved_products')
-      .select('product_data, research_result_id');
+      .select('product_data, research_result_id, id');
     
-    // If a research_result_id is provided, try both id and research_result_id fields
-    if (researchResultId) {
+    // Prioritize source_product_id for dual-ID system
+    if (sourceProductId) {
+      console.log('Fetching pain points using source_product_id:', sourceProductId);
+      query = query.eq('id', sourceProductId);
+    }
+    // Fallback to research_result_id if source_product_id is not available
+    else if (researchResultId) {
+      console.log('Fallback: fetching pain points using research_result_id:', researchResultId);
       query = query.or(`id.eq.${researchResultId},research_result_id.eq.${researchResultId}`);
     }
     
@@ -399,17 +436,23 @@ export interface Capability {
 }
 
 /**
- * Fetches capabilities from the approved_products table
- * This function can be used without a specific research_result_id to get all available capabilities
+ * Fetches capabilities from the approved_products table using dual-ID system
+ * Prioritizes source_product_id, falls back to research_result_id
  */
-export async function fetchCapabilities(researchResultId?: string): Promise<Capability[]> {
+export async function fetchCapabilities(sourceProductId?: string, researchResultId?: string): Promise<Capability[]> {
   try {
     let query = supabase
       .from('approved_products')
-      .select('product_data, research_result_id');
+      .select('product_data, research_result_id, id');
     
-    // If a research_result_id is provided, filter by it
-    if (researchResultId) {
+    // Prioritize source_product_id for dual-ID system
+    if (sourceProductId) {
+      console.log('Fetching capabilities using source_product_id:', sourceProductId);
+      query = query.eq('id', sourceProductId);
+    }
+    // Fallback to research_result_id if source_product_id is not available
+    else if (researchResultId) {
+      console.log('Fallback: fetching capabilities using research_result_id:', researchResultId);
       query = query.eq('research_result_id', researchResultId);
     }
     
@@ -497,17 +540,23 @@ export async function fetchCapabilities(researchResultId?: string): Promise<Capa
 }
 
 /**
- * Fetches USPs (Unique Selling Propositions) from the approved_products table
- * This function can be used without a specific research_result_id to get all available USPs
+ * Fetches USPs (Unique Selling Propositions) from the approved_products table using dual-ID system
+ * Prioritizes source_product_id, falls back to research_result_id
  */
-export async function fetchUSPs(researchResultId?: string) {
+export async function fetchUSPs(sourceProductId?: string, researchResultId?: string) {
   try {
     let query = supabase
       .from('approved_products')
-      .select('product_data, research_result_id');
+      .select('product_data, research_result_id, id');
     
-    // If a research_result_id is provided, try both id and research_result_id fields
-    if (researchResultId) {
+    // Prioritize source_product_id for dual-ID system
+    if (sourceProductId) {
+      console.log('Fetching USPs using source_product_id:', sourceProductId);
+      query = query.eq('id', sourceProductId);
+    }
+    // Fallback to research_result_id if source_product_id is not available
+    else if (researchResultId) {
+      console.log('Fallback: fetching USPs using research_result_id:', researchResultId);
       query = query.or(`id.eq.${researchResultId},research_result_id.eq.${researchResultId}`);
     }
     
@@ -557,22 +606,26 @@ export async function fetchUSPs(researchResultId?: string) {
 }
 
 /**
- * Fetches competitors from the approved_products table
- * This function can be used without a specific research_result_id to get all available competitors
+ * Fetches competitors from the approved_products table using dual-ID system
+ * Prioritizes source_product_id, falls back to research_result_id
  */
-export async function fetchCompetitors(researchResultId?: string) {
+export async function fetchCompetitors(sourceProductId?: string, researchResultId?: string) {
   try {
     console.log('=== FETCHCOMPETITORS DEBUG START ===');
-    console.log('fetchCompetitors called with researchResultId:', researchResultId);
+    console.log('fetchCompetitors called with sourceProductId:', sourceProductId, 'researchResultId:', researchResultId);
     
     let query = supabase
       .from('approved_products')
       .select('product_data, research_result_id, id');
     
-    // If a research_result_id is provided, try both id and research_result_id fields
-    if (researchResultId) {
-      console.log('Adding query filter for researchResultId:', researchResultId);
-      // First try by id field, then by research_result_id field
+    // Prioritize source_product_id for dual-ID system
+    if (sourceProductId) {
+      console.log('Adding query filter for sourceProductId:', sourceProductId);
+      query = query.eq('id', sourceProductId);
+    }
+    // Fallback to research_result_id if source_product_id is not available
+    else if (researchResultId) {
+      console.log('Fallback: adding query filter for researchResultId:', researchResultId);
       query = query.or(`id.eq.${researchResultId},research_result_id.eq.${researchResultId}`);
     }
     

@@ -27,6 +27,7 @@ interface ContentBriefDisplayProps {
   possibleTitles?: string[];
   additionalLinks?: string[];
   researchResultId?: string;
+  sourceProductId?: string; // Added for dual-ID system
   // Admin-specific props for showing submission context
   userEmail?: string;
   userCompanyName?: string;
@@ -44,6 +45,7 @@ export const ContentBriefDisplay: React.FC<ContentBriefDisplayProps> = ({
   possibleTitles,
   additionalLinks,
   researchResultId,
+  sourceProductId,
   userEmail,
   userCompanyName,
   companyName,
@@ -410,6 +412,7 @@ export const ContentBriefDisplay: React.FC<ContentBriefDisplayProps> = ({
                       onRemoveItem={handleRemoveItem}
                       readOnly={readOnly}
                       researchResultId={researchResultId}
+                      sourceProductId={sourceProductId}
                     />
                   </div>
                 )}
@@ -460,6 +463,7 @@ export const ContentBriefDisplay: React.FC<ContentBriefDisplayProps> = ({
                       onRemoveItem={handleRemoveItem}
                       readOnly={readOnly}
                       researchResultId={researchResultId}
+                      sourceProductId={sourceProductId}
                     />
                   </div>
                 )}
@@ -510,6 +514,7 @@ export const ContentBriefDisplay: React.FC<ContentBriefDisplayProps> = ({
                       onRemoveItem={handleRemoveItem}
                       readOnly={readOnly}
                       researchResultId={researchResultId}
+                      sourceProductId={sourceProductId}
                     />
                   </div>
                 )}
@@ -562,6 +567,7 @@ export const ContentBriefDisplay: React.FC<ContentBriefDisplayProps> = ({
                       onRemoveItem={handleRemoveItem}
                       readOnly={readOnly}
                       researchResultId={researchResultId}
+                      sourceProductId={sourceProductId}
                     />
                   </div>
                 )}

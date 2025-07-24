@@ -36,14 +36,10 @@ export const MediaLibrarySelector: React.FC<MediaLibrarySelectorProps> = ({
 
   const handleMediaSelect = async (media: MediaFile) => {
     try {
-      console.log('Media selected:', media);
-      
       // Get the public URL for the selected media file
       const { data: urlData } = supabase.storage
         .from('media-library')
         .getPublicUrl(media.file_path);
-      
-      console.log('Generated URL:', urlData.publicUrl);
 
       // Convert MediaFile to ImageMetadata format
       const metadata: ImageMetadata = {
@@ -58,7 +54,6 @@ export const MediaLibrarySelector: React.FC<MediaLibrarySelectorProps> = ({
         storagePath: media.file_path
       };
 
-      console.log('Calling onImageInsert with:', urlData.publicUrl, metadata);
       onImageInsert(urlData.publicUrl, metadata);
       onClose();
     } catch (error) {

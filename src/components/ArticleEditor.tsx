@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Image from '@tiptap/extension-image';
+import { ImageWithResize } from '../extensions/ImageExtension';
 import Link from '@tiptap/extension-link';
 import Highlight from '@tiptap/extension-highlight';
 import Typography from '@tiptap/extension-typography';
@@ -77,6 +77,7 @@ import { ExportButton } from './ui/ExportButton';
 import { MediaLibrarySelector } from './ui/MediaLibrarySelector';
 import { LinkTooltip } from './ui/LinkTooltip';
 import { CommentingSystem, ArticleComment } from './ui/CommentingSystem';
+import { ImageResizer } from './ui/ImageResizer';
 import { InlineCommentingExtension } from './ui/InlineCommentingExtension';
 import { CommentHighlightExtension } from '../extensions/CommentHighlightExtension';
 import { ToolbarButton } from './ui/ToolbarButton';
@@ -101,6 +102,7 @@ import { useUserCompany } from '../contexts/ProfileContext';
 
 // Import enhanced CSS styles
 import '../styles/article-editor-enhanced.css';
+import '../styles/image-editor.css';
 
 // Define UserProfile interface
 interface UserProfile {
@@ -349,10 +351,48 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
   // Real-time Collaboration State
   const [isCollaborationReady, setIsCollaborationReady] = useState(false);
   
+  // Image Selection State
+  const [selectedImage, setSelectedImage] = useState<{
+    element: HTMLImageElement;
+    node: any;
+    pos: number;
+    position: { x: number; y: number; width: number; height: number };
+  } | null>(null);
+  
   // Word count and stats
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [readingTime, setReadingTime] = useState(0);
+
+
+  // Update image position on scroll
+  useEffect(() => {
+    if (!selectedImage) return;
+
+    const updateImagePosition = () => {
+      if (selectedImage) {
+        const rect = selectedImage.element.getBoundingClientRect();
+        
+        setSelectedImage(prev => prev ? {
+          ...prev,
+          position: {
+            x: rect.left,
+            y: rect.top,
+            width: rect.width,
+            height: rect.height,
+          }
+        } : null);
+      }
+    };
+
+    window.addEventListener('scroll', updateImagePosition, { passive: true });
+    window.addEventListener('resize', updateImagePosition, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', updateImagePosition);
+      window.removeEventListener('resize', updateImagePosition);
+    };
+  }, [selectedImage]);
 
   const [article, setArticle] = useState<ArticleContent | null>(null);
   const mounted = useRef(true);
@@ -702,9 +742,10 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
           },
         },
       }),
-      Image.configure({
+      ImageWithResize.configure({
         inline: true,
         allowBase64: true,
+        allowResize: true,
       }),
       // Custom list extensions with proper CSS classes
       ListItem.configure({
@@ -807,6 +848,7 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
         isFocused: editor.isFocused 
       });
       
+      
       // Force focus after a short delay to ensure editor is ready
       setTimeout(() => {
         if (editor && !editor.isDestroyed) {
@@ -822,6 +864,95 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       console.log('🎯 Editor lost focus');
     },
   }, [getEditorExtensions, theme]); // ✅ FIXED: Removed 'content' from dependencies to prevent editor recreation
+
+  // Image operation handlers - defined after editor
+  const handleImageResize = useCallback((width: number, height: number) => {
+    if (!selectedImage || !editor) return;
+    
+    console.log('🔄 Resizing image:', { width, height, pos: selectedImage.pos });
+    
+    // Update the image node attributes
+    editor.chain().focus().updateAttributes('imageWithResize', {
+      width: Math.round(width),
+      height: Math.round(height),
+    }).run();
+    
+    // Update the selected image position
+    setTimeout(() => {
+      if (selectedImage) {
+        const rect = selectedImage.element.getBoundingClientRect();
+        
+        setSelectedImage(prev => prev ? {
+          ...prev,
+          position: {
+            x: rect.left,
+            y: rect.top,
+            width: rect.width,
+            height: rect.height,
+          }
+        } : null);
+      }
+    }, 50);
+  }, [selectedImage, editor]);
+
+  const handleImageDelete = useCallback(() => {
+    if (!selectedImage || !editor) return;
+    
+    if (window.confirm('Delete this image?')) {
+      console.log('🗑️ Deleting image at position:', selectedImage.pos);
+      editor.chain().focus().deleteRange({ 
+        from: selectedImage.pos, 
+        to: selectedImage.pos + 1 
+      }).run();
+      setSelectedImage(null);
+    }
+  }, [selectedImage, editor]);
+
+  const handleImageEditCaption = useCallback(() => {
+    if (!selectedImage || !editor) return;
+    
+    const currentCaption = selectedImage.node.attrs.caption || '';
+    const newCaption = window.prompt('Enter image caption:', currentCaption);
+    
+    if (newCaption !== null) {
+      console.log('📝 Updating image caption:', newCaption);
+      editor.chain().focus().updateAttributes('imageWithResize', {
+        caption: newCaption,
+      }).run();
+    }
+  }, [selectedImage, editor]);
+
+  const handleImageClose = useCallback(() => {
+    console.log('❌ Closing image resizer');
+    setSelectedImage(null);
+  }, []);
+
+  // Add a manual focus handler for the editor container
+  const handleEditorContainerClick = useCallback((e: React.MouseEvent) => {
+    console.log('🖱️ Editor container clicked');
+    
+    // Check if click is on an image or image controls
+    const target = e.target as HTMLElement;
+    const isImageClick = target.tagName === 'IMG' || 
+                        target.closest('.image-resizer-overlay') ||
+                        target.closest('.image-resize-handle') ||
+                        target.classList.contains('resize-handle') ||
+                        target.classList.contains('toolbar-button');
+    
+    // Deselect image if clicking elsewhere
+    if (!isImageClick && selectedImage) {
+      console.log('🖼️ Deselecting image due to outside click');
+      setSelectedImage(null);
+    }
+    
+    if (editor && !editor.isDestroyed) {
+      // Small delay to ensure click event completes
+      setTimeout(() => {
+        editor.commands.focus();
+        console.log('🎯 Editor focused from container click');
+      }, 10);
+    }
+  }, [editor, selectedImage]);
 
   // Update comment highlighting when highlighted comment changes
   useEffect(() => {
@@ -869,6 +1000,39 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       }
     };
   }, [editor, isCollaborationReady, articleId]);
+
+  // Cleanup for imageSelected event listener
+  useEffect(() => {
+    const handleImageSelected = (event: CustomEvent) => {
+      const { imageElement, node, pos } = event.detail;
+      console.log('🖼️ ArticleEditor: Received imageSelected event', { imageElement, node, pos });
+      
+      // Calculate image position for overlay (using fixed positioning, so no scroll offset needed)
+      const rect = imageElement.getBoundingClientRect();
+      
+      setSelectedImage({
+        element: imageElement,
+        node: node,
+        pos: pos,
+        position: {
+          x: rect.left,
+          y: rect.top,
+          width: rect.width,
+          height: rect.height,
+        }
+      });
+    };
+
+    if (editor?.view?.dom) {
+      editor.view.dom.addEventListener('imageSelected', handleImageSelected as EventListener);
+      
+      return () => {
+        if (editor?.view?.dom) {
+          editor.view.dom.removeEventListener('imageSelected', handleImageSelected as EventListener);
+        }
+      };
+    }
+  }, [editor]);
   
   // Auto-save functionality with stable debounced function
   const debouncedAutoSave = useMemo(
@@ -989,9 +1153,15 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
   const hasOriginalAuthor = useMemo(() => originalAuthor?.id === adminUser?.id, [originalAuthor, adminUser]);
 
   // Handle image insert
-  const handleImageInsert = (imageUrl: string) => {
+  const handleImageInsert = (imageUrl: string, metadata?: { altText?: string; caption?: string; width?: number; height?: number }) => {
     if (editor) {
-      editor.chain().focus().setImage({ src: imageUrl }).run();
+      editor.chain().focus().setImage({ 
+        src: imageUrl,
+        alt: metadata?.altText || '',
+        caption: metadata?.caption || '',
+        width: metadata?.width,
+        height: metadata?.height
+      }).run();
     }
   };
 
@@ -1112,17 +1282,6 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
     }
   }, [editor]);
 
-  // Add a manual focus handler for the editor container
-  const handleEditorContainerClick = useCallback((e: React.MouseEvent) => {
-    console.log('🖱️ Editor container clicked');
-    if (editor && !editor.isDestroyed) {
-      // Small delay to ensure click event completes
-      setTimeout(() => {
-        editor.commands.focus();
-        console.log('🎯 Editor focused from container click');
-      }, 10);
-    }
-  }, [editor]);
 
   // Enhanced command handlers that maintain selection and focus
   const executeCommand = useCallback((commandFn: () => any, commandName: string) => {
@@ -1896,6 +2055,18 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
           position={linkTooltip.position}
           onEdit={() => handleEditLink(linkData)}
           onClose={() => setShowLinkTooltip(false)}
+        />
+      )}
+
+      {/* Image Resizer */}
+      {selectedImage && (
+        <ImageResizer
+          imageElement={selectedImage.element}
+          position={selectedImage.position}
+          onResize={handleImageResize}
+          onClose={handleImageClose}
+          onDelete={handleImageDelete}
+          onEditCaption={handleImageEditCaption}
         />
       )}
       </motion.div>

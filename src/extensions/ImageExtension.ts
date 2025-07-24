@@ -5,7 +5,7 @@ import { NodeSelection } from '@tiptap/pm/state';
 
 export interface ImageOptions {
   allowBase64: boolean;
-  HTMLAttributes: Record<string, any>;
+  HTMLAttributes: Record<string, string | number | boolean>;
   inline: boolean;
   allowResize: boolean;
 }
@@ -13,7 +13,7 @@ export interface ImageOptions {
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     imageWithResize: {
-      setImage: (options: { src: string; alt?: string; title?: string; width?: number; height?: number }) => ReturnType;
+      setImage: (options: { src: string; alt?: string; title?: string; width?: number; height?: number; caption?: string }) => ReturnType;
     };
   }
 }
@@ -21,12 +21,68 @@ declare module '@tiptap/core' {
 const inputRegex = /(?:^|\s)(!\[(.+|:?)]\((\S+)(?:(?:\s+)["'](\S+)["'])?\))$/;
 
 // Helper functions for image manipulation
-const handleImageResize = (editor: any, pos: number, event: MouseEvent) => {
-  console.log('Resize started', { pos, event });
-  // TODO: Implement actual resize logic
+const handleImageResize = (editor: any, pos: number, event: MouseEvent) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const target = event.target as HTMLElement;
+  const direction = target.getAttribute('data-direction');
+  const node = editor.state.doc.nodeAt(pos);
+  
+  if (!node || !direction) return;
+
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const startWidth = node.attrs.width || 300;
+  const startHeight = node.attrs.height || 200;
+
+  const handleMouseMove = (e: MouseEvent) => {
+    const deltaX = e.clientX - startX;
+    const deltaY = e.clientY - startY;
+    
+    let newWidth = startWidth;
+    let newHeight = startHeight;
+    
+    // Calculate new dimensions based on resize direction
+    switch (direction) {
+      case 'se':
+        newWidth = Math.max(100, startWidth + deltaX);
+        newHeight = Math.max(75, startHeight + deltaY);
+        break;
+      case 'sw':
+        newWidth = Math.max(100, startWidth - deltaX);
+        newHeight = Math.max(75, startHeight + deltaY);
+        break;
+      case 'ne':
+        newWidth = Math.max(100, startWidth + deltaX);
+        newHeight = Math.max(75, startHeight - deltaY);
+        break;
+      case 'nw':
+        newWidth = Math.max(100, startWidth - deltaX);
+        newHeight = Math.max(75, startHeight - deltaY);
+        break;
+    }
+
+    // Maintain aspect ratio by default (can be made optional)
+    const aspectRatio = startWidth / startHeight;
+    newHeight = newWidth / aspectRatio;
+
+    // Update the node attributes
+    editor.chain().focus().updateAttributes('imageWithResize', {
+      width: Math.round(newWidth),
+      height: Math.round(newHeight),
+    }).run();
+  };
+
+  const handleMouseUp = () => {
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = '';
+  };
+
+  document.addEventListener('mousemove', handleMouseMove);
+  document.addEventListener('mouseup', handleMouseUp);
+  document.body.style.cursor = `${direction}-resize`;
 };
 
-const editImageCaption = (editor: any, pos: number) => {
+const editImageCaption = (editor: any, pos: number) => { // eslint-disable-line @typescript-eslint/no-explicit-any
   const node = editor.state.doc.nodeAt(pos);
   if (!node) return;
 
@@ -40,7 +96,7 @@ const editImageCaption = (editor: any, pos: number) => {
   }
 };
 
-const deleteImage = (editor: any, pos: number) => {
+const deleteImage = (editor: any, pos: number) => { // eslint-disable-line @typescript-eslint/no-explicit-any
   if (window.confirm('Delete this image?')) {
     editor.chain().focus().deleteRange({ from: pos, to: pos + 1 }).run();
   }
@@ -156,66 +212,44 @@ export const ImageWithResize = Node.create<ImageOptions>({
       return [];
     }
 
-    const editor = this.editor;
-
     return [
       new Plugin({
-        key: new PluginKey('imageResize'),
+        key: new PluginKey('imageSelection'),
         props: {
-          decorations: (state) => {
-            const decorations: Decoration[] = [];
-            const { doc, selection } = state;
-
-            // Check if selection is a NodeSelection and the selected node is an image
-            if (selection instanceof NodeSelection && selection.node.type.name === this.name) {
-              const pos = selection.from;
-              decorations.push(
-                Decoration.widget(pos + 1, () => {
-                  const resizeHandle = document.createElement('div');
-                  resizeHandle.className = 'image-resize-handle';
-                  resizeHandle.innerHTML = `
-                    <div class="image-controls">
-                      <button class="resize-handle resize-nw" data-direction="nw"></button>
-                      <button class="resize-handle resize-ne" data-direction="ne"></button>
-                      <button class="resize-handle resize-sw" data-direction="sw"></button>
-                      <button class="resize-handle resize-se" data-direction="se"></button>
-                      <div class="image-toolbar">
-                        <button class="image-edit-caption" title="Edit Caption">📝</button>
-                        <button class="image-delete" title="Delete Image">🗑️</button>
-                      </div>
-                    </div>
-                  `;
-
-                  // Add resize functionality
-                  const handles = resizeHandle.querySelectorAll('.resize-handle');
-                  handles.forEach(handle => {
-                    handle.addEventListener('mousedown', (e) => {
-                      e.preventDefault();
-                      handleImageResize(editor, pos, e as MouseEvent);
+          handleDOMEvents: {
+            click: (view, event) => {
+              const target = event.target as HTMLElement;
+              
+              // Handle image clicks for selection
+              if (target.tagName === 'IMG' && target.closest('.ProseMirror')) {
+                const pos = view.posAtDOM(target, 0);
+                if (pos !== null) {
+                  const node = view.state.doc.nodeAt(pos);
+                  if (node && node.type.name === this.name) {
+                    // Create a NodeSelection for the image
+                    const selection = NodeSelection.create(view.state.doc, pos);
+                    const transaction = view.state.tr.setSelection(selection);
+                    view.dispatch(transaction);
+                    
+                    // Dispatch custom event for ArticleEditor to handle
+                    const customEvent = new CustomEvent('imageSelected', {
+                      detail: {
+                        imageElement: target,
+                        node: node,
+                        pos: pos,
+                      }
                     });
-                  });
-
-                  // Add caption editing
-                  const captionBtn = resizeHandle.querySelector('.image-edit-caption');
-                  captionBtn?.addEventListener('click', () => {
-                    editImageCaption(editor, pos);
-                  });
-
-                  // Add delete functionality
-                  const deleteBtn = resizeHandle.querySelector('.image-delete');
-                  deleteBtn?.addEventListener('click', () => {
-                    deleteImage(editor, pos);
-                  });
-
-                  return resizeHandle;
-                }, {
-                  side: 1,
-                  marks: [],
-                })
-              );
-            }
-
-            return DecorationSet.create(doc, decorations);
+                    console.log('🖼️ ImageExtension: Dispatching imageSelected event', { target, node, pos });
+                    // Dispatch on the editor DOM instead of the image element
+                    view.dom.dispatchEvent(customEvent);
+                    
+                    return true;
+                  }
+                }
+              }
+              
+              return false;
+            },
           },
         },
       }),

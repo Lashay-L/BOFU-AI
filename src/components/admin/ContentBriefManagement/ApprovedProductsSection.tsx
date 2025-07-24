@@ -46,7 +46,7 @@ export function ApprovedProductsSection({
             const isExpanded = expandedProductIndex === expandKey;
             
             return (
-              <div key={approvedProduct.id}>
+              <div key={approvedProduct.id} id={`approved-product-${approvedProduct.id}`}>
                 <div 
                   onClick={() => onExpandToggle(expandKey)}
                   className="bg-gray-700/40 rounded-lg p-4 border border-gray-600/30 cursor-pointer hover:bg-gray-600/50 transition-colors"

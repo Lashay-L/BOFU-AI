@@ -551,6 +551,20 @@ export default function ImageRepositoryPage({
             className="mx-6 mt-6"
           />
 
+          {/* Selection Help Message */}
+          {onMediaSelect && (
+            <div className="mx-6 mb-4 p-3 bg-blue-900/30 border border-blue-700/50 rounded-lg">
+              <div className="flex items-center space-x-2 text-blue-300">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm font-medium">
+                  Hover over any image and click the blue "+" button to insert it into your article
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Media Grid */}
           <div className="flex-1 overflow-auto p-6">
             {isLoading ? (

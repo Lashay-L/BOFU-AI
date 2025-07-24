@@ -109,6 +109,7 @@ export function useContentBriefs() {
         .from('content_briefs')
         .select('*')
         .eq('user_id', userId)
+        .not('article_content', 'is', null)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -154,18 +155,65 @@ export function useContentBriefs() {
 
       console.log('📋 Company content loaded:', contentBriefs?.length || 0);
       
-      // Process content briefs to generate keyword-based titles
-      const briefsWithKeywordTitles = await Promise.all(
+      // Process content briefs to generate keyword-based titles and fetch source product data
+      const briefsWithEnhancedData = await Promise.all(
         (contentBriefs || []).map(async (brief) => {
           const title = await generateKeywordTitle(brief);
+          
+          // Fetch source product data using dual-ID system
+          let sourceProductData = null;
+          
+          // Prioritize source_product_id for dual-ID system
+          if (brief.source_product_id) {
+            try {
+              console.log('Fetching source product data for brief:', brief.id, 'using source_product_id:', brief.source_product_id);
+              const { data: approvedProduct, error: productError } = await supabase
+                .from('approved_products')
+                .select('product_data')
+                .eq('id', brief.source_product_id)
+                .single();
+
+              if (!productError && approvedProduct?.product_data) {
+                sourceProductData = typeof approvedProduct.product_data === 'string' 
+                  ? JSON.parse(approvedProduct.product_data) 
+                  : approvedProduct.product_data;
+                console.log('✅ Source product data loaded for brief:', brief.id);
+              }
+            } catch (productError) {
+              console.warn('Could not fetch source product data using source_product_id:', productError);
+            }
+          }
+          
+          // Fallback to research_result_id if source_product_id didn't work
+          if (!sourceProductData && brief.research_result_id) {
+            try {
+              console.log('Fallback: fetching source product data using research_result_id:', brief.research_result_id);
+              const { data: approvedProduct, error: productError } = await supabase
+                .from('approved_products')
+                .select('product_data')
+                .or(`id.eq.${brief.research_result_id},research_result_id.eq.${brief.research_result_id}`)
+                .single();
+
+              if (!productError && approvedProduct?.product_data) {
+                sourceProductData = typeof approvedProduct.product_data === 'string' 
+                  ? JSON.parse(approvedProduct.product_data) 
+                  : approvedProduct.product_data;
+                console.log('✅ Source product data loaded via fallback for brief:', brief.id);
+              }
+            } catch (productError) {
+              console.warn('Could not fetch source product data using research_result_id fallback:', productError);
+            }
+          }
+          
           return {
             ...brief,
-            title
+            title,
+            sourceProductData
           };
         })
       );
       
-      setUserContentBriefs(briefsWithKeywordTitles);
+      setUserContentBriefs(briefsWithEnhancedData);
     } catch (error) {
       console.error('❌ Error fetching company content briefs:', error);
       setUserContentBriefs([]);

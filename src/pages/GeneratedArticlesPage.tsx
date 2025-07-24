@@ -12,7 +12,7 @@ interface GeneratedArticle {
   id: string;
   title: string;
   product_name?: string; // Added product_name
-  link: string;
+  link: string | null; // Changed to allow null links
   updated_at: string;
   first_keyword?: string | null;
 }
@@ -45,8 +45,8 @@ const GeneratedArticlesPage: React.FC = () => {
         setLoading(true);
         const { data, error: dbError } = await supabase
           .from('content_briefs')
-          .select('id, possible_article_titles, product_name, link, updated_at, brief_content') // Added product_name and brief_content to select
-          .not('link', 'is', null)
+          .select('id, possible_article_titles, product_name, link, updated_at, brief_content, article_content') // Added article_content to select
+          .not('article_content', 'is', null)
           .order('updated_at', { ascending: false });
 
         if (dbError) {
@@ -263,15 +263,17 @@ const GeneratedArticlesPage: React.FC = () => {
                     Edit Article
                     <span className="text-xs opacity-80 ml-1">(New Editor)</span>
                   </button>
-                  <a
-                    href={article.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors duration-200"
-                  >
-                    <ExternalLink size={16} />
-                    Open Google Doc
-                  </a>
+                  {article.link && (
+                    <a
+                      href={article.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors duration-200"
+                    >
+                      <ExternalLink size={16} />
+                      Open Google Doc
+                    </a>
+                  )}
                   <button
                     onClick={() => handleDeleteClick(article)}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100 transition-colors duration-200 group"
