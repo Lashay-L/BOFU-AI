@@ -349,12 +349,29 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
         // Transform and combine the data (using ContentBriefManagement logic)
         const transformedUsers: UserProfile[] = [];
         
-        // Add main users
+        // Group users by company and determine main vs sub accounts
+        const companiesMap = new Map<string, UserProfile[]>();
+        
         (mainUsers || []).forEach(user => {
-          transformedUsers.push({
-            ...user,
-            user_type: 'main',
-            profile_role: 'admin' // Main users are typically admins of their company
+          const companyName = user.company_name || 'Unknown Company';
+          if (!companiesMap.has(companyName)) {
+            companiesMap.set(companyName, []);
+          }
+          companiesMap.get(companyName)!.push(user);
+        });
+        
+        // For each company, assign the earliest created user as main, others as sub
+        companiesMap.forEach((companyUsers) => {
+          // Sort by creation date (earliest first)
+          companyUsers.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          
+          companyUsers.forEach((user, index) => {
+            transformedUsers.push({
+              ...user,
+              user_type: index === 0 ? 'main' : 'sub',
+              profile_role: index === 0 ? 'admin' : 'editor', // Main user is admin, others are editors
+              parent_user_id: index === 0 ? undefined : companyUsers[0].id
+            });
           });
         });
 

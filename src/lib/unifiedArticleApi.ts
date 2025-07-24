@@ -71,12 +71,22 @@ export class UnifiedArticleService {
         return null;
       }
 
-      // Check if user is admin
-      const { data: adminProfile } = await supabase
-        .from('admin_profiles')
-        .select('id, email, role, permissions')
-        .eq('id', user.id)
-        .single();
+      // Check if user is admin (with proper error handling for regular users)
+      let adminProfile = null;
+      try {
+        const { data: adminData, error: adminError } = await supabase
+          .from('admin_profiles')
+          .select('id, email, role, permissions')
+          .eq('id', user.id)
+          .single();
+        
+        if (adminData && !adminError) {
+          adminProfile = adminData;
+        }
+      } catch (adminProfileError) {
+        // Regular users can't access admin_profiles table due to RLS - this is expected
+        console.log('Admin profile check failed (expected for regular users):', adminProfileError);
+      }
 
       return {
         id: user.id,
@@ -101,14 +111,17 @@ export class UnifiedArticleService {
         return true;
       }
 
-      // Regular users can only access their own articles
-      const { data: article } = await supabase
+      // For regular users, rely on RLS policies to determine access
+      // RLS policies handle company-based access and admin assignments
+      const { data: article, error } = await supabase
         .from('content_briefs')
         .select('user_id')
         .eq('id', articleId)
         .single();
 
-      return article?.user_id === userContext.id;
+      // If RLS allows the query to succeed, user has access
+      // If RLS blocks access, the query will return null or error
+      return !error && !!article;
     } catch (error) {
       console.error('Error checking article access:', error);
       return false;
