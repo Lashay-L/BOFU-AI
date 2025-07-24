@@ -1103,7 +1103,7 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       } finally {
         setIsAutoSaving(false);
       }
-      }, 2000);
+      }, 60000);
     },
     [articleId] // Only include absolutely necessary stable dependencies
   );
