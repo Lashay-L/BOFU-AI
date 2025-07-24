@@ -25,82 +25,43 @@ interface ExtendedContentBrief {
   source_product_id?: string; // Added for dual-ID system
 }
 
-// Helper function to clean content - removes markdown code blocks and formatting issues
+// Helper function to safely clean content - preserves JSON structure
 const cleanContent = (content: any): string => {
   if (!content) return '';
   
-  // Handle non-string content by converting to string
-  let cleanedContent = typeof content !== 'string' 
-    ? JSON.stringify(content, null, 2) 
-    : content;
-    
-  console.log('Cleaning content type:', typeof cleanedContent);
-  if (typeof cleanedContent === 'string') {
-    console.log('Cleaning content preview:', cleanedContent.substring(0, 200) + (cleanedContent.length > 200 ? '...' : ''));
+  // Handle different content types safely
+  let cleanedContent: string;
+  
+  if (typeof content === 'object') {
+    // If it's already a parsed object, stringify it properly
+    cleanedContent = JSON.stringify(content, null, 2);
+  } else if (typeof content === 'string') {
+    cleanedContent = content;
   } else {
-    console.log('Cleaning content is not a string:', cleanedContent);
-    return '';
+    cleanedContent = String(content);
   }
   
-  // Only process string content
-  if (typeof cleanedContent !== 'string') {
-    console.warn('Cannot clean non-string content');
-    return JSON.stringify(cleanedContent, null, 2);
-  }
-
-  // SPECIAL CASE: Handle the exact pattern from the screenshot with ```json prefix
-  // This is the most aggressive fix targeting the specific issue
-  if (cleanedContent.startsWith('```json')) {
-    console.log('Detected content starting with ```json, removing code block markers');
-    // Find the end marker or just remove the start if no end is found
-    const endMarkerIndex = cleanedContent.lastIndexOf('```');
-    if (endMarkerIndex > 6) { // If there's a closing marker (6 is the length of ```json)
-      cleanedContent = cleanedContent.substring(7, endMarkerIndex).trim();
-    } else {
-      cleanedContent = cleanedContent.substring(7).trim();
-    }
-    console.log('After aggressive cleaning:', cleanedContent.substring(0, 50));
+  console.log('Cleaning content type:', typeof content);
+  console.log('Cleaned content preview:', cleanedContent.substring(0, 200));
+  
+  // Only remove markdown code blocks if they're clearly wrapping JSON
+  // Be much more conservative to prevent data corruption
+  if (cleanedContent.startsWith('```json\n') && cleanedContent.endsWith('\n```')) {
+    console.log('Detected properly wrapped JSON code block, extracting content');
+    cleanedContent = cleanedContent.slice(8, -4).trim(); // Remove ```json\n and \n```
+  } else if (cleanedContent.startsWith('```\n') && cleanedContent.endsWith('\n```')) {
+    console.log('Detected generic code block, extracting content');
+    cleanedContent = cleanedContent.slice(4, -4).trim(); // Remove ```\n and \n```
   }
   
-  // Regular multiline handling - more reliable than simple regex
-  if (cleanedContent.includes('```')) {
-    const lines = cleanedContent.split('\n');
-    const filteredLines = [];
-    let inCodeBlock = false;
-    
-    for (const line of lines) {
-      if (line.trim().startsWith('```')) {
-        inCodeBlock = !inCodeBlock;
-        continue; // Skip the code block delimiter lines
-      }
-      
-      if (!inCodeBlock) {
-        filteredLines.push(line);
-      }
-    }
-    
-    cleanedContent = filteredLines.join('\n').trim();
-    console.log('After line-by-line code block cleaning:', cleanedContent.substring(0, 50));
-  }
-  
-  // As a final fallback, use regex for simple cases
-  const codeBlockRegex = /^\s*```(?:json|javascript|js)?([\s\S]*?)```\s*$/;
-  const match = cleanedContent.match(codeBlockRegex);
-  
-  if (match && match[1]) {
-    // If wrapped in code blocks, extract the content inside
-    console.log('Content appears to be in code blocks, extracting inner content');
-    cleanedContent = match[1].trim();
-  }
-
-  // Check if the content starts and ends with proper JSON braces/brackets
-  if (cleanedContent && !cleanedContent.startsWith('{') && !cleanedContent.startsWith('[')) {
-    console.warn('Content does not start with proper JSON opening character');
-    // Try to find a JSON object start in the content
-    const jsonStartIndex = cleanedContent.indexOf('{');
-    if (jsonStartIndex >= 0) {
-      console.log('Found JSON object start at position', jsonStartIndex);
-      cleanedContent = cleanedContent.substring(jsonStartIndex);
+  // Try to validate that we still have valid JSON after cleaning
+  if (cleanedContent) {
+    try {
+      JSON.parse(cleanedContent);
+      console.log('Content is valid JSON after cleaning');
+    } catch (e) {
+      console.warn('Content is not valid JSON after cleaning, may need manual review:', e);
+      // Don't modify the content further if it's not valid JSON
     }
   }
   

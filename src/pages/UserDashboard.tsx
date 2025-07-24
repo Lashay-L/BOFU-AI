@@ -4,8 +4,10 @@ import { UserDashboardLayout } from '../components/user-dashboard/UserDashboardL
 import { DataboxEmbed } from '../components/common/DataboxEmbed';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
+import { clearContentBriefData } from '../lib/contentBriefApi';
 import { PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
+import { toast } from 'react-hot-toast';
 
 interface ContentBrief {
   id: string;
@@ -133,7 +135,7 @@ export default function UserDashboard() {
   };
 
   const handleDeleteBrief = async (briefId: string) => {
-    if (!confirm('Are you sure you want to delete this content brief?')) return;
+    if (!confirm('Are you sure you want to clear the content brief data? This will remove the brief content but preserve any generated article content, comments, and version history.')) return;
     
     if (!user?.id) {
       console.error('No user ID available');
@@ -141,17 +143,26 @@ export default function UserDashboard() {
     }
 
     try {
-      const { error } = await supabase
-        .from('content_briefs')
-        .delete()
-        .eq('id', briefId);
+      const result = await clearContentBriefData(briefId);
+      
+      if (!result.success) {
+        toast.error(result.error || 'Failed to clear content brief data');
+        return;
+      }
 
-      if (error) throw error;
+      // Show success message with cleanup details
+      const clearedImages = result.clearedImages?.length || 0;
+      if (clearedImages > 0) {
+        toast.success(`Content brief data cleared successfully. Cleaned up ${clearedImages} brief-only images. Generated article preserved.`);
+      } else {
+        toast.success('Content brief data cleared successfully. Generated article preserved.');
+      }
 
       // Refresh data
       fetchDashboardData();
     } catch (error) {
-      console.error('Error deleting content brief:', error);
+      console.error('Error clearing content brief data:', error);
+      toast.error('Failed to clear content brief data');
     }
   };
 

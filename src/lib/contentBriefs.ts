@@ -250,13 +250,29 @@ export async function updateBrief(id: string, updates: { brief_content?: string;
     console.log('[updateBrief] Current brief currentBrief.possible_article_titles:', currentBrief.possible_article_titles);
   }
 
-  // Helper function to always ensure text format (never arrays) for storage in Supabase
+  // Helper function to safely ensure text format while preserving JSON structure
   const ensureTextFormat = (value: string[] | string | undefined): string => {
     if (!value) return '';
-    // If it's already a string, return it directly (preserve original format)
-    if (typeof value === 'string') return value;
-    // If it's an array, join with newlines
-    if (Array.isArray(value)) return value.join('\n');
+    
+    // If it's already a string, check if it's valid JSON before converting
+    if (typeof value === 'string') {
+      try {
+        // If it's a valid JSON string representing an array, preserve it as JSON
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) {
+          return JSON.stringify(parsed);
+        }
+        return value; // Return as-is if it's valid JSON but not an array
+      } catch {
+        return value; // Return as-is if not JSON
+      }
+    }
+    
+    // If it's an array, convert to JSON string to preserve structure
+    if (Array.isArray(value)) {
+      return JSON.stringify(value);
+    }
+    
     // Fallback
     return String(value);
   };
@@ -337,6 +353,25 @@ export async function updateBrief(id: string, updates: { brief_content?: string;
   }
   
   console.log('FINAL UPDATE PAYLOAD to Supabase:', preservedUpdates);
+  
+  // Validate brief_content before saving - only validate if it looks like JSON data
+  if (preservedUpdates.brief_content && typeof preservedUpdates.brief_content === 'object') {
+    try {
+      // Only validate if it's an object (structured data), not HTML strings
+      JSON.parse(JSON.stringify(preservedUpdates.brief_content));
+      console.log('✅ brief_content structured data validation passed');
+    } catch (error) {
+      console.error('❌ Invalid structured data in brief_content, preventing save:', error);
+      throw new Error('Invalid data structure in brief_content. Please check the content format.');
+    }
+  } else if (preservedUpdates.brief_content && typeof preservedUpdates.brief_content === 'string') {
+    // For string content (HTML from TipTap editor), just ensure it's not empty if provided
+    if (preservedUpdates.brief_content.trim().length === 0) {
+      console.warn('⚠️ Empty brief_content string provided');
+    } else {
+      console.log('✅ brief_content string validation passed');
+    }
+  }
   
   // Use preservedUpdates directly since the updates type doesn't include id or created_at
   const safeUpdates = preservedUpdates;

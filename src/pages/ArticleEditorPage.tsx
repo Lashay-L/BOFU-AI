@@ -20,7 +20,7 @@ import {
   X
 } from 'lucide-react';
 import { ArticleEditor } from '../components/ArticleEditor';
-import { loadArticleContent, ArticleContent } from '../lib/articleApi';
+import { loadArticleContent, ArticleContent, saveArticleContent } from '../lib/articleApi';
 import { supabase } from '../lib/supabase';
 import { GoogleDocLink } from '../components/ui/GoogleDocLink';
 
@@ -97,23 +97,73 @@ export const ArticleEditorPage: React.FC<ArticleEditorPageProps> = () => {
   };
 
   // Handle save success
-  const handleSaveSuccess = (content: string) => {
-    setLastSaved(new Date());
-    // Calculate word count and reading time
-    const text = content.replace(/<[^>]*>/g, ''); // Strip HTML
-    const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
-    setWordCount(words);
-    setReadingTime(Math.ceil(words / 200)); // 200 words per minute
+  const handleSaveSuccess = async (content: string) => {
+    console.log('🔄 [USER] handleSaveSuccess called for manual save:', {
+      articleId,
+      contentLength: content.length
+    });
+    
+    if (!articleId) {
+      console.warn('⚠️ [USER] Manual save skipped - no articleId');
+      return;
+    }
+    
+    try {
+      console.log('🔄 [USER] Calling saveArticleContent for manual save...');
+      
+      const result = await saveArticleContent(articleId, content, 'editing');
+      
+      if (result.success) {
+        console.log('✅ [USER] Manual save successful');
+        setLastSaved(new Date());
+        
+        // Calculate word count and reading time
+        const text = content.replace(/<[^>]*>/g, ''); // Strip HTML
+        const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+        setWordCount(words);
+        setReadingTime(Math.ceil(words / 200)); // 200 words per minute
+      } else {
+        console.error('❌ [USER] Manual save failed:', result.error);
+        throw new Error(result.error || 'Save failed');
+      }
+    } catch (error) {
+      console.error('❌ [USER] Manual save error:', error);
+      throw error; // Re-throw so ArticleEditor can handle the error
+    }
   };
 
   // Handle auto-save
-  const handleAutoSave = (content: string) => {
-    setLastSaved(new Date());
-    // Update word count on auto-save too
-    const text = content.replace(/<[^>]*>/g, '');
-    const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
-    setWordCount(words);
-    setReadingTime(Math.ceil(words / 200));
+  const handleAutoSave = async (content: string) => {
+    console.log('🔄 [USER] handleAutoSave called for article:', {
+      articleId,
+      contentLength: content.length
+    });
+    
+    if (!articleId) {
+      console.warn('⚠️ [USER] Auto-save skipped - no articleId');
+      return;
+    }
+    
+    try {
+      console.log('🔄 [USER] Calling saveArticleContent for auto-save...');
+      
+      const result = await saveArticleContent(articleId, content, 'editing');
+      
+      if (result.success) {
+        console.log('✅ [USER] Auto-save successful');
+        setLastSaved(new Date());
+        
+        // Update word count on successful auto-save
+        const text = content.replace(/<[^>]*>/g, '');
+        const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+        setWordCount(words);
+        setReadingTime(Math.ceil(words / 200));
+      } else {
+        console.error('❌ [USER] Auto-save failed:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ [USER] Auto-save error:', error);
+    }
   };
 
   // Memoize the formatted last saved time to prevent constant re-renders

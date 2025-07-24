@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Loader2, ChevronDown, ChevronRight, Crown, Edit, Trash2 } from 'lucide-react';
+import { BookOpen, Loader2, ChevronDown, ChevronRight, Crown, Edit, Trash2, Check, X } from 'lucide-react';
 import { ContentBriefsSectionProps, UserProfile } from './types';
 import { ContentBrief } from '../../../types/contentBrief';
 import { ContentBriefEditorSimple } from '../../content-brief/ContentBriefEditorSimple';
@@ -20,6 +20,53 @@ export function ContentBriefsSection({
   autoSaving,
   onAutoSaveStateChange
 }: ContentBriefsSectionProps) {
+  // State for inline title editing
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
+  const [tempTitle, setTempTitle] = useState<string>('');
+  const [isUpdatingTitle, setIsUpdatingTitle] = useState(false);
+
+  // Handle title editing
+  const handleTitleEdit = (brief: ContentBrief) => {
+    const currentTitle = (() => {
+      if (brief.title && brief.title.trim()) {
+        return brief.title
+          .replace(/\s*-\s*Brief\s+[a-z0-9]{8,}$/i, '')
+          .replace(/\s*-\s*Content Brief\s+[a-z0-9]{8,}$/i, '')
+          .replace(/\s*-\s*Content Brief$/i, '')
+          .trim();
+      }
+      return brief.product_name || 'Untitled';
+    })();
+    
+    setEditingTitleId(brief.id);
+    setTempTitle(currentTitle);
+  };
+
+  const handleTitleSave = async (briefId: string) => {
+    if (!tempTitle.trim()) {
+      toast.error('Title cannot be empty');
+      return;
+    }
+
+    setIsUpdatingTitle(true);
+    try {
+      await updateBrief(briefId, { title: tempTitle.trim() });
+      toast.success('Title updated successfully');
+      setEditingTitleId(null);
+      onRefreshData(); // Refresh the data to show updated title
+    } catch (error) {
+      console.error('Error updating title:', error);
+      toast.error('Failed to update title');
+    } finally {
+      setIsUpdatingTitle(false);
+    }
+  };
+
+  const handleTitleCancel = () => {
+    setEditingTitleId(null);
+    setTempTitle('');
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -52,7 +99,7 @@ export function ContentBriefsSection({
             const isCollapsed = collapsedContentBriefs.has(brief.id);
             
             return (
-              <div key={brief.id} className="bg-gray-700/40 rounded-lg border border-gray-600/30">
+              <div key={brief.id} className="bg-gray-700/40 rounded-lg border border-gray-600/30 group">
                 <div className="p-4 border-b border-gray-600/30 bg-gray-700/20">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -72,40 +119,88 @@ export function ContentBriefsSection({
                         onClick={() => onCollapseToggle(brief.id)}
                       >
                         <div className="flex items-center gap-3 mb-2">
-                          <h4 className="text-xl font-bold text-white leading-tight">
-                            {(() => {
-                              // Clean title logic - remove any ID suffixes
-                              if (brief.title && brief.title.trim()) {
-                                // Remove any "- Brief [ID]" or "- Content Brief [ID]" suffixes
-                                const cleanTitle = brief.title
-                                  .replace(/\s*-\s*Brief\s+[a-z0-9]{8,}$/i, '')
-                                  .replace(/\s*-\s*Content Brief\s+[a-z0-9]{8,}$/i, '')
-                                  .replace(/\s*-\s*Content Brief$/i, '')
-                                  .trim();
-                                if (cleanTitle) {
-                                  return cleanTitle;
-                                }
-                              }
-                              // Extract first keyword from brief content if available
-                              if (brief.brief_content) {
-                                try {
-                                  let briefContent = brief.brief_content as any;
-                                  if (typeof briefContent === 'string') {
-                                    briefContent = JSON.parse(briefContent);
+                          {editingTitleId === brief.id ? (
+                            // Edit mode
+                            <div className="flex items-center gap-2 flex-1">
+                              <input
+                                type="text"
+                                value={tempTitle}
+                                onChange={(e) => setTempTitle(e.target.value)}
+                                className="text-xl font-bold text-white bg-gray-700 border border-gray-600 rounded px-3 py-1 flex-1 focus:outline-none focus:border-blue-500"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleTitleSave(brief.id);
+                                  if (e.key === 'Escape') handleTitleCancel();
+                                }}
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => handleTitleSave(brief.id)}
+                                disabled={isUpdatingTitle}
+                                className="p-1 text-green-400 hover:text-green-300 disabled:opacity-50"
+                              >
+                                {isUpdatingTitle ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Check className="w-4 h-4" />
+                                )}
+                              </button>
+                              <button
+                                onClick={handleTitleCancel}
+                                disabled={isUpdatingTitle}
+                                className="p-1 text-red-400 hover:text-red-300 disabled:opacity-50"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            // Display mode
+                            <div className="flex items-center gap-2 flex-1">
+                              <h4 className="text-xl font-bold text-white leading-tight flex-1">
+                                {(() => {
+                                  // Clean title logic - remove any ID suffixes
+                                  if (brief.title && brief.title.trim()) {
+                                    // Remove any "- Brief [ID]" or "- Content Brief [ID]" suffixes
+                                    const cleanTitle = brief.title
+                                      .replace(/\s*-\s*Brief\s+[a-z0-9]{8,}$/i, '')
+                                      .replace(/\s*-\s*Content Brief\s+[a-z0-9]{8,}$/i, '')
+                                      .replace(/\s*-\s*Content Brief$/i, '')
+                                      .trim();
+                                    if (cleanTitle) {
+                                      return cleanTitle;
+                                    }
                                   }
-                                  if (briefContent.keywords && Array.isArray(briefContent.keywords) && briefContent.keywords.length > 0) {
-                                    const firstKeyword = briefContent.keywords[0].replace(/[`'"]/g, '').trim();
-                                    const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
-                                    return cleanKeyword;
+                                  // Extract first keyword from brief content if available
+                                  if (brief.brief_content) {
+                                    try {
+                                      let briefContent = brief.brief_content as any;
+                                      if (typeof briefContent === 'string') {
+                                        briefContent = JSON.parse(briefContent);
+                                      }
+                                      if (briefContent.keywords && Array.isArray(briefContent.keywords) && briefContent.keywords.length > 0) {
+                                        const firstKeyword = briefContent.keywords[0].replace(/[`'"]/g, '').trim();
+                                        const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
+                                        return cleanKeyword;
+                                      }
+                                    } catch (error) {
+                                      console.warn('Could not extract keywords from brief content:', error);
+                                    }
                                   }
-                                } catch (error) {
-                                  console.warn('Could not extract keywords from brief content:', error);
-                                }
-                              }
-                              // Fallback to product name only (no ID)
-                              return brief.product_name || `Content Brief - ${new Date(brief.created_at).toLocaleDateString()}`;
-                            })()}
-                          </h4>
+                                  // Fallback to product name only (no ID)
+                                  return brief.product_name || `Content Brief - ${new Date(brief.created_at).toLocaleDateString()}`;
+                                })()}
+                              </h4>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleTitleEdit(brief);
+                                }}
+                                className="p-1 text-gray-400 hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Edit title"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
                           <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-full border border-green-500/30">
                             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                             <span className="text-xs font-medium text-green-300">Active Brief</span>

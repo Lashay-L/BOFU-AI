@@ -22,7 +22,7 @@ import { VersionHistoryModal } from '../components/admin/VersionHistoryModal';
 import { MetadataEditorModal } from '../components/admin/MetadataEditorModal';
 import { ArticleEditor } from '../components/ArticleEditor';
 import type { ArticleListItem, UserProfile } from '../types/adminApi';
-import { ArticleContent, loadArticleContentAsAdmin } from '../lib/articleApi';
+import { ArticleContent, loadArticleContentAsAdmin, autoSaveArticleContentAsAdmin } from '../lib/articleApi';
 import { toast } from 'react-hot-toast';
 import { 
   auditLogger, 
@@ -69,6 +69,8 @@ const mockArticles: ArticleListItem[] = Array.from({ length: 15 }, (_, i) => ({
 }));
 
 function AdminArticleManagementPage({ user }: AdminArticleManagementPageProps) {
+  console.log('🚀 [ADMIN PAGE] Component mounted/re-rendered');
+  
   // Use AdminContext for admin authentication
   const { isAdmin, adminRole, adminId, adminEmail, isLoading: isLoadingAdminProfile } = useAdminContext();
   const [selectedArticles, setSelectedArticles] = useState<ArticleListItem[]>([]);
@@ -383,6 +385,51 @@ function AdminArticleManagementPage({ user }: AdminArticleManagementPageProps) {
     }
   };
 
+  const handleAutoSave = async (content: string) => {
+    console.log('🔥🔥🔥 [ADMIN] AUTOSAVE FUNCTION CALLED! 🔥🔥🔥');
+    console.log('🔄 [ADMIN] handleAutoSave called:', {
+      hasArticle: !!articleEditing.article,
+      hasAdminId: !!adminId,
+      hasOriginalAuthor: !!articleEditing.originalAuthor,
+      contentLength: content.length,
+      articleId: articleEditing.article?.id
+    });
+    
+    if (articleEditing.article && adminId && articleEditing.originalAuthor) {
+      try {
+        console.log('🔄 [ADMIN] Calling autoSaveArticleContentAsAdmin with:', {
+          articleId: articleEditing.article.id,
+          adminId,
+          originalAuthorId: articleEditing.originalAuthor.id,
+          contentLength: content.length
+        });
+        
+        // Use the admin auto-save API
+        const success = await autoSaveArticleContentAsAdmin(
+          articleEditing.article.id,
+          content,
+          adminId,
+          articleEditing.originalAuthor.id
+        );
+        
+        if (success) {
+          console.log('✅ [ADMIN] Auto-save successful for article:', articleEditing.article.id);
+        } else {
+          console.error('❌ [ADMIN] Auto-save failed for article:', articleEditing.article.id);
+        }
+      } catch (error) {
+        console.error('❌ [ADMIN] Error during auto-save:', error);
+        // Don't show toast for auto-save errors to avoid interrupting user experience
+      }
+    } else {
+      console.warn('⚠️ [ADMIN] Auto-save skipped - missing required data:', {
+        hasArticle: !!articleEditing.article,
+        hasAdminId: !!adminId,
+        hasOriginalAuthor: !!articleEditing.originalAuthor
+      });
+    }
+  };
+
   // Modal control functions with audit logging
   const openOwnershipTransferModal = async (article: ArticleListItem) => {
     setActiveArticleForModal(article);
@@ -673,7 +720,14 @@ function AdminArticleManagementPage({ user }: AdminArticleManagementPageProps) {
                         hasAdminUser: isAdmin,
                         hasOriginalAuthor: !!articleEditing.originalAuthor,
                         hasArticleContent: !!articleEditing.articleContent,
-                        initialContentLength: articleEditing.articleContent.content?.length || 0
+                        initialContentLength: articleEditing.articleContent.content?.length || 0,
+                        hasOnAutoSave: !!handleAutoSave
+                      });
+                      
+                      // Test the handleAutoSave function
+                      console.log('🧪 Testing handleAutoSave function:', {
+                        functionExists: typeof handleAutoSave === 'function',
+                        functionName: handleAutoSave.name
                       });
                       // Create admin user profile from AdminContext
                       const adminUserProfile: UserProfile = {
@@ -685,6 +739,41 @@ function AdminArticleManagementPage({ user }: AdminArticleManagementPageProps) {
                         article_count: 0
                       };
 
+                      // Create a wrapper function to ensure it's properly bound
+                      const autoSaveWrapper = async (content: string) => {
+                        console.log('🔥🔥🔥 WRAPPER FUNCTION CALLED! 🔥🔥🔥', {
+                          timestamp: new Date().toISOString(),
+                          contentLength: content?.length || 0,
+                          wrapperType: typeof autoSaveWrapper,
+                          handleAutoSaveType: typeof handleAutoSave,
+                          callStack: (new Error()).stack?.split('\n').slice(1, 4)
+                        });
+                        console.log('About to call handleAutoSave...', {
+                          functionExists: !!handleAutoSave,
+                          functionName: handleAutoSave?.name || 'unknown'
+                        });
+                        
+                        // Test if the function exists and is callable
+                        if (!handleAutoSave) {
+                          console.error('❌ handleAutoSave is null or undefined!');
+                          return;
+                        }
+                        
+                        if (typeof handleAutoSave !== 'function') {
+                          console.error('❌ handleAutoSave is not a function!', typeof handleAutoSave);
+                          return;
+                        }
+                        
+                        try {
+                          console.log('🚀 Calling handleAutoSave now...');
+                          const result = await handleAutoSave(content);
+                          console.log('✅ handleAutoSave completed successfully', { result });
+                        } catch (error) {
+                          console.error('❌ handleAutoSave failed:', error);
+                          throw error;
+                        }
+                      };
+
                       return (
                         <ArticleEditor
                           articleId={articleEditing.article.id}
@@ -692,6 +781,7 @@ function AdminArticleManagementPage({ user }: AdminArticleManagementPageProps) {
                           adminMode={true}
                           adminUser={adminUserProfile}
                           originalAuthor={articleEditing.originalAuthor}
+                          onAutoSave={autoSaveWrapper}
                           onStatusChange={handleArticleStatusChange}
                           onOwnershipTransfer={handleArticleOwnershipTransfer}
                           onAdminNote={handleAdminNote}

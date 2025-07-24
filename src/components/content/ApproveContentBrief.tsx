@@ -96,21 +96,10 @@ export function ApproveContentBrief({
         research_result_id: researchResultId
       });
       
-      // Create notification for user (in-app, email, and Slack)
-      if (briefId && currentUser.user) {
-        try {
-          await createArticleGenerationNotification({
-            userId: currentUser.user.id,
-            briefId,
-            briefTitle: articleTitle,
-            productName: productName || undefined
-          });
-          console.log('User notifications (in-app, email, and Slack) sent successfully');
-        } catch (notificationError) {
-          console.error('Failed to send user notifications:', notificationError);
-          // Don't fail the approval process if notifications fail
-        }
-      }
+      // Note: We don't send the article generation notification here anymore
+      // The actual notification will be sent by the database trigger when Moonlit
+      // completes the article generation and updates the article_content field
+      console.log('Content brief sent to Moonlit. Article generation notification will be sent automatically when the article is ready.');
       
       // Dismiss loading toast and show success
       toast.dismiss(loadingToast);
@@ -119,7 +108,7 @@ export function ApproveContentBrief({
           <CheckCircle className="h-5 w-5 text-green-500" />
           <div>
             <p className="font-medium">Article Generation Started</p>
-            <p className="text-sm text-gray-400">Your content brief has been successfully processed via Moonlit. You will receive notifications via email, Slack, and in-app when your article is ready.</p>
+            <p className="text-sm text-gray-400">Your content brief has been sent to Moonlit for processing. You will receive automatic notifications when your article is ready.</p>
           </div>
         </div>
       );
@@ -188,7 +177,7 @@ export function ApproveContentBrief({
         description="Your content brief has been sent to Moonlit for article generation"
         processingLocation="Moonlit AI Engine"
         estimatedTime="5-8 minutes"
-        additionalInfo="You'll receive a notification when your article is ready"
+        additionalInfo="You'll receive automatic notifications when your article is ready"
       />
     </>
   );

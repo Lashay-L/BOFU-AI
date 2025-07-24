@@ -527,8 +527,7 @@ export default function EditContentBrief() {
                         if (extractedKeywords && extractedKeywords.length > 0) {
                           const firstKeyword = extractedKeywords[0].replace(/[`'"]/g, '').trim();
                           const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
-                          const briefShortId = (id || '').substring(0, 8);
-                          newTitle = `${cleanKeyword} - Content Brief ${briefShortId}`;
+                          newTitle = cleanKeyword;
                         }
                         
                         setBrief(prev => prev ? { ...prev, brief_content: content, internal_links: links, possible_article_titles: titles, title: newTitle } : null);
@@ -536,6 +535,7 @@ export default function EditContentBrief() {
                       }}
                       briefId={id || ''}
                       researchResultId={brief?.research_result_id}
+                      sourceProductId={brief?.source_product_id}
                     />
                   </div>
                 </div>

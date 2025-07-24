@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../../../lib/supabase';
 import { ContentBrief } from '../../../../types/contentBrief';
 import { updateBrief } from '../../../../lib/contentBriefs';
+import { clearContentBriefData } from '../../../../lib/contentBriefApi';
 import { toast } from 'react-hot-toast';
 
 export function useContentBriefs() {
@@ -26,13 +27,13 @@ export function useContentBriefs() {
         
         // Check for keywords array in the parsed content - this is the primary source
         if (briefContent.keywords && Array.isArray(briefContent.keywords) && briefContent.keywords.length > 0) {
-          const briefShortId = brief.id.substring(0, 8);
           // Extract the first keyword and clean it from backticks and quotes
           const firstKeyword = briefContent.keywords[0].replace(/[`'"]/g, '').trim();
           // Remove any URL patterns that might be in the keyword
           const cleanKeyword = firstKeyword.replace(/^\/|\/$|^https?:\/\//, '').replace(/[-_]/g, ' ');
           console.log('🔍 TITLE_DEBUG: Using first keyword from brief content:', cleanKeyword);
-          return `${cleanKeyword} - Content Brief ${briefShortId}`;
+          // Return clean keyword without ID suffix - let users customize titles
+          return cleanKeyword;
         }
         
         // Try to get primary keyword from SEO Strategy as fallback
@@ -40,9 +41,8 @@ export function useContentBriefs() {
         if (seoStrategy && seoStrategy['Primary Keyword']) {
           const primaryKeyword = seoStrategy['Primary Keyword'].replace(/[`'"]/g, '').trim();
           if (primaryKeyword) {
-            const briefShortId = brief.id.substring(0, 8);
             console.log('🔍 TITLE_DEBUG: Using primary keyword from SEO strategy:', primaryKeyword);
-            return `${primaryKeyword} - Content Brief ${briefShortId}`;
+            return primaryKeyword;
           }
         }
       } catch (error) {
@@ -65,8 +65,7 @@ export function useContentBriefs() {
             : approvedProduct.product_data;
           
           if (productData.keywords && Array.isArray(productData.keywords) && productData.keywords.length > 0) {
-            const briefShortId = brief.id.substring(0, 8);
-            return `${productData.keywords[0]} - Content Brief ${briefShortId}`;
+            return productData.keywords[0];
           }
         }
       } catch (error) {
@@ -88,8 +87,7 @@ export function useContentBriefs() {
             : approvedProducts[0].product_data;
           
           if (productData.keywords && Array.isArray(productData.keywords) && productData.keywords.length > 0) {
-            const briefShortId = brief.id.substring(0, 8);
-            return `${productData.keywords[0]} - Content Brief ${briefShortId}`;
+            return productData.keywords[0];
           }
         }
       } catch (error) {
@@ -295,31 +293,42 @@ export function useContentBriefs() {
     }
   };
 
-  // Delete content brief
+  // Clear content brief data while preserving generated articles
   const handleDeleteBrief = async (briefId: string, briefTitle?: string) => {
     const confirmation = window.confirm(
-      `Are you sure you want to delete this content brief${briefTitle ? ` "${briefTitle}"` : ''}? This action cannot be undone.`
+      `Are you sure you want to clear the content brief data${briefTitle ? ` for "${briefTitle}"` : ''}? This will remove the brief content but preserve any generated article content, comments, and version history.`
     );
     
-    if (!confirmation) return;
+    if (!confirmation) return false;
 
     try {
-      const { error } = await supabase
-        .from('content_briefs')
-        .delete()
-        .eq('id', briefId);
-
-      if (error) throw error;
-
-      toast.success('Content brief deleted successfully');
+      const result = await clearContentBriefData(briefId);
       
-      // Update local state
-      setUserContentBriefs(prev => prev.filter(b => b.id !== briefId));
+      if (!result.success) {
+        toast.error(result.error || 'Failed to clear content brief data');
+        return false;
+      }
+
+      // Show success message with cleanup details
+      const clearedImages = result.clearedImages?.length || 0;
+      if (clearedImages > 0) {
+        toast.success(`Content brief data cleared successfully. Cleaned up ${clearedImages} brief-only images. Generated article preserved.`);
+      } else {
+        toast.success('Content brief data cleared successfully. Generated article preserved.');
+      }
+      
+      // Update local state - the brief still exists but with cleared brief data
+      setUserContentBriefs(prev => 
+        prev.map(b => b.id === briefId 
+          ? { ...b, brief_content: {}, brief_content_text: null, internal_links: null, possible_article_titles: null }
+          : b
+        )
+      );
       
       return true;
     } catch (error) {
-      console.error('Error deleting content brief:', error);
-      toast.error('Failed to delete content brief');
+      console.error('Error clearing content brief data:', error);
+      toast.error('Failed to clear content brief data');
       return false;
     }
   };

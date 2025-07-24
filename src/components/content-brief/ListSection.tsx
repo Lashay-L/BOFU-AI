@@ -110,7 +110,7 @@ export const ListSection: React.FC<ListSectionProps> = ({
   const isUSPsSection = sectionKey === 'usps';
   const isCompetitorsSection = sectionKey === 'competitors';
   
-  // Set up portal container for dropdown
+  // Set up portal container for dropdown - ensure it's available immediately
   useEffect(() => {
     // Create or find the portal root - don't remove it on unmount since multiple components might use it
     let portalRoot = document.getElementById('dropdown-portal-root');
@@ -133,6 +133,9 @@ export const ListSection: React.FC<ListSectionProps> = ({
     // Don't remove the portal on unmount since other components might be using it
   }, []);
 
+  // Ensure portal is available before showing dropdown
+  const isPortalReady = dropdownPortalRef.current !== null;
+
   // Handle clicking outside dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -147,9 +150,9 @@ export const ListSection: React.FC<ListSectionProps> = ({
     }
   }, [showDropdown]);
 
-  // Enhanced error handling and loading states - fetch from database first
+  // Enhanced error handling and loading states - preload data for sections that support dropdowns
   useEffect(() => {
-    if (isPainPointsSection && showDropdown) {
+    if (isPainPointsSection) {
       const getPainPoints = async () => {
         console.log('Loading pain points from database...');
         try {
@@ -185,10 +188,10 @@ export const ListSection: React.FC<ListSectionProps> = ({
 
       getPainPoints();
     }
-  }, [isPainPointsSection, showDropdown, researchResultId]);
+  }, [isPainPointsSection, researchResultId, sourceProductId]);
 
   useEffect(() => {
-    if (isCapabilitiesSection && showDropdown) {
+    if (isCapabilitiesSection) {
       const getCapabilities = async () => {
         console.log('Loading capabilities data using dual-ID system...', { sourceProductId, researchResultId });
         
@@ -253,11 +256,11 @@ export const ListSection: React.FC<ListSectionProps> = ({
       };
       getCapabilities();
     }
-  }, [isCapabilitiesSection, showDropdown, sourceProductId, researchResultId]);
+  }, [isCapabilitiesSection, sourceProductId, researchResultId]);
   
   // New useEffect for USPs  
   useEffect(() => {
-    if (isUSPsSection && showDropdown) {
+    if (isUSPsSection) {
       const getUSPs = async () => {
         console.log('Loading USPs data...');
         try {
@@ -303,12 +306,12 @@ export const ListSection: React.FC<ListSectionProps> = ({
 
       getUSPs();
     }
-  }, [isUSPsSection, showDropdown, sourceProductId, researchResultId]);
+  }, [isUSPsSection, sourceProductId, researchResultId]);
 
 
   // New useEffect for Competitors
   useEffect(() => {
-    if (isCompetitorsSection && showDropdown) {
+    if (isCompetitorsSection) {
       const getCompetitors = async () => {
         console.log('Loading competitors data...');
         console.log('isCompetitorsSection:', isCompetitorsSection);
@@ -360,7 +363,7 @@ export const ListSection: React.FC<ListSectionProps> = ({
 
       getCompetitors();
     }
-  }, [isCompetitorsSection, showDropdown, researchResultId]);
+  }, [isCompetitorsSection, researchResultId, sourceProductId]);
 
   // Position dropdown relative to button
   const positionDropdown = useCallback((buttonEl: HTMLElement) => {
@@ -435,6 +438,7 @@ export const ListSection: React.FC<ListSectionProps> = ({
                          
     console.log('Rendering dropdown:', {
       showDropdown,
+      isPortalReady,
       hasPortal: !!dropdownPortalRef.current,
       itemsLength: dropdownItems?.length || 0,
       dropdownPosition,
@@ -442,12 +446,19 @@ export const ListSection: React.FC<ListSectionProps> = ({
       isCapabilitiesSection,
       isUSPsSection,
       isCompetitorsSection,
-      sectionKey
+      sectionKey,
+      availableItemsLoaded: {
+        painPoints: availablePainPoints.length,
+        capabilities: availableCapabilities.length,
+        usps: availableUSPs.length,
+        competitors: availableCompetitors.length
+      }
     });
                          
-    if (!showDropdown || !dropdownPortalRef.current) {
+    if (!showDropdown || !isPortalReady) {
       console.log('Dropdown not shown because:', { 
         showDropdown, 
+        isPortalReady,
         hasPortal: !!dropdownPortalRef.current 
       });
       return null;
@@ -779,11 +790,25 @@ export const ListSection: React.FC<ListSectionProps> = ({
                 {(isPainPointsSection || isCapabilitiesSection || isUSPsSection || isCompetitorsSection) && (
                   <button
                     onClick={(e) => {
-                      console.log('Browse button clicked, current showDropdown:', showDropdown);
-                      positionDropdown(e.currentTarget);
-                      setShowDropdown(!showDropdown);
+                      console.log('Browse button clicked', {
+                        currentShowDropdown: showDropdown,
+                        isPortalReady,
+                        sectionKey,
+                        isPainPointsSection,
+                        isCapabilitiesSection,
+                        isUSPsSection,
+                        isCompetitorsSection
+                      });
+                      
+                      if (isPortalReady) {
+                        positionDropdown(e.currentTarget);
+                        setShowDropdown(!showDropdown);
+                      } else {
+                        console.error('Portal not ready yet, cannot show dropdown');
+                      }
                     }}
                     className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors duration-200 flex items-center space-x-1"
+                    disabled={!isPortalReady}
                   >
                     <ListChecks className="w-3 h-3" />
                     <span>Browse</span>
