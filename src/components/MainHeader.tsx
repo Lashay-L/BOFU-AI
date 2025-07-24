@@ -16,7 +16,11 @@ import {
   MentionNotification
 } from '../lib/commentApi';
 import { getBriefApprovalNotifications } from '../lib/briefApprovalNotifications';
-import { getUnreadUserNotificationCount } from '../lib/userNotifications';
+import { 
+  getUnreadUserNotificationCount, 
+  subscribeToUserNotifications,
+  UserNotification
+} from '../lib/userNotifications';
 import { useAdminContext } from '../contexts/AdminContext';
 
 
@@ -48,6 +52,7 @@ export function MainHeader({
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const { isAdmin, adminRole, assignedClientIds } = useAdminContext();
   const mentionSubscriptionRef = useRef<any>(null);
+  const userNotificationSubscriptionRef = useRef<any>(null);
 
   const navigate = useNavigate();
 
@@ -226,6 +231,64 @@ export function MainHeader({
       }
     };
   }, [user?.id, isAdmin, assignedClientIds]);
+
+  // Set up real-time user notification subscription (for article generation, brief generation)
+  useEffect(() => {
+    const setupUserNotificationSubscription = async () => {
+      if (user?.id) {
+        console.log('🔔 Setting up user notification subscription for header count');
+        
+        // Clean up any existing subscription first
+        if (userNotificationSubscriptionRef.current) {
+          console.log('🔔 Cleaning up existing header user notification subscription');
+          try {
+            if (typeof userNotificationSubscriptionRef.current.unsubscribe === 'function') {
+              userNotificationSubscriptionRef.current.unsubscribe();
+            }
+          } catch (error) {
+            console.error('❌ Error cleaning up user notification subscription:', error);
+          }
+          userNotificationSubscriptionRef.current = null;
+          
+          // Small delay to ensure cleanup completes
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        userNotificationSubscriptionRef.current = subscribeToUserNotifications(
+          user.id,
+          (updatedNotification: UserNotification) => {
+            console.log('🔔 Header received user notification update:', updatedNotification);
+            
+            // If notification is marked as read, decrease count
+            if (updatedNotification.is_read) {
+              console.log('🔔 User notification marked as read, decreasing count');
+              setUnreadNotificationCount(prev => Math.max(0, prev - 1));
+            } else {
+              // If notification is new/unread, increase count
+              console.log('🔔 New unread user notification, increasing count');
+              setUnreadNotificationCount(prev => prev + 1);
+            }
+          }
+        );
+      }
+    };
+
+    setupUserNotificationSubscription().catch(error => {
+      console.error('❌ Error setting up user notification subscription:', error);
+    });
+
+    return () => {
+      if (userNotificationSubscriptionRef.current) {
+        console.log('🔔 Cleaning up header user notification subscription');
+        try {
+          userNotificationSubscriptionRef.current.unsubscribe();
+        } catch (error) {
+          console.error('❌ Error cleaning up header user notification subscription:', error);
+        }
+        userNotificationSubscriptionRef.current = null;
+      }
+    };
+  }, [user?.id]);
 
   React.useEffect(() => {
     // Get initial session

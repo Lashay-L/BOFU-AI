@@ -8,6 +8,7 @@ import { clearContentBriefData } from '../lib/contentBriefApi';
 import { PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
+import { triggerArticleGenerationTest, createTestArticleNotification } from '../utils/testNotifications';
 
 interface ContentBrief {
   id: string;
@@ -100,6 +101,7 @@ export default function UserDashboard() {
       const queryPromise = supabase
         .from('content_briefs')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       const { data: briefs, error: briefsError } = await Promise.race([
@@ -112,14 +114,21 @@ export default function UserDashboard() {
         throw briefsError;
       }
 
-      console.log('[DASHBOARD] Fetched briefs:', briefs?.length || 0);
-      setContentBriefs(briefs || []);
+      // Filter out briefs with empty content (cleared briefs)
+      const filteredBriefs = (briefs || []).filter(brief => {
+        return brief.brief_content && 
+               typeof brief.brief_content === 'object' && 
+               Object.keys(brief.brief_content).length > 0;
+      });
 
-      // Calculate stats
-      const totalBriefs = briefs?.length || 0;
-      const approved = briefs?.filter((brief: ContentBrief) => brief.status === 'approved').length || 0;
-      const pending = briefs?.filter((brief: ContentBrief) => brief.status === 'pending').length || 0;
-      const drafts = briefs?.filter((brief: ContentBrief) => brief.status === 'draft').length || 0;
+      console.log('[DASHBOARD] Fetched briefs:', briefs?.length || 0, 'Filtered:', filteredBriefs.length);
+      setContentBriefs(filteredBriefs);
+
+      // Calculate stats using filtered briefs
+      const totalBriefs = filteredBriefs.length;
+      const approved = filteredBriefs.filter((brief: ContentBrief) => brief.status === 'approved').length;
+      const pending = filteredBriefs.filter((brief: ContentBrief) => brief.status === 'pending').length;
+      const drafts = filteredBriefs.filter((brief: ContentBrief) => brief.status === 'draft').length;
 
       setStats({ totalBriefs, approved, pending, drafts });
     } catch (error) {
@@ -231,9 +240,43 @@ export default function UserDashboard() {
     <UserDashboardLayout>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">Manage your content briefs and track progress</p>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+            <p className="text-gray-600">Manage your content briefs and track progress</p>
+          </div>
+          
+          {/* Debug Notification Test Button */}
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                const result = await createTestArticleNotification();
+                if (result.success) {
+                  toast.success('Test notification created! Check your notification bell.');
+                } else {
+                  toast.error(`Failed to create test notification: ${result.error}`);
+                }
+              }}
+              className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+              title="Create a test notification"
+            >
+              🔔 Test Notification
+            </button>
+            <button
+              onClick={async () => {
+                const result = await triggerArticleGenerationTest();
+                if (result.success) {
+                  toast.success(`Article generation triggered for "${result.briefTitle}"! Notification should appear shortly.`);
+                } else {
+                  toast.error(`Failed to trigger test: ${result.error}`);
+                }
+              }}
+              className="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
+              title="Simulate article generation trigger"
+            >
+              🧪 Test Trigger
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards */}

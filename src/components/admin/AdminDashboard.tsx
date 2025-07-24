@@ -18,6 +18,7 @@ import { sendPasswordResetEmail } from '../../lib/auth';
 import { AdminStatsCard, AdminActivityFeed, AdminQuickActions } from './ui';
 import { AdminUserArticlesModal, AdminDirectPasswordChangeModal } from './modals';
 import { AdminSidebar, AdminHeader, AdminMainContent } from './layout';
+import { triggerArticleGenerationTest, createTestArticleNotification } from '../../utils/testNotifications';
 import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount';
 
 // Dynamically import AdminArticleManagementPage for article editing functionality

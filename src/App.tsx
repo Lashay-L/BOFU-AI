@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { supabase } from './lib/supabase';
+import './utils/testNotifications'; // Initialize test functions
 import type { User } from '@supabase/supabase-js';
 import ErrorBoundary from './components/ErrorBoundary.tsx';
 import { DocumentUploader, ProcessedDocument } from './components/DocumentUploader';

@@ -108,6 +108,7 @@ export function useContentBriefs() {
         .select('*')
         .eq('user_id', userId)
         .not('article_content', 'is', null)
+        .not('brief_content', 'eq', '{}')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -147,6 +148,7 @@ export function useContentBriefs() {
         .from('content_briefs')
         .select('*')
         .in('user_id', userIds)
+        .not('brief_content', 'eq', '{}')
         .order('created_at', { ascending: false });
 
       if (briefsError) throw briefsError;
@@ -317,12 +319,9 @@ export function useContentBriefs() {
         toast.success('Content brief data cleared successfully. Generated article preserved.');
       }
       
-      // Update local state - the brief still exists but with cleared brief data
+      // Remove the cleared brief from local state since it won't be shown in UI anymore
       setUserContentBriefs(prev => 
-        prev.map(b => b.id === briefId 
-          ? { ...b, brief_content: {}, brief_content_text: null, internal_links: null, possible_article_titles: null }
-          : b
-        )
+        prev.filter(b => b.id !== briefId)
       );
       
       return true;
