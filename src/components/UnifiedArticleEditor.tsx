@@ -573,7 +573,14 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
           onContentChange={handleContentChange}
           adminMode={uiMode === 'admin'}
           adminUser={userContext.isAdmin ? userContext as any : undefined}
-          originalAuthor={article.user_id !== userContext.id ? { id: article.user_id } as any : undefined}
+          originalAuthor={article.user_id !== userContext.id ? { 
+            id: article.user_id,
+            company_name: originalAuthorCompany,
+            email: article.user_email || 'unknown@example.com',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            article_count: 0
+          } as any : undefined}
           onStatusChange={handleStatusChange}
           onBack={() => navigate(uiMode === 'admin' ? '/admin' : '/dashboard')}
           isAiCopilotOpen={showAICoPilot}

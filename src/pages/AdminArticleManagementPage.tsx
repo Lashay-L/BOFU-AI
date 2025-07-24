@@ -247,9 +247,8 @@ function AdminArticleManagementPage({ user }: AdminArticleManagementPageProps) {
         if (!error && userProfile) {
           userCompanyName = userProfile.company_name || 'Unknown Company';
         }
-        console.log('🏢 Fetched user company:', userCompanyName, 'for user:', article.user_id);
       } catch (dbError) {
-        console.error('❌ Error fetching user company:', dbError);
+        console.error('Error fetching user company:', dbError);
       }
 
       // Create user profile for the original author with fetched company
@@ -261,8 +260,6 @@ function AdminArticleManagementPage({ user }: AdminArticleManagementPageProps) {
         updated_at: article.updated_at,
         article_count: 0 // This would be fetched from API in real implementation
       };
-
-      console.log('🔥 Setting articleEditing state to open modal');
       setArticleEditing({
         isOpen: true,
         article,
@@ -289,6 +286,7 @@ function AdminArticleManagementPage({ user }: AdminArticleManagementPageProps) {
             
             setArticleEditing(prev => ({
               ...prev,
+              originalAuthor, // Ensure we use the fresh originalAuthor with correct company name
               articleContent,
               isLoadingContent: false,
               contentError: null
@@ -732,15 +730,6 @@ function AdminArticleManagementPage({ user }: AdminArticleManagementPageProps) {
                   ) : articleEditing.articleContent ? (
                     // Article editor with content
                     (() => {
-                      console.log('🔥 About to render ArticleEditor with props:', {
-                        articleId: articleEditing.article.id,
-                        adminMode: true,
-                        hasAdminUser: isAdmin,
-                        hasOriginalAuthor: !!articleEditing.originalAuthor,
-                        hasArticleContent: !!articleEditing.articleContent,
-                        initialContentLength: articleEditing.articleContent.content?.length || 0,
-                        hasOnAutoSave: !!handleAutoSave
-                      });
                       
                       // Test the handleAutoSave function
                       console.log('🧪 Testing handleAutoSave function:', {
