@@ -930,7 +930,7 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
                             className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
                           >
                             <ExternalLink className="h-4 w-4" />
-                            View Content Brief
+                            View Article
                           </motion.button>
                         )}
                       </div>

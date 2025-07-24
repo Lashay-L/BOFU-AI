@@ -8,7 +8,6 @@ import { clearContentBriefData } from '../lib/contentBriefApi';
 import { PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
-import { triggerArticleGenerationTest, createTestArticleNotification } from '../utils/testNotifications';
 
 interface ContentBrief {
   id: string;
@@ -240,43 +239,9 @@ export default function UserDashboard() {
     <UserDashboardLayout>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8 flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-gray-600">Manage your content briefs and track progress</p>
-          </div>
-          
-          {/* Debug Notification Test Button */}
-          <div className="flex gap-2">
-            <button
-              onClick={async () => {
-                const result = await createTestArticleNotification();
-                if (result.success) {
-                  toast.success('Test notification created! Check your notification bell.');
-                } else {
-                  toast.error(`Failed to create test notification: ${result.error}`);
-                }
-              }}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-              title="Create a test notification"
-            >
-              🔔 Test Notification
-            </button>
-            <button
-              onClick={async () => {
-                const result = await triggerArticleGenerationTest();
-                if (result.success) {
-                  toast.success(`Article generation triggered for "${result.briefTitle}"! Notification should appear shortly.`);
-                } else {
-                  toast.error(`Failed to trigger test: ${result.error}`);
-                }
-              }}
-              className="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
-              title="Simulate article generation trigger"
-            >
-              🧪 Test Trigger
-            </button>
-          </div>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600">Manage your content briefs and track progress</p>
         </div>
 
         {/* Stats Cards */}

@@ -273,11 +273,15 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
     e.stopPropagation();
     setNavigationError(null);
     
-    await navigateToArticle(
-      articleId,
-      navigate,
-      (error) => setNavigationError(error)
-    );
+    try {
+      // For user dashboard notifications, directly navigate to user article editor
+      // This avoids the admin permission check that causes 406 errors
+      navigate(`/articles/${articleId}`);
+      onClose(); // Close the notification modal
+    } catch (error) {
+      console.error('Error navigating to article:', error);
+      setNavigationError('Unable to navigate to article. Please try again.');
+    }
   };
 
   // Navigation handler for content briefs
@@ -461,7 +465,9 @@ export function NotificationCenter({ isVisible, onClose }: NotificationCenterPro
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                           <div className="flex items-center gap-2">
                             <FileText className="h-4 w-4 text-blue-500" />
-                            <span className="text-sm text-gray-600 dark:text-gray-300">Content Brief:</span>
+                            <span className="text-sm text-gray-600 dark:text-gray-300">
+                              {!isMention && notification.notification_type === 'article_generated' ? 'Article:' : 'Content Brief:'}
+                            </span>
                             <span className="text-sm text-gray-900 dark:text-white font-medium">{articleTitle}</span>
                           </div>
                           {productName && (

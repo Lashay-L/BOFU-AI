@@ -44,19 +44,16 @@ export class ArticleNavigation {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) return false;
 
-      // Check if user is admin
-      const { data: adminProfile } = await supabase
-        .from('admin_profiles')
-        .select('id')
-        .eq('id', user.user.id)
-        .single();
-
-      // Admins can access all articles
-      if (adminProfile) return true;
-
-      // Regular users can only access their own articles
+      // Get article info
       const articleInfo = await this.getArticleInfo(articleId);
-      return articleInfo?.user_id === user.user.id;
+      if (!articleInfo) {
+        console.error('Article not found:', articleId);
+        return false;
+      }
+
+      // For notification navigation, we'll assume users can access their own articles
+      // and let the actual article page handle admin permissions
+      return articleInfo.user_id === user.user.id;
     } catch (error) {
       console.error('Error checking article access:', error);
       return false;
@@ -72,22 +69,14 @@ export class ArticleNavigation {
       if (!user.user) return null;
 
       const canAccess = await this.canAccessArticle(articleId);
-      if (!canAccess) return null;
-
-      // Check if user is admin
-      const { data: adminProfile } = await supabase
-        .from('admin_profiles')
-        .select('id')
-        .eq('id', user.user.id)
-        .single();
-
-      if (adminProfile) {
-        // Admin navigation - goes to admin article editor
-        return `/admin/articles/${articleId}`;
-      } else {
-        // User navigation - goes to user article editor
-        return `/articles/${articleId}`;
+      if (!canAccess) {
+        console.error('User cannot access article:', { articleId, userId: user.user.id });
+        return null;
       }
+
+      // For notifications from user dashboard, always route to user article editor
+      // Admin navigation should be handled separately in admin contexts
+      return `/articles/${articleId}`;
     } catch (error) {
       console.error('Error generating navigation URL:', error);
       return null;
