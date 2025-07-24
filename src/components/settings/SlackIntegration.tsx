@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Slack, CheckCircle, AlertCircle, ExternalLink, Settings, Bell, BellOff } from 'lucide-react';
+import { Loader2, Slack, CheckCircle, AlertCircle, ExternalLink, Settings, Bell, BellOff, RefreshCw, Info, Lock, Eye } from 'lucide-react';
 import { 
   generateSlackOAuthURL,
   getSlackConnectionStatus,
@@ -27,6 +27,7 @@ export default function SlackIntegration({ className = '' }: SlackIntegrationPro
   const [selectedChannel, setSelectedChannel] = useState('');
   const [showChannelSelector, setShowChannelSelector] = useState(false);
   const [testResult, setTestResult] = useState<{ success?: boolean; error?: string } | null>(null);
+  const [refreshingChannels, setRefreshingChannels] = useState(false);
 
   // Check for OAuth callback results on component mount
   useEffect(() => {
@@ -163,6 +164,26 @@ export default function SlackIntegration({ className = '' }: SlackIntegrationPro
       setTestResult({ error: 'Failed to send test notification' });
     } finally {
       setActionLoading('');
+    }
+  };
+
+  const handleRefreshChannels = async () => {
+    if (!connectionStatus.connected) return;
+    
+    setRefreshingChannels(true);
+    try {
+      const channelsResult = await fetchSlackChannels();
+      if (channelsResult.success && channelsResult.channels) {
+        setChannels(channelsResult.channels);
+        setTestResult({ success: true });
+      } else {
+        setTestResult({ error: 'Failed to refresh channels' });
+      }
+    } catch (error) {
+      console.error('Error refreshing channels:', error);
+      setTestResult({ error: 'Failed to refresh channels' });
+    } finally {
+      setRefreshingChannels(false);
     }
   };
 
@@ -463,19 +484,62 @@ export default function SlackIntegration({ className = '' }: SlackIntegrationPro
 
               {showChannelSelector && (
                 <div className="space-y-4 pt-4 border-t border-gray-700/50">
-                  <select
-                    value={selectedChannel}
-                    onChange={(e) => setSelectedChannel(e.target.value)}
-                    className="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  >
-                    <option value="">Select a channel...</option>
-                    {channels.map((channel) => (
-                      <option key={channel.id} value={channel.id}>
-                        #{channel.name} {channel.is_private ? '(private)' : ''} 
-                        {channel.is_member ? '' : ' (not a member)'}
-                      </option>
-                    ))}
-                  </select>
+                  {/* Private Channels Guide */}
+                  <div className="p-3 bg-blue-900/30 border border-blue-500/30 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <div className="p-1.5 bg-blue-500/20 rounded-lg flex-shrink-0">
+                        <Info className="w-4 h-4 text-blue-400" />
+                      </div>
+                      <div className="space-y-2">
+                        <h5 className="text-sm font-bold text-blue-400">Private Channel Access</h5>
+                        <p className="text-blue-200 text-xs leading-relaxed">
+                          Private channels require the bot to be manually invited. If you don't see a private channel, 
+                          use <code className="bg-blue-800/50 px-1 py-0.5 rounded text-blue-300">/invite @BOFU AI</code> in that channel first.
+                        </p>
+                        <button
+                          onClick={handleRefreshChannels}
+                          disabled={refreshingChannels}
+                          className="flex items-center gap-1 px-2 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 rounded text-xs transition-colors"
+                        >
+                          {refreshingChannels ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-3 h-3" />
+                          )}
+                          Refresh channels
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-200">Choose Channel</label>
+                      <div className="flex items-center gap-1 text-xs text-gray-400">
+                        <Eye className="w-3 h-3" />
+                        <span>{channels.length} available</span>
+                      </div>
+                    </div>
+                    <select
+                      value={selectedChannel}
+                      onChange={(e) => setSelectedChannel(e.target.value)}
+                      className="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    >
+                      <option value="">Select a channel...</option>
+                      {channels.map((channel) => (
+                        <option key={channel.id} value={channel.id}>
+                          #{channel.name} {channel.is_private ? '(private)' : ''} 
+                          {channel.is_member ? '' : ' (invite bot first)'}
+                        </option>
+                      ))}
+                    </select>
+                    {channels.length === 0 && (
+                      <p className="text-yellow-400 text-xs flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        No channels found. Make sure the bot is invited to channels you want to use.
+                      </p>
+                    )}
+                  </div>
                   <div className="flex gap-3">
                     <button
                       onClick={() => handleChannelChange(selectedChannel)}

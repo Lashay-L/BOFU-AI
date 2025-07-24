@@ -11,7 +11,11 @@ import {
   Building2,
   Users,
   Hash,
-  X
+  X,
+  RefreshCw,
+  Info,
+  Lock,
+  Eye
 } from 'lucide-react';
 import { 
   generateAdminSlackOAuthURL,
@@ -48,6 +52,7 @@ export function AdminSlackManagement({
   const [selectedChannel, setSelectedChannel] = useState('');
   const [testResult, setTestResult] = useState<{ success?: boolean; error?: string } | null>(null);
   const [assignedChannel, setAssignedChannel] = useState<CompanySlackSettings | null>(null);
+  const [refreshingChannels, setRefreshingChannels] = useState(false);
 
   // Load connection status, channels, and current assignment
   const loadConnectionStatus = async () => {
@@ -72,6 +77,26 @@ export function AdminSlackManagement({
       console.error('Error loading admin Slack connection status:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRefreshChannels = async () => {
+    if (!connectionStatus.connected) return;
+    
+    setRefreshingChannels(true);
+    try {
+      const channelsResult = await fetchAdminSlackChannels();
+      if (channelsResult.success && channelsResult.channels) {
+        setChannels(channelsResult.channels);
+        setTestResult({ success: true });
+      } else {
+        setTestResult({ error: 'Failed to refresh channels' });
+      }
+    } catch (error) {
+      console.error('Error refreshing channels:', error);
+      setTestResult({ error: 'Failed to refresh channels' });
+    } finally {
+      setRefreshingChannels(false);
     }
   };
 
@@ -357,10 +382,44 @@ export function AdminSlackManagement({
 
                     <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
                       <div className="space-y-4">
+                        {/* Private Channels Guide */}
+                        <div className="p-3 bg-blue-900/30 border border-blue-500/30 rounded-lg">
+                          <div className="flex items-start gap-3">
+                            <div className="p-1.5 bg-blue-500/20 rounded-lg flex-shrink-0">
+                              <Info className="w-4 h-4 text-blue-400" />
+                            </div>
+                            <div className="space-y-2">
+                              <h5 className="text-sm font-bold text-blue-400">Private Channel Access</h5>
+                              <p className="text-blue-200 text-xs leading-relaxed">
+                                Private channels require the bot to be manually invited. If you don't see a private channel, 
+                                use <code className="bg-blue-800/50 px-1 py-0.5 rounded text-blue-300">/invite @BOFU AI</code> in that channel first.
+                              </p>
+                              <button
+                                onClick={handleRefreshChannels}
+                                disabled={refreshingChannels}
+                                className="flex items-center gap-1 px-2 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 rounded text-xs transition-colors"
+                              >
+                                {refreshingChannels ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="w-3 h-3" />
+                                )}
+                                Refresh channels
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
                         <div>
-                          <label className="block text-sm font-semibold text-gray-200 mb-2">
-                            Select Slack Channel
-                          </label>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="block text-sm font-semibold text-gray-200">
+                              Select Slack Channel
+                            </label>
+                            <div className="flex items-center gap-1 text-xs text-gray-400">
+                              <Eye className="w-3 h-3" />
+                              <span>{channels.length} channels available</span>
+                            </div>
+                          </div>
                           <select
                             value={selectedChannel}
                             onChange={(e) => setSelectedChannel(e.target.value)}
@@ -370,10 +429,16 @@ export function AdminSlackManagement({
                             {channels.map((channel) => (
                               <option key={channel.id} value={channel.id} className="text-white">
                                 #{channel.name} {channel.is_private ? '(private)' : ''} 
-                                {channel.is_member ? '' : ' (bot not added)'}
+                                {channel.is_member ? '' : ' (invite bot first)'}
                               </option>
                             ))}
                           </select>
+                          {channels.length === 0 && (
+                            <p className="text-yellow-400 text-xs mt-1 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" />
+                              No channels found. Make sure the bot is invited to channels you want to use.
+                            </p>
+                          )}
                         </div>
                         
                         <div className="grid grid-cols-2 gap-3">
