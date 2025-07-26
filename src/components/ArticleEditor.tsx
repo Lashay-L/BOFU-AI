@@ -269,6 +269,9 @@ interface ArticleEditorProps {
   onAdminNote?: (note: string) => void;
   isAiCopilotOpen?: boolean;
   onBack?: () => void;
+  // Real-time collaboration props
+  externalContent?: string;
+  forceContentUpdate?: boolean;
 }
 
 type ViewMode = 'editor' | 'preview' | 'split';
@@ -292,7 +295,10 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
   onOwnershipTransfer,
   onAdminNote,
   isAiCopilotOpen = false,
-  onBack
+  onBack,
+  // Real-time collaboration props
+  externalContent,
+  forceContentUpdate = false
 }) => {
   // Layout context for responsive sidebar handling
   const { layout, setCommentsSidebarVisible } = useLayout();
@@ -1282,40 +1288,50 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
     };
   }, [debouncedAutoSave]);
 
-  // Update editor content when article is loaded and editor is ready
+  // Update editor content when external content changes (real-time collaboration)
   useEffect(() => {
-    if (editor && !editor.isDestroyed && article && article.content) {
-      // Only update editor if the content is different and we're not auto-saving
-      const shouldUpdateContent = !content || (content !== article.content && !isAutoSaving);
+    if (editor && !editor.isDestroyed && externalContent !== undefined) {
+      const shouldUpdateContent = forceContentUpdate || (content !== externalContent && !isAutoSaving);
       
       if (shouldUpdateContent) {
-        console.log('🔄 [ARTICLE EDITOR] Setting editor content from loaded article:', {
-          articleId: article.id,
-          articleVersion: article.article_version,
-          hasContent: !!article.content,
-          adminMode,
-          contentLength: article.content.length,
-          isInitialLoad: !content,
+        console.log('🔄 [ARTICLE EDITOR] Setting editor content from external update:', {
+          currentContentLength: content?.length || 0,
+          externalContentLength: externalContent.length,
+          forceUpdate: forceContentUpdate,
+          isAutoSaving,
           timestamp: new Date().toISOString()
         });
-        // Use a timeout to ensure the editor is ready and avoid conflicts with auto-save
+        
+        // Update editor content without emitting update event to prevent loops
         setTimeout(() => {
           if (editor && !editor.isDestroyed && !isAutoSaving) {
-            editor.commands.setContent(article.content, false); // false = don't emit update event
-            setContent(article.content);
+            editor.commands.setContent(externalContent, false); // false = don't emit update event
+            setContent(externalContent);
           }
         }, 0);
-      } else {
-        console.log('⏭️ [ARTICLE EDITOR] Skipping content update - user has made changes or auto-saving:', {
-          currentContentLength: content.length,
-          articleContentLength: article.content.length,
-          hasUserChanges: content !== article.content,
-          articleVersion: article.article_version,
-          isAutoSaving
-        });
       }
     }
-  }, [editor, article?.id, article?.content, article?.article_version]); // More specific dependencies
+  }, [editor, externalContent, forceContentUpdate, isAutoSaving]);
+
+  // Initial content load from article prop (for first load)
+  useEffect(() => {
+    if (editor && !editor.isDestroyed && article && article.content && !content) {
+      console.log('🔄 [ARTICLE EDITOR] Setting initial content from article:', {
+        articleId: article.id,
+        articleVersion: article.article_version,
+        contentLength: article.content.length,
+        adminMode,
+        timestamp: new Date().toISOString()
+      });
+      
+      setTimeout(() => {
+        if (editor && !editor.isDestroyed) {
+          editor.commands.setContent(article.content, false);
+          setContent(article.content);
+        }
+      }, 0);
+    }
+  }, [editor, article?.id, article?.content]); // Only run on initial load
 
   // Focus management effect - ensure editor is focusable
   useEffect(() => {
