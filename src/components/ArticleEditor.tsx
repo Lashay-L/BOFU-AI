@@ -277,7 +277,7 @@ type FocusMode = 'normal' | 'focused' | 'zen';
 
 
 
-export const ArticleEditor: React.FC<ArticleEditorProps> = ({
+const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
   articleId,
   initialContent = '',
   onSave,
@@ -2126,3 +2126,16 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       </motion.div>
   );
 };
+
+// Memoize the component to prevent unnecessary re-renders
+export const ArticleEditor = React.memo(ArticleEditorComponent, (prevProps, nextProps) => {
+  // Custom comparison function to prevent re-renders when only unimportant props change
+  return (
+    prevProps.articleId === nextProps.articleId &&
+    prevProps.initialContent === nextProps.initialContent &&
+    prevProps.adminMode === nextProps.adminMode &&
+    prevProps.adminUser?.id === nextProps.adminUser?.id &&
+    prevProps.originalAuthor?.id === nextProps.originalAuthor?.id &&
+    prevProps.isAiCopilotOpen === nextProps.isAiCopilotOpen
+  );
+});

@@ -597,7 +597,7 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
 
         {/* Article Editor */}
         <ArticleEditor
-          key={`article-${article.id}-${article.article_version}`} // Force re-render on content updates
+          key={`article-${article.id}`} // Stable key - only change when article ID changes
           articleId={articleId!}
           initialContent={article.content}
           onSave={(content) => saveArticle(content, { showToast: true })}
