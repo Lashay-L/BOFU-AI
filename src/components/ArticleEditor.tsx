@@ -795,12 +795,12 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       TableCell,
       TableHeader,
       CommentHighlightExtension.configure({
-        comments: comments,
-        highlightedCommentId: highlightedCommentId,
-        onCommentClick: handleCommentClick,
+        comments: [], // We'll update this dynamically
+        highlightedCommentId: null, // We'll update this dynamically
+        onCommentClick: () => {}, // We'll update this dynamically
       }),
     ];
-  }, [comments, highlightedCommentId, handleCommentClick]);
+  }, []); // No dependencies - extensions are stable
 
   // Comment highlighting is now handled by CommentHighlightExtension
 
@@ -833,31 +833,23 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       const newContent = editor.getHTML();
       if (newContent !== content) { // Only update if content actually changed
         console.log('✏️ Editor content updated:', newContent.length, 'characters');
-        setContent(newContent);
-        setHasUnsavedChanges(true);
         
-        // Call the onContentChange callback if provided
-        if (onContentChange) {
-          console.log('🔄 ArticleEditor calling onContentChange callback');
-          onContentChange(newContent);
-        } else {
-          console.log('⚠️ ArticleEditor: No onContentChange callback provided');
-        }
+        // Batch state updates to prevent multiple re-renders
+        requestAnimationFrame(() => {
+          setContent(newContent);
+          setHasUnsavedChanges(true);
+          
+          // Call the onContentChange callback if provided
+          if (onContentChange) {
+            console.log('🔄 ArticleEditor calling onContentChange callback');
+            onContentChange(newContent);
+          }
+        });
         
-        // Force UI update to ensure changes are visible
-        setUpdateCounter(prev => prev + 1);
-        
+        // Trigger auto-save without waiting for state updates
         if (articleId && newContent.trim() !== content.trim()) {
           console.log('🔄 Triggering debouncedAutoSave...', { articleId, newContentLength: newContent.trim().length, oldContentLength: content.trim().length });
-          console.log('🔄 debouncedAutoSave function reference:', typeof debouncedAutoSave);
           debouncedAutoSave(newContent);
-        } else {
-          console.log('⚠️ Auto-save condition not met:', { 
-            hasArticleId: !!articleId, 
-            contentChanged: newContent.trim() !== content.trim(),
-            newContentLength: newContent.trim().length,
-            oldContentLength: content.trim().length
-          });
         }
       }
     },
@@ -882,7 +874,7 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
     onBlur: () => {
       console.log('🎯 Editor lost focus');
     },
-  }, [getEditorExtensions, theme]); // ✅ FIXED: Removed 'content' from dependencies to prevent editor recreation
+  }, []); // ✅ FIXED: No dependencies to prevent editor recreation
 
   // Image operation handlers - defined after editor
   const handleImageResize = useCallback((width: number, height: number) => {
@@ -976,26 +968,37 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
   // Update comment highlighting when highlighted comment changes
   useEffect(() => {
     if (editor && !editor.isDestroyed) {
-      const commentHighlightExtension = editor.extensionManager.extensions.find(
-        (ext) => ext.name === 'commentHighlight'
-      );
-      if (commentHighlightExtension) {
-        commentHighlightExtension.updateHighlightedComment?.(highlightedCommentId);
-      }
+      // Use a timeout to batch comment updates and prevent excessive re-renders
+      const timeoutId = setTimeout(() => {
+        const commentHighlightExtension = editor.extensionManager.extensions.find(
+          (ext) => ext.name === 'commentHighlight'
+        );
+        if (commentHighlightExtension) {
+          commentHighlightExtension.updateHighlightedComment?.(highlightedCommentId);
+        }
+      }, 10);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [editor, highlightedCommentId]);
 
   // Update comment data when comments change
   useEffect(() => {
     if (editor && !editor.isDestroyed) {
-      const commentHighlightExtension = editor.extensionManager.extensions.find(
-        (ext) => ext.name === 'commentHighlight'
-      );
-      if (commentHighlightExtension) {
-        commentHighlightExtension.updateComments?.(comments);
-      }
+      // Use a timeout to batch comment updates and prevent excessive re-renders
+      const timeoutId = setTimeout(() => {
+        const commentHighlightExtension = editor.extensionManager.extensions.find(
+          (ext) => ext.name === 'commentHighlight'
+        );
+        if (commentHighlightExtension) {
+          commentHighlightExtension.updateComments?.(comments);
+          commentHighlightExtension.updateCommentClickHandler?.(handleCommentClick);
+        }
+      }, 10);
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [editor, comments]);
+  }, [editor, comments, handleCommentClick]);
 
   // Update user status when actively editing (simplified - no cursor positioning)
   useEffect(() => {
@@ -1066,8 +1069,8 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
       }
       
       try {
+        // Set auto-saving state optimistically without causing re-renders
         setIsAutoSaving(true);
-        setSaveStatus('saving');
         
         // Get current values without creating dependencies
         const currentOnAutoSave = onAutoSave;
@@ -1078,32 +1081,43 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
         // Use unified auto-save function if provided, otherwise fallback to old API
         if (currentOnAutoSave) {
           console.log('🔄 Using unified auto-save function for:', { adminMode: currentAdminMode, articleId });
-          console.log('🔄 About to call onAutoSave function...');
           await currentOnAutoSave(content);
           console.log('✅ onAutoSave function completed successfully');
-          setSaveStatus('saved');
-          setLastSaved(new Date());
-          setHasUnsavedChanges(false);
+          
+          // Update status smoothly without causing layout shifts
+          setTimeout(() => {
+            setSaveStatus('saved');
+            setLastSaved(new Date());
+            setHasUnsavedChanges(false);
+          }, 0);
         } else {
           console.warn('⚠️ No unified auto-save function provided, falling back to old API');
           const result = await autoSaveArticleContent(articleId, content, currentAdminMode, currentAdminUser?.id, currentOriginalAuthor?.id);
           
-          if (result.success) {
-            setSaveStatus('saved');
-            setLastSaved(new Date());
-            setHasUnsavedChanges(false);
-          } else {
-            setSaveStatus('error');
-            console.error('Auto-save failed:', result.error);
-          }
+          // Update status after a microtask to prevent layout thrashing
+          setTimeout(() => {
+            if (result.success) {
+              setSaveStatus('saved');
+              setLastSaved(new Date());
+              setHasUnsavedChanges(false);
+            } else {
+              setSaveStatus('error');
+              console.error('Auto-save failed:', result.error);
+            }
+          }, 0);
         }
       } catch (error) {
-        setSaveStatus('error');
-        console.error('Auto-save error:', error);
+        setTimeout(() => {
+          setSaveStatus('error');
+          console.error('Auto-save error:', error);
+        }, 0);
       } finally {
-        setIsAutoSaving(false);
+        // Always clear auto-saving state
+        setTimeout(() => {
+          setIsAutoSaving(false);
+        }, 100);
       }
-      }, 60000);
+      }, 3000);
     },
     [articleId] // Only include absolutely necessary stable dependencies
   );
@@ -1271,9 +1285,8 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
   // Update editor content when article is loaded and editor is ready
   useEffect(() => {
     if (editor && !editor.isDestroyed && article && article.content) {
-      // Only update editor if we don't have any content yet (initial load)
-      // Don't reset user changes back to original article content
-      const shouldUpdateContent = !content;
+      // Only update editor if the content is different and we're not auto-saving
+      const shouldUpdateContent = !content || (content !== article.content && !isAutoSaving);
       
       if (shouldUpdateContent) {
         console.log('🔄 [ARTICLE EDITOR] Setting editor content from loaded article:', {
@@ -1285,18 +1298,24 @@ export const ArticleEditor: React.FC<ArticleEditorProps> = ({
           isInitialLoad: !content,
           timestamp: new Date().toISOString()
         });
-        editor.commands.setContent(article.content);
-        setContent(article.content);
+        // Use a timeout to ensure the editor is ready and avoid conflicts with auto-save
+        setTimeout(() => {
+          if (editor && !editor.isDestroyed && !isAutoSaving) {
+            editor.commands.setContent(article.content, false); // false = don't emit update event
+            setContent(article.content);
+          }
+        }, 0);
       } else {
-        console.log('⏭️ [ARTICLE EDITOR] Skipping content update - user has made changes:', {
+        console.log('⏭️ [ARTICLE EDITOR] Skipping content update - user has made changes or auto-saving:', {
           currentContentLength: content.length,
           articleContentLength: article.content.length,
           hasUserChanges: content !== article.content,
-          articleVersion: article.article_version
+          articleVersion: article.article_version,
+          isAutoSaving
         });
       }
     }
-  }, [editor, article, adminMode]); // Removed 'content' from dependencies to prevent reset loop
+  }, [editor, article?.id, article?.content, article?.article_version]); // More specific dependencies
 
   // Focus management effect - ensure editor is focusable
   useEffect(() => {

@@ -327,47 +327,79 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
         
         // Only update if content actually changed
         if (newContent && oldContent !== newContent) {
-          // Debounce content updates to prevent excessive updates
-          if (contentUpdateTimeoutRef.current) {
-            clearTimeout(contentUpdateTimeoutRef.current);
-            console.log('🔄 [UNIFIED EDITOR] Clearing previous timeout');
-          }
+          // Check if the current user is the one who made this change (auto-save from this session)
+          const isOwnChange = payload?.new?.last_edited_by === userContext?.userId;
           
-          contentUpdateTimeoutRef.current = setTimeout(async () => {
-            console.log('🚀 [UNIFIED EDITOR] Applying seamless content update...');
-            try {
-              // Update article state with new data
-              if (article) {
-                const updatedArticle = {
-                  ...article,
-                  content: newContent,
-                  article_version: payload?.new?.article_version || article.article_version + 1,
-                  last_edited_at: payload?.new?.updated_at || new Date().toISOString(),
-                  last_edited_by: payload?.new?.last_edited_by || article.last_edited_by
-                };
-                
-                console.log('📝 [UNIFIED EDITOR] Updating article state seamlessly:', {
-                  oldVersion: article.article_version,
-                  newVersion: updatedArticle.article_version,
-                  contentLengthDiff: newContent.length - (article.content?.length || 0)
-                });
-                
-                // Update article state seamlessly - the key change will remount ArticleEditor
-                setArticle(updatedArticle);
-                
-                // Clear unsaved changes since we just received a fresh update
-                setHasUnsavedChanges(false);
-                setLastSaved(new Date());
-                
-                console.log('✅ [UNIFIED EDITOR] Seamless content update applied - ArticleEditor will remount with new version');
-              }
-            } catch (error) {
-              console.error('❌ [UNIFIED EDITOR] Failed to apply seamless update:', error);
-              // Fallback to full reload if seamless update fails
-              console.log('🔄 [UNIFIED EDITOR] Falling back to full article reload...');
-              await loadArticle();
+          console.log('🔍 [UNIFIED EDITOR] Content change analysis:', {
+            isOwnChange,
+            lastEditedBy: payload?.new?.last_edited_by,
+            currentUserId: userContext?.userId,
+            shouldUpdateState: !isOwnChange
+          });
+          
+          // Only update article state if this change came from another user
+          // If it's our own change (auto-save), just update metadata without remounting
+          if (!isOwnChange) {
+            // Debounce content updates to prevent excessive updates
+            if (contentUpdateTimeoutRef.current) {
+              clearTimeout(contentUpdateTimeoutRef.current);
+              console.log('🔄 [UNIFIED EDITOR] Clearing previous timeout');
             }
-          }, 500); // Faster response - 0.5 second debounce
+            
+            contentUpdateTimeoutRef.current = setTimeout(async () => {
+              console.log('🚀 [UNIFIED EDITOR] Applying external content update...');
+              try {
+                // Update article state with new data from another user
+                if (article) {
+                  const updatedArticle = {
+                    ...article,
+                    content: newContent,
+                    article_version: payload?.new?.article_version || article.article_version + 1,
+                    last_edited_at: payload?.new?.updated_at || new Date().toISOString(),
+                    last_edited_by: payload?.new?.last_edited_by || article.last_edited_by
+                  };
+                  
+                  console.log('📝 [UNIFIED EDITOR] Updating article state for external change:', {
+                    oldVersion: article.article_version,
+                    newVersion: updatedArticle.article_version,
+                    contentLengthDiff: newContent.length - (article.content?.length || 0)
+                  });
+                  
+                  // Update article state - this will cause ArticleEditor to remount with new content
+                  setArticle(updatedArticle);
+                  
+                  // Clear unsaved changes since we just received a fresh update
+                  setHasUnsavedChanges(false);
+                  setLastSaved(new Date());
+                  
+                  console.log('✅ [UNIFIED EDITOR] External content update applied - ArticleEditor will remount');
+                }
+              } catch (error) {
+                console.error('❌ [UNIFIED EDITOR] Failed to apply external update:', error);
+                // Fallback to full reload if seamless update fails
+                console.log('🔄 [UNIFIED EDITOR] Falling back to full article reload...');
+                await loadArticle();
+              }
+            }, 500); // Faster response - 0.5 second debounce
+          } else {
+            // This is our own auto-save, just update metadata silently without remounting
+            console.log('✅ [UNIFIED EDITOR] Own auto-save detected - updating metadata only, no remount');
+            if (article) {
+              // Update just the version and timestamps without triggering a remount
+              const updatedArticle = {
+                ...article,
+                article_version: payload?.new?.article_version || article.article_version + 1,
+                last_edited_at: payload?.new?.updated_at || new Date().toISOString(),
+                last_edited_by: payload?.new?.last_edited_by || article.last_edited_by
+                // Don't update content since it's already up to date in the editor
+              };
+              
+              // Use a ref or skip this state update to prevent remount
+              // For now, let's just update the save status without changing the article
+              setLastSaved(new Date());
+              setHasUnsavedChanges(false);
+            }
+          }
         } else {
           console.log('⏭️ [UNIFIED EDITOR] Content unchanged, skipping update');
         }

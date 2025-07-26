@@ -73,14 +73,16 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.2 }}
       className={`
         flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium
-        border backdrop-blur-sm
+        border backdrop-blur-sm min-w-[100px] justify-center
         ${config.className}
       `}
+      layout
     >
-      <Icon className={`w-3 h-3 ${config.iconClassName}`} />
-      <span>{config.text}</span>
+      <Icon className={`w-3 h-3 flex-shrink-0 ${config.iconClassName}`} />
+      <span className="whitespace-nowrap">{config.text}</span>
     </motion.div>
   );
 };
