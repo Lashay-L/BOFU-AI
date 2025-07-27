@@ -64,7 +64,9 @@ const UserDashboardSidebar = () => {
       const { count: articlesCountVal, error: articlesCountError } = await supabase
         .from('content_briefs')
         .select('id', { count: 'exact', head: true })
-        .not('link', 'is', null);
+        .not('article_content', 'is', null)
+        .neq('article_content', '')
+        .neq('article_content', 'null');
 
       if (articlesCountError) {
         console.error('Error fetching generated articles count:', articlesCountError);

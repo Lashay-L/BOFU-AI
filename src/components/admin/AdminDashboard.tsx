@@ -424,25 +424,22 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
           .from('content_briefs')
           .select('user_id, product_name, id')
           .in('user_id', uniqueUserIds)
-          .not('article_content', 'is', null);
+          .not('article_content', 'is', null)
+          .neq('article_content', '')
+          .neq('article_content', 'null');
 
         if (!mounted) return;
 
         if (articleError) {
           console.error('[AdminDashboard] Error fetching article counts:', articleError);
         } else {
-          // Count unique articles per user (by normalized product_name to avoid counting multiple versions)
+          // Count unique articles per user (by article ID to count each article individually)
           const articleCountMap: { [key: string]: number } = {};
           const uniqueArticles = new Set();
           
           (articleCounts || []).forEach(article => {
-            // Normalize product name to handle variations
-            const normalizedProductName = (article.product_name || 'untitled')
-              .toLowerCase()
-              .trim()
-              .replace(/\s+/g, ' '); // Replace multiple spaces with single space
-            
-            const uniqueKey = `${article.user_id}-${normalizedProductName}`;
+            // Use article ID for uniqueness - each article should be counted individually
+            const uniqueKey = article.id;
             if (!uniqueArticles.has(uniqueKey)) {
               uniqueArticles.add(uniqueKey);
               articleCountMap[article.user_id] = (articleCountMap[article.user_id] || 0) + 1;
