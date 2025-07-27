@@ -765,13 +765,6 @@ export function AssignmentNotificationCenter({ isVisible, onClose }: AssignmentN
             Mark All Read
           </button>
           
-          {/* Debug button for testing mention system */}
-          <button
-            onClick={() => debugMentionSystem()}
-            className="flex items-center gap-2 px-3 py-1 bg-purple-500/20 text-purple-400 rounded-lg text-sm hover:bg-purple-500/30"
-          >
-            🐛 Debug Mentions
-          </button>
         </div>
       </div>
 
