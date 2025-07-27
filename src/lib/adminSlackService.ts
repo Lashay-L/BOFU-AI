@@ -19,7 +19,7 @@ export interface CompanySlackSettings {
 /**
  * Generate Slack OAuth authorization URL for super admin
  */
-export function generateAdminSlackOAuthURL(): string {
+export function generateAdminSlackOAuthURL(returnPath: string = '/admin'): string {
   const SLACK_CLIENT_ID = "5930579212176.9234329054229";
   const REDIRECT_URI = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-slack-oauth-callback`;
   
@@ -31,11 +31,18 @@ export function generateAdminSlackOAuthURL(): string {
     'users:read.email'
   ].join(',');
 
+  // Encode the return path into the state parameter
+  const stateData = {
+    type: 'admin_connection',
+    returnPath: returnPath
+  };
+  const state = btoa(JSON.stringify(stateData));
+
   const params = new URLSearchParams({
     client_id: SLACK_CLIENT_ID,
     scope: scopes,
     redirect_uri: REDIRECT_URI,
-    state: 'admin_connection', // Special state for admin connections
+    state: state,
     response_type: 'code'
   });
 

@@ -103,13 +103,41 @@ export function AdminSlackManagement({
   useEffect(() => {
     if (isOpen) {
       loadConnectionStatus();
+      
+      // Check for OAuth return parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const slackSuccess = urlParams.get('slack_success');
+      const slackError = urlParams.get('slack_error');
+      const team = urlParams.get('team');
+      
+      if (slackSuccess === 'true') {
+        setTestResult({ success: true });
+        // Clear URL parameters after showing success
+        const url = new URL(window.location.href);
+        url.searchParams.delete('slack_success');
+        url.searchParams.delete('team');
+        window.history.replaceState({}, '', url.toString());
+        
+        // Auto-refresh connection status after successful OAuth
+        setTimeout(() => {
+          loadConnectionStatus();
+        }, 1000);
+      } else if (slackError) {
+        setTestResult({ error: `OAuth error: ${slackError}` });
+        // Clear URL parameters after showing error
+        const url = new URL(window.location.href);
+        url.searchParams.delete('slack_error');
+        window.history.replaceState({}, '', url.toString());
+      }
     }
   }, [isOpen]);
 
   const handleConnect = async () => {
     setActionLoading('connecting');
     try {
-      const oauthUrl = generateAdminSlackOAuthURL();
+      // Preserve the current admin page path for return after OAuth
+      const currentPath = window.location.pathname + window.location.search;
+      const oauthUrl = generateAdminSlackOAuthURL(currentPath);
       window.location.href = oauthUrl;
     } catch (error) {
       console.error('Error initiating admin Slack OAuth:', error);

@@ -3,7 +3,7 @@ import { supabaseAdmin, supabase } from '../../../../lib/supabase';
 import { toast } from 'react-hot-toast';
 
 interface DeletionSummary {
-  contentBriefs: number;
+  contentBriefs: number; // Will be cleared, not deleted (preserved)
   researchResults: number;
   approvedProducts: number;
   articleComments: number;
@@ -160,15 +160,23 @@ export function useUserDeletion() {
         return false;
       }
 
-      // Step 7: Delete content briefs
+      // Step 7: Clear content briefs content but preserve the briefs themselves
+      // This allows content briefs to remain as historical records while removing user association
       const { error: contentBriefsError } = await supabaseAdmin
         .from('content_briefs')
-        .delete()
+        .update({
+          user_id: null, // Remove user association
+          article_content: null, // Clear article content
+          link: null, // Clear any Google Doc links
+          editing_status: null, // Reset editing status
+          last_edited_by: null, // Clear last editor reference
+          updated_at: new Date().toISOString()
+        })
         .eq('user_id', userId);
 
       if (contentBriefsError) {
-        console.error('Error deleting content briefs:', contentBriefsError);
-        toast.error('Failed to delete content briefs');
+        console.error('Error updating content briefs:', contentBriefsError);
+        toast.error('Failed to update content briefs');
         return false;
       }
 

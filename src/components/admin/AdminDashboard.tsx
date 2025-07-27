@@ -525,6 +525,40 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
     };
   }, [refreshCounter]);
 
+  // Handle OAuth return parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const slackSuccess = urlParams.get('slack_success');
+    const slackError = urlParams.get('slack_error');
+    const team = urlParams.get('team');
+    
+    if (slackSuccess === 'true') {
+      toast.success(`Slack workspace "${team || 'Unknown'}" connected successfully!`);
+      // Clear URL parameters after showing success
+      const url = new URL(window.location.href);
+      url.searchParams.delete('slack_success');
+      url.searchParams.delete('team');
+      window.history.replaceState({}, '', url.toString());
+    } else if (slackError) {
+      const errorMessages: { [key: string]: string } = {
+        'access_denied': 'Access was denied during Slack authorization',
+        'invalid_request': 'Invalid OAuth request parameters',
+        'configuration_error': 'Slack integration configuration error',
+        'token_exchange_failed': 'Failed to exchange authorization code',
+        'database_error': 'Database error while saving Slack connection',
+        'server_error': 'Server error during Slack integration'
+      };
+      
+      const friendlyMessage = errorMessages[slackError] || `Slack integration error: ${slackError}`;
+      toast.error(friendlyMessage);
+      
+      // Clear URL parameters after showing error
+      const url = new URL(window.location.href);
+      url.searchParams.delete('slack_error');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, []); // Run once on component mount
+
   const handleLogout = async () => {
     console.log('[AdminDashboard] handleLogout called, delegating to App.tsx handleSignOut');
     onLogout();
@@ -1439,12 +1473,12 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
               <div className="bg-red-500/5 rounded-lg p-4 border border-red-500/20">
                 <h4 className="text-red-300 font-medium mb-3 flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4" />
-                  Data that will be permanently deleted:
+                  Data impact summary:
                 </h4>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Content Briefs:</span>
+                      <span className="text-gray-400">Content Briefs (preserved):</span>
                       <span className="text-white font-medium">{deletionSummary.contentBriefs}</span>
                     </div>
                     <div className="flex justify-between">
@@ -1495,8 +1529,9 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
               <p className="text-yellow-300 text-sm flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <span>
-                  This will permanently delete the user's account from Supabase authentication, 
-                  remove all their data from the database, and cannot be recovered. 
+                  This will permanently delete the user's account from Supabase authentication 
+                  and remove most of their data from the database. Content briefs will be preserved 
+                  as historical records with user association removed. This action cannot be recovered. 
                   Only the main admin (lashay@bofu.ai) can perform this action.
                 </span>
               </p>

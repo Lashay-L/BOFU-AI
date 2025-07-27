@@ -107,8 +107,6 @@ export function useContentBriefs() {
         .from('content_briefs')
         .select('*')
         .eq('user_id', userId)
-        .not('article_content', 'is', null)
-        .not('brief_content', 'eq', '{}')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -144,16 +142,21 @@ export function useContentBriefs() {
     try {
       setIsLoadingBriefs(true);
       
+      console.log('🔍 [CONTENT_BRIEF_DEBUG] Fetching content briefs for userIds:', userIds);
+      
       const { data: contentBriefs, error: briefsError } = await supabase
         .from('content_briefs')
         .select('*')
         .in('user_id', userIds)
-        .not('brief_content', 'eq', '{}')
         .order('created_at', { ascending: false });
 
-      if (briefsError) throw briefsError;
+      if (briefsError) {
+        console.error('🔍 [CONTENT_BRIEF_DEBUG] Query error:', briefsError);
+        throw briefsError;
+      }
 
       console.log('📋 Company content loaded:', contentBriefs?.length || 0);
+      console.log('🔍 [CONTENT_BRIEF_DEBUG] Content briefs data:', contentBriefs);
       
       // Process content briefs to generate keyword-based titles and fetch source product data
       const briefsWithEnhancedData = await Promise.all(

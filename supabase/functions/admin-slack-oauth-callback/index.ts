@@ -14,6 +14,10 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  // Parse state parameter to get return path and validation - do this outside try block
+  let returnPath = '/admin';
+  let stateData: { type?: string; returnPath?: string } | null = null;
+  
   try {
     const url = new URL(req.url)
     const code = url.searchParams.get('code')
@@ -21,18 +25,35 @@ serve(async (req: Request) => {
     const error = url.searchParams.get('error')
 
     console.log('Admin Slack OAuth callback received:', { code: !!code, state, error })
+    
+    // Parse state parameter first
+    if (state) {
+      try {
+        stateData = JSON.parse(atob(state));
+        if (stateData?.returnPath) {
+          returnPath = stateData.returnPath;
+        }
+      } catch (_e) {
+        // Fallback to legacy state format
+        if (state === 'admin_connection') {
+          stateData = { type: 'admin_connection' };
+        }
+      }
+    }
 
     // Handle OAuth error
     if (error) {
       console.error('Admin Slack OAuth error:', error)
-      const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}/admin?slack_error=${encodeURIComponent(error)}`
+      const urlSeparator = returnPath.includes('?') ? '&' : '?';
+      const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}${returnPath}${urlSeparator}slack_error=${encodeURIComponent(error)}`
       return Response.redirect(redirectUrl, 302)
     }
 
     // Validate required parameters
-    if (!code || state !== 'admin_connection') {
-      console.error('Missing or invalid OAuth parameters:', { code: !!code, state })
-      const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}/admin?slack_error=invalid_request`
+    if (!code || !stateData || (stateData.type !== 'admin_connection' && state !== 'admin_connection')) {
+      console.error('Missing or invalid OAuth parameters:', { code: !!code, state, stateData })
+      const urlSeparator = returnPath.includes('?') ? '&' : '?';
+      const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}${returnPath}${urlSeparator}slack_error=invalid_request`
       return Response.redirect(redirectUrl, 302)
     }
 
@@ -42,7 +63,8 @@ serve(async (req: Request) => {
     
     if (!supabaseUrl || !serviceRoleKey) {
       console.error('Missing required environment variables')
-      const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}/admin?slack_error=configuration_error`
+      const urlSeparator = returnPath.includes('?') ? '&' : '?';
+      const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}${returnPath}${urlSeparator}slack_error=configuration_error`
       return Response.redirect(redirectUrl, 302)
     }
     
@@ -54,7 +76,8 @@ serve(async (req: Request) => {
 
     if (!SLACK_CLIENT_SECRET) {
       console.error('Missing SLACK_CLIENT_SECRET environment variable')
-      const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}/admin?slack_error=configuration_error`
+      const urlSeparator = returnPath.includes('?') ? '&' : '?';
+      const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}${returnPath}${urlSeparator}slack_error=configuration_error`
       return Response.redirect(redirectUrl, 302)
     }
 
@@ -80,7 +103,8 @@ serve(async (req: Request) => {
 
     if (!tokenData.ok) {
       console.error('Admin Slack token exchange failed:', tokenData.error)
-      const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}/admin?slack_error=${encodeURIComponent(tokenData.error || 'token_exchange_failed')}`
+      const urlSeparator = returnPath.includes('?') ? '&' : '?';
+      const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}${returnPath}${urlSeparator}slack_error=${encodeURIComponent(tokenData.error || 'token_exchange_failed')}`
       return Response.redirect(redirectUrl, 302)
     }
 
@@ -100,19 +124,22 @@ serve(async (req: Request) => {
 
     if (updateError) {
       console.error('Error storing admin Slack connection:', updateError)
-      const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}/admin?slack_error=database_error`
+      const urlSeparator = returnPath.includes('?') ? '&' : '?';
+      const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}${returnPath}${urlSeparator}slack_error=database_error`
       return Response.redirect(redirectUrl, 302)
     }
 
     console.log('Admin Slack integration successful for:', tokenData.team.name)
 
     // Redirect back to admin dashboard with success
-    const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}/admin?slack_success=true&team=${encodeURIComponent(tokenData.team.name)}`
+    const urlSeparator = returnPath.includes('?') ? '&' : '?';
+    const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}${returnPath}${urlSeparator}slack_success=true&team=${encodeURIComponent(tokenData.team.name)}`
     return Response.redirect(redirectUrl, 302)
 
   } catch (error) {
     console.error('Admin Slack OAuth callback error:', error)
-    const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}/admin?slack_error=server_error`
+    const urlSeparator = returnPath.includes('?') ? '&' : '?';
+    const redirectUrl = `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}${returnPath}${urlSeparator}slack_error=server_error`
     return Response.redirect(redirectUrl, 302)
   }
 })

@@ -462,12 +462,12 @@ export function UserDetailView({
             <div className="bg-red-500/5 rounded-lg p-4 border border-red-500/20">
               <h4 className="text-red-300 font-medium mb-3 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4" />
-                Data that will be permanently deleted:
+                Data impact summary:
               </h4>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Content Briefs:</span>
+                    <span className="text-gray-400">Content Briefs (preserved):</span>
                     <span className="text-white font-medium">{deletionSummary.contentBriefs}</span>
                   </div>
                   <div className="flex justify-between">
@@ -518,8 +518,9 @@ export function UserDetailView({
             <p className="text-yellow-300 text-sm flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
               <span>
-                This will permanently delete the user's account from Supabase authentication, 
-                remove all their data from the database, and cannot be recovered. 
+                This will permanently delete the user's account from Supabase authentication 
+                and remove most of their data from the database. Content briefs will be preserved 
+                as historical records with user association removed. This action cannot be recovered. 
                 Only the main admin (lashay@bofu.ai) can perform this action.
               </span>
             </p>

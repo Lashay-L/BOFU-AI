@@ -48,44 +48,23 @@ export function useUsersData() {
 
       console.log('🔍 [CONTENT_BRIEF_DEBUG] Company profiles fetched:', companyProfiles?.length || 0);
 
-      // Step 3: Process users and determine types
-      const mainUsersProcessed: UserProfile[] = (mainUsersData || []).map(user => ({
+      // Step 3: Process all users from user_profiles (simplified - no company_profiles needed)
+      const allUsers: UserProfile[] = (mainUsersData || []).map(user => ({
         id: user.id,
         email: user.email,
         company_name: user.company_name || 'Unknown Company',
         created_at: user.created_at,
         updated_at: user.updated_at,
         avatar_url: user.avatar_url || undefined,
-        user_type: 'main',
+        user_type: 'main', // Will be properly assigned in grouping
         briefCount: 0,
         researchResultsCount: 0
       }));
 
-      // Step 4: Process sub-users (company_profiles that have different user_ids)
-      const subUsersProcessed: UserProfile[] = (companyProfiles || [])
-        .filter(profile => profile.company_id)
-        .map(profile => {
-          const mainUser = mainUsersProcessed.find(u => u.id === profile.user_id);
-          return {
-            id: profile.user_id,
-            email: mainUser?.email || `user-${profile.user_id}`,
-            company_name: profile.company_id || 'Unknown Company',
-            created_at: profile.created_at,
-            updated_at: profile.updated_at,
-            avatar_url: mainUser?.avatar_url || undefined,
-            user_type: 'sub' as const,
-            briefCount: 0,
-            researchResultsCount: 0
-          };
-        });
+      console.log('🔍 [CONTENT_BRIEF_DEBUG] All processed users:', allUsers.length);
+      console.log('🔍 [CONTENT_BRIEF_DEBUG] User emails:', allUsers.map(u => u.email));
 
-      console.log('🔍 [CONTENT_BRIEF_DEBUG] Processed users:', {
-        mainUsers: mainUsersProcessed.length,
-        subUsers: subUsersProcessed.length
-      });
-
-      // Step 5: Get all unique user IDs for content brief and research results counting
-      const allUsers = [...mainUsersProcessed, ...subUsersProcessed];
+      // Step 4: Get all unique user IDs for content brief and research results counting
       const uniqueUserIds = [...new Set(allUsers.map(user => user.id))];
 
       console.log('🔍 [CONTENT_BRIEF_DEBUG] Unique user IDs for queries:', {
@@ -227,25 +206,45 @@ export function useUsersData() {
     
     const companies = new Map<string, CompanyGroup>();
     
-    const mainUsers = users.filter(user => user.user_type === 'main');
+    // Group all users by company name, regardless of user_type (which doesn't exist in DB)
+    const companiesMap = new Map<string, UserProfile[]>();
     
-    console.log('🔍 All main users:', mainUsers.length);
-    
-    mainUsers.forEach(user => {
+    users.forEach(user => {
       const companyName = user.company_name || 'Unknown Company';
-      
-      if (!companies.has(companyName)) {
-        const companyUsers = users.filter(u => u.company_name === companyName);
-        const subAccounts = companyUsers.filter(u => u.user_type === 'sub');
-        
-        companies.set(companyName, {
-          company_name: companyName,
-          main_account: user,
-          sub_accounts: subAccounts,
-          total_users: companyUsers.length,
-          created_at: user.created_at
-        });
+      if (!companiesMap.has(companyName)) {
+        companiesMap.set(companyName, []);
       }
+      companiesMap.get(companyName)!.push(user);
+      console.log(`🔍 Adding user ${user.email} to company "${companyName}"`);
+    });
+    
+    console.log('🔍 Companies found:', companiesMap.size);
+    
+    // Create company groups - use the first user (chronologically) as main account
+    companiesMap.forEach((companyUsers, companyName) => {
+      // Sort by creation date to get the original account
+      const sortedUsers = companyUsers.sort((a, b) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      
+      const mainAccount = sortedUsers[0]; // First user is considered main
+      const subAccounts = sortedUsers.slice(1); // Rest are sub-accounts
+      
+      console.log(`🔍 Company "${companyName}": main=${mainAccount.email}, subs=${subAccounts.length}`);
+      
+      companies.set(companyName, {
+        company_name: companyName,
+        main_account: {
+          ...mainAccount,
+          user_type: 'main' // Set the user_type for consistency
+        },
+        sub_accounts: subAccounts.map(user => ({
+          ...user,
+          user_type: 'sub' // Set the user_type for consistency
+        })),
+        total_users: companyUsers.length,
+        created_at: mainAccount.created_at
+      });
     });
     
     const result = Array.from(companies.values());

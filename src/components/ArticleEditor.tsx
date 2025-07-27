@@ -746,7 +746,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
         listItem: false, // Disable built-in list item
         paragraph: {
           HTMLAttributes: {
-            class: 'text-base text-gray-300 leading-relaxed',
+            class: 'text-base leading-relaxed',
           },
         },
       }),
@@ -778,7 +778,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
         autolink: true,
         protocols: ['ftp', 'mailto'],
         HTMLAttributes: {
-          class: 'text-blue-400 hover:text-blue-300 transition-colors cursor-pointer',
+          class: 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors cursor-pointer',
         },
       }),
       Highlight.configure({ 
@@ -1478,7 +1478,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
         className={`
           ${focusMode === 'zen' ? 'hidden' : 'block'}
           bg-white/95 backdrop-blur-xl border-b border-gray-200/50 px-6 py-4
-          ${theme === 'dark' ? 'bg-gray-900/95 border-gray-700/50 dark' : ''}
+          dark:bg-gray-900/95 dark:border-gray-700/50
           sticky top-0 z-40 shadow-sm
         `}
     >
@@ -1833,7 +1833,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
         className={`
           ${isFullscreen ? 'fixed inset-0 z-50' : 'relative'}
           ${className}
-          ${theme === 'dark' ? 'bg-gray-900 dark' : 'bg-gray-50'}
+          bg-gray-50 dark:bg-gray-900
           w-full flex flex-col
           ${focusMode === 'zen' ? 'h-screen' : ''}
         `}
@@ -1852,7 +1852,6 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
               line-height: 1.2 !important;
               margin-top: 2rem !important;
               margin-bottom: 1rem !important;
-              color: ${theme === 'dark' ? '#f9fafb' : '#111827'} !important;
             }
             .article-editor-content h2 {
               font-size: 2rem !important;
@@ -1860,7 +1859,6 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
               line-height: 1.3 !important;
               margin-top: 1.75rem !important;
               margin-bottom: 0.875rem !important;
-              color: ${theme === 'dark' ? '#f3f4f6' : '#1f2937'} !important;
             }
             .article-editor-content h3 {
               font-size: 1.5rem !important;
@@ -1868,7 +1866,6 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
               line-height: 1.4 !important;
               margin-top: 1.5rem !important;
               margin-bottom: 0.75rem !important;
-              color: ${theme === 'dark' ? '#e5e7eb' : '#374151'} !important;
             }
             .article-editor-content h4 {
               font-size: 1.25rem !important;
@@ -1876,13 +1873,11 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
               line-height: 1.5 !important;
               margin-top: 1.25rem !important;
               margin-bottom: 0.625rem !important;
-              color: ${theme === 'dark' ? '#d1d5db' : '#4b5563'} !important;
             }
             .article-editor-content p {
               font-size: 1.125rem !important;
               line-height: 1.7 !important;
               margin-bottom: 1rem !important;
-              color: ${theme === 'dark' ? '#d1d5db' : '#374151'} !important;
             }
           `
         }} />
@@ -1913,7 +1908,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
               data-editor="true"
               className={`
                 px-8 min-h-full relative
-                ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}
+                bg-white text-gray-900 dark:bg-gray-900 dark:text-white
                 ${focusMode === 'zen' ? 'prose-2xl max-w-5xl mx-auto' : 'prose-xl max-w-none'}
                 ${isMobile ? 'prose-lg' : ''}
                 w-full leading-relaxed
@@ -1938,7 +1933,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
                 editor={editor} 
                 className={`
                   prose prose-xl max-w-none focus:outline-none
-                  ${theme === 'dark' ? 'prose-invert dark' : ''}
+                  dark:prose-invert
                   ${focusMode === 'zen' ? 'prose-2xl max-w-5xl mx-auto' : 'prose-xl max-w-none'}
                   ${isMobile ? 'prose-lg' : ''}
                   w-full leading-relaxed
