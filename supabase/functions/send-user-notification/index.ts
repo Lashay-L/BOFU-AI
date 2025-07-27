@@ -121,21 +121,21 @@ serve(async (req) => {
           fields: [
             {
               type: 'mrkdwn',
-              text: `*📄 Brief Title:*\n${briefTitle}`
+              text: `*📄 Brief Title:* ${briefTitle}`
             },
             {
               type: 'mrkdwn',
-              text: `*🏢 Company:*\n${userProfile.company_name || 'N/A'}`
+              text: `*🏢 Company:* ${userProfile.company_name || 'N/A'}`
             },
             ...(productName ? [{
               type: 'mrkdwn',
-              text: `*🎯 Product:*\n${productName}`
+              text: `*🎯 Product:* ${productName}`
             }, {
               type: 'mrkdwn',
-              text: `*👤 Requested by:*\n${userProfile.email}`
+              text: `*👤 Requested by:* ${userProfile.email}`
             }] : [{
               type: 'mrkdwn',
-              text: `*👤 Requested by:*\n${userProfile.email}`
+              text: `*👤 Requested by:* ${userProfile.email}`
             }])
           ]
         },
@@ -145,30 +145,6 @@ serve(async (req) => {
             type: 'mrkdwn',
             text: `*📊 Status:* ✅ Generated | 🔄 Pending Approval`
           }
-        },
-        {
-          type: 'actions',
-          elements: [
-            {
-              type: 'button',
-              text: {
-                type: 'plain_text',
-                text: '👀 Review Brief',
-                emoji: true
-              },
-              style: 'primary',
-              url: `https://bofu.ai/content-briefs`
-            },
-            {
-              type: 'button',
-              text: {
-                type: 'plain_text',
-                text: '📧 Open Dashboard',
-                emoji: true
-              },
-              url: `https://bofu.ai/dashboard`
-            }
-          ]
         }
       ]
     } else if (notificationType === 'article_generated') {
@@ -196,21 +172,21 @@ serve(async (req) => {
           fields: [
             {
               type: 'mrkdwn',
-              text: `*📰 Article Title:*\n${briefTitle}`
+              text: `*📰 Article Title:* ${briefTitle}`
             },
             {
               type: 'mrkdwn',
-              text: `*🏢 Company:*\n${userProfile.company_name || 'N/A'}`
+              text: `*🏢 Company:* ${userProfile.company_name || 'N/A'}`
             },
             ...(productName ? [{
               type: 'mrkdwn',
-              text: `*🎯 Product Focus:*\n${productName}`
+              text: `*🎯 Product Focus:* ${productName}`
             }, {
               type: 'mrkdwn',
-              text: `*👤 Author:*\n${userProfile.email}`
+              text: `*👤 Author:* ${userProfile.email}`
             }] : [{
               type: 'mrkdwn',
-              text: `*👤 Author:*\n${userProfile.email}`
+              text: `*👤 Author:* ${userProfile.email}`
             }])
           ]
         },
@@ -220,46 +196,6 @@ serve(async (req) => {
             type: 'mrkdwn',
             text: `*📊 Status:* ✅ Generated | 📝 Ready for Editing | 🔍 Awaiting Review`
           }
-        },
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: `*🎯 Next Steps:*\n• Review the generated content for accuracy\n• Edit and customize as needed\n• Publish when ready`
-          }
-        },
-        {
-          type: 'actions',
-          elements: [
-            {
-              type: 'button',
-              text: {
-                type: 'plain_text',
-                text: '✏️ Edit Article',
-                emoji: true
-              },
-              style: 'primary',
-              url: `https://bofu.ai/content-briefs`
-            },
-            {
-              type: 'button',
-              text: {
-                type: 'plain_text',
-                text: '📊 View Dashboard',
-                emoji: true
-              },
-              url: `https://bofu.ai/dashboard`
-            },
-            {
-              type: 'button',
-              text: {
-                type: 'plain_text',
-                text: '📞 Get Support',
-                emoji: true
-              },
-              url: `mailto:support@bofu.ai`
-            }
-          ]
         }
       ]
     } else {
@@ -347,48 +283,10 @@ serve(async (req) => {
 
     // Helper function to send Slack notification
     async function sendSlackNotification(accessToken: string, botToken: string | null, channelId: string, channelName: string, title: string, slackBlocks: any[]) {
-      // Add common footer blocks
-      const commonFooterBlocks = [
-        {
-          type: 'divider'
-        },
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: `*💡 Quick Tips:*\n• Save time with our AI-powered content generation\n• Customize content to match your brand voice\n• Export to multiple formats when ready`
-          }
-        },
-        {
-          type: 'context',
-          elements: [
-            {
-              type: 'mrkdwn',
-              text: `🕒 ${new Date().toLocaleDateString('en-US', { 
-                weekday: 'short', 
-                month: 'short', 
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                timeZone: 'UTC'
-              })} UTC`
-            },
-            {
-              type: 'mrkdwn',
-              text: '🤖 *BOFU AI* • Automated Content Generation'
-            },
-            {
-              type: 'mrkdwn',
-              text: '📧 support@bofu.ai • 🌐 bofu.ai'
-            }
-          ]
-        }
-      ]
-
       const slackMessage = {
         channel: channelId,
         text: title,
-        blocks: [...slackBlocks, ...commonFooterBlocks]
+        blocks: slackBlocks
       }
 
       try {
