@@ -16,16 +16,16 @@
 
 /* ProseMirror Editor Optimizations */
 .ProseMirror {
-  /* Hardware acceleration for smooth scrolling */
-  transform: translateZ(0);
+  /* Hardware acceleration for smooth scrolling - TEMPORARILY DISABLED FOR Z-INDEX FIX */
+  /* transform: translateZ(0); */
   backface-visibility: hidden;
   
   /* Optimize scroll performance */
   will-change: scroll-position;
   overflow-anchor: none;
   
-  /* Content containment for performance */
-  contain: layout style paint;
+  /* Content containment for performance - TEMPORARILY DISABLED FOR Z-INDEX FIX */
+  /* contain: layout style paint; */
   
   /* Optimize for large documents */
   contain-intrinsic-size: auto 500px;

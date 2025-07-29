@@ -36,7 +36,7 @@
   opacity: 1;
   transition: all 0.2s ease;
   pointer-events: auto;
-  z-index: 1001;
+  z-index: 9998;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
@@ -114,9 +114,25 @@
 
 /* Selected image highlight */
 .ProseMirror .selectedImage {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
+  position: relative;
   border-radius: 8px;
+}
+
+.ProseMirror .selectedImage::before {
+  /* TEMPORARILY HIDDEN FOR Z-INDEX TESTING */
+  display: none;
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border: 2px solid #3b82f6;
+  border-radius: 8px;
+  z-index: -1;
+  pointer-events: none;
+  /* Create a stacking context that stays below the header */
+  isolation: isolate;
 }
 
 /* Image drag handle */

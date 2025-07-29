@@ -9,6 +9,7 @@
     0 8px 32px rgba(0, 0, 0, 0.1),
     0 1px 0 rgba(255, 255, 255, 0.5) inset;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 9999;
 }
 
 .floating-toolbar.dark {

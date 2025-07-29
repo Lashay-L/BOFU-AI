@@ -373,7 +373,11 @@
   }
   
   .ProseMirror img.ProseMirror-selectednode {
-    box-shadow: 0 0 0 3px #3b82f6;
+    /* TEMPORARILY HIDDEN FOR Z-INDEX TESTING */
+    box-shadow: none;
+    /* box-shadow: 0 0 0 3px #3b82f6; */
+    position: relative;
+    z-index: -2;
   }
   
   /* Mobile selection styles */

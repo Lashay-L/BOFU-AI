@@ -201,11 +201,11 @@ export const ImageResizer: React.FC<ImageResizerProps> = ({
         left: position.x,
         width: currentSize.width,
         height: currentSize.height,
-        zIndex: 1000,
+        zIndex: 8000,
         pointerEvents: 'none',
       }}
     >
-      {/* Selection border */}
+      {/* Selection border - TEMPORARILY HIDDEN FOR Z-INDEX TESTING */}
       <div
         className="image-selection-border"
         style={{
@@ -214,9 +214,11 @@ export const ImageResizer: React.FC<ImageResizerProps> = ({
           left: -2,
           right: -2,
           bottom: -2,
-          border: '2px solid #3b82f6',
+          border: 'none', // '2px solid #3b82f6',
           borderRadius: '4px',
           pointerEvents: 'none',
+          zIndex: -3,
+          display: 'none',
         }}
       />
 
@@ -248,7 +250,7 @@ export const ImageResizer: React.FC<ImageResizerProps> = ({
           padding: '4px',
           border: '1px solid #e5e7eb',
           pointerEvents: 'auto',
-          zIndex: 1001,
+          zIndex: 8001,
         }}
       >
         {onEditCaption && (
