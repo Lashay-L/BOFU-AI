@@ -191,10 +191,10 @@ const UndoRedoHistoryPanel = ({ editor }: { editor: any }) => {
             initial={{ opacity: 0, scale: 0.95, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -10 }}
-            className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2 z-50 min-w-[200px]"
+            className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-50 min-w-[200px]"
           >
             <div className="space-y-1">
-              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 px-2 py-1">
+              <div className="text-xs font-medium text-gray-500 px-2 py-1">
                 Bulk Operations
               </div>
               {[1, 5, 10, 20].map((steps) => (
@@ -202,14 +202,14 @@ const UndoRedoHistoryPanel = ({ editor }: { editor: any }) => {
                   <button
                     onClick={() => handleBulkUndo(steps)}
                     disabled={!editor?.can().undo()}
-                    className="flex-1 text-left px-2 py-1 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 text-left px-2 py-1 text-xs hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Undo {steps} steps
                   </button>
                   <button
                     onClick={() => handleBulkRedo(steps)}
                     disabled={!editor?.can().redo()}
-                    className="flex-1 text-left px-2 py-1 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 text-left px-2 py-1 text-xs hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Redo {steps} steps
                   </button>
@@ -778,7 +778,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
         autolink: true,
         protocols: ['ftp', 'mailto'],
         HTMLAttributes: {
-          class: 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors cursor-pointer',
+          class: 'text-blue-600 hover:text-blue-700 transition-colors cursor-pointer',
         },
       }),
       Highlight.configure({ 
@@ -817,7 +817,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
     autofocus: true,
     editorProps: {
       attributes: {
-        class: `prose ${theme === 'dark' ? 'prose-invert' : ''} max-w-none focus:outline-none p-6 editor-scrollbar`,
+        class: `prose max-w-none focus:outline-none p-6 editor-scrollbar`,
         'data-testid': 'article-editor-content',
         contenteditable: 'true', // Explicitly ensure contenteditable
         spellcheck: 'false', // Disable spellcheck to prevent Grammarly interference
@@ -1477,9 +1477,8 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
       <div 
         className={`
           ${focusMode === 'zen' ? 'hidden' : 'block'}
-          bg-white/95 backdrop-blur-xl border-b border-gray-200/50 px-6 py-4
-          dark:bg-gray-900/95 dark:border-gray-700/50
-          sticky top-0 z-40 shadow-sm
+          bg-white backdrop-blur-xl border-b border-gray-200/50 px-6 py-4
+          sticky top-0 z-[9999] shadow-sm
         `}
     >
       {/* Top toolbar row */}
@@ -1508,7 +1507,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
             Save
           </ToolbarButton>
           
-          <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 rounded-xl p-1 gap-1">
+          <div className="flex items-center bg-gray-200/90 rounded-xl p-1 gap-1">
             <ExportButton 
               editor={editor}
               articleTitle={article?.title || 'Untitled Article'}
@@ -1530,7 +1529,6 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
             status={saveStatus}
             isAutoSaving={isAutoSaving}
             lastSaved={lastSaved}
-            theme={theme}
           />
           {articleId && (
             <UserPresence articleId={articleId} />
@@ -1540,7 +1538,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
         {/* Right: View and settings controls */}
         <div className="flex items-center gap-3">
           {/* Focus and theme controls */}
-          <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 rounded-xl p-1 gap-1">
+          <div className="flex items-center bg-gray-200/90 rounded-xl p-1 gap-1">
             <ToolbarButton
               icon={MessageCircle}
               label="Toggle Comments (Ctrl+M)"
@@ -1566,14 +1564,14 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
         {/* Left: Primary formatting tools */}
         <div className="flex items-center gap-3">
           {/* Undo/Redo */}
-          <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 rounded-xl p-1">
+          <div className="flex items-center bg-gray-200/90 rounded-xl p-1">
             <UndoRedoHistoryPanel editor={editor} />
           </div>
 
           <ToolbarSeparator />
 
           {/* Text formatting */}
-          <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 rounded-xl p-1">
+          <div className="flex items-center bg-gray-200/90 rounded-xl p-1">
             <ToolbarButton
               icon={Bold}
               label="Bold (Ctrl+B)"
@@ -1611,7 +1609,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
           <ToolbarSeparator />
 
           {/* Headings */}
-          <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 rounded-xl p-1">
+          <div className="flex items-center bg-gray-200/90 rounded-xl p-1">
             <ToolbarButton
               icon={Heading1}
               label="Heading 1"
@@ -1649,7 +1647,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
           <ToolbarSeparator />
 
           {/* Lists and alignment */}
-          <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 rounded-xl p-1">
+          <div className="flex items-center bg-gray-200/90 rounded-xl p-1">
             <ToolbarButton
               icon={List}
               label="Bullet List"
@@ -1671,7 +1669,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
           <ToolbarSeparator />
 
           {/* Text alignment */}
-          <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 rounded-xl p-1">
+          <div className="flex items-center bg-gray-200/90 rounded-xl p-1">
             <ToolbarButton
               icon={AlignLeft}
               label="Align Left"
@@ -1702,7 +1700,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
         {/* Right: Advanced tools and stats */}
         <div className="flex items-center gap-3">
           {/* Insert tools */}
-          <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 rounded-xl p-1">
+          <div className="flex items-center bg-gray-200/90 rounded-xl p-1">
             <ToolbarButton
               icon={LinkIcon}
               label="Insert Link"
@@ -1753,7 +1751,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
           <ToolbarSeparator />
 
           {/* Text styling */}
-          <div className="flex items-center bg-gray-100/80 dark:bg-gray-800/80 rounded-xl p-1">
+          <div className="flex items-center bg-gray-200/90 rounded-xl p-1">
             <ArticleColorPicker
               onColorSelect={(color) => {
                 setTextColor(color);
@@ -1775,7 +1773,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
           <ToolbarSeparator />
 
           {/* Word count and stats */}
-          <div className="text-sm text-gray-600 dark:text-gray-300 bg-gray-100/50 dark:bg-gray-800/50 px-3 py-2 rounded-lg backdrop-blur-sm">
+          <div className="text-sm text-gray-700 bg-gray-200/80 px-3 py-2 rounded-lg backdrop-blur-sm">
             <div className="flex items-center gap-4">
               <span className="font-medium">{wordCount} words</span>
               <span>{charCount} chars</span>
@@ -1833,7 +1831,7 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
         className={`
           ${isFullscreen ? 'fixed inset-0 z-50' : 'relative'}
           ${className}
-          bg-gray-50 dark:bg-gray-900
+          bg-gray-50
           w-full flex flex-col
           ${focusMode === 'zen' ? 'h-screen' : ''}
         `}
@@ -1902,13 +1900,13 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
           }}
         >
           {/* Editor container - properly contained with overflow handling */}
-          <div className={`flex-1 ${focusMode === 'zen' ? 'overflow-visible' : 'overflow-y-auto'}`}>
+          <div className={`flex-1 ${focusMode === 'zen' ? 'overflow-y-auto' : 'overflow-y-auto'}`} style={{ position: 'relative' }}>
             <div 
               ref={editorRef}
               data-editor="true"
               className={`
                 px-8 min-h-full relative
-                bg-white text-gray-900 dark:bg-gray-900 dark:text-white
+                bg-white text-gray-900
                 ${focusMode === 'zen' ? 'prose-2xl max-w-5xl mx-auto' : 'prose-xl max-w-none'}
                 ${isMobile ? 'prose-lg' : ''}
                 w-full leading-relaxed
@@ -1933,7 +1931,6 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
                 editor={editor} 
                 className={`
                   prose prose-xl max-w-none focus:outline-none
-                  dark:prose-invert
                   ${focusMode === 'zen' ? 'prose-2xl max-w-5xl mx-auto' : 'prose-xl max-w-none'}
                   ${isMobile ? 'prose-lg' : ''}
                   w-full leading-relaxed

@@ -29,13 +29,13 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
   const baseClasses = "relative inline-flex items-center justify-center font-medium transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none";
   
   const variantClasses = {
-    default: "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 shadow-sm hover:shadow-md",
+    default: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 shadow-sm hover:shadow-md",
     primary: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm hover:shadow-md border border-primary/20",
     success: "bg-green-500 text-white hover:bg-green-600 shadow-sm hover:shadow-md border border-green-400/20",
     warning: "bg-amber-500 text-white hover:bg-amber-600 shadow-sm hover:shadow-md border border-amber-400/20",
     danger: "bg-red-500 text-white hover:bg-red-600 shadow-sm hover:shadow-md border border-red-400/20",
-    ghost: "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100",
-    outline: "border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-500"
+    ghost: "text-gray-800 hover:bg-gray-200 hover:text-gray-900 transition-colors",
+    outline: "border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
   };
 
   const sizeClasses = {

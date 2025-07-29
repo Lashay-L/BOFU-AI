@@ -8,7 +8,6 @@ interface StatusIndicatorProps {
   status: SaveStatus;
   isAutoSaving: boolean;
   lastSaved: Date | null;
-  theme?: 'light' | 'dark';
 }
 
 const formatTimeAgo = (date: Date): string => {
@@ -27,15 +26,14 @@ const formatTimeAgo = (date: Date): string => {
 export const StatusIndicator: React.FC<StatusIndicatorProps> = ({ 
   status, 
   isAutoSaving, 
-  lastSaved,
-  theme = 'light'
+  lastSaved
 }) => {
   const getStatusConfig = () => {
     if (isAutoSaving || status === 'saving') {
       return {
         icon: Loader2,
         text: 'Saving...',
-        className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800',
+        className: 'bg-blue-500/10 text-blue-600 border-blue-200',
         iconClassName: 'animate-spin text-blue-500'
       };
     }
@@ -44,7 +42,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
       return {
         icon: CheckCircle,
         text: lastSaved ? `Saved ${formatTimeAgo(lastSaved)}` : 'Saved',
-        className: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800',
+        className: 'bg-green-500/10 text-green-600 border-green-200',
         iconClassName: 'text-green-500'
       };
     }
@@ -53,7 +51,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
       return {
         icon: AlertCircle,
         text: 'Save failed',
-        className: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800',
+        className: 'bg-red-500/10 text-red-600 border-red-200',
         iconClassName: 'text-red-500'
       };
     }
@@ -61,7 +59,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
     return {
       icon: Save,
       text: 'Ready',
-      className: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700',
+      className: 'bg-gray-500/10 text-gray-600 border-gray-200',
       iconClassName: 'text-gray-500'
     };
   };
