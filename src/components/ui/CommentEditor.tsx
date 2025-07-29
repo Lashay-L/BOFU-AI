@@ -275,10 +275,10 @@ export const CommentEditor: React.FC<CommentEditorProps> = ({
       {/* Main Editor Container */}
       <div 
         className={`
-          relative bg-white dark:bg-gray-800 border rounded-lg transition-all duration-200
+          relative bg-white border rounded-lg transition-all duration-200
           ${isDragOver 
-            ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20' 
-            : 'border-gray-300 dark:border-gray-600 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400'
+            ? 'border-blue-400 bg-blue-50' 
+            : 'border-gray-300 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400'
           }
           ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
         `}
@@ -288,7 +288,7 @@ export const CommentEditor: React.FC<CommentEditorProps> = ({
       >
         {/* Image Preview */}
         {selectedImage && previewUrl && (
-          <div className="p-3 border-b border-gray-200 dark:border-gray-600">
+          <div className="p-3 border-b border-gray-200">
             <div className="relative inline-block">
               <img
                 src={previewUrl}
@@ -303,7 +303,7 @@ export const CommentEditor: React.FC<CommentEditorProps> = ({
                 <X size={14} />
               </button>
             </div>
-            <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            <div className="mt-2 text-sm text-gray-600">
               📸 {selectedImage.name} ({(selectedImage.size / 1024).toFixed(1)} KB)
             </div>
           </div>
@@ -318,30 +318,30 @@ export const CommentEditor: React.FC<CommentEditorProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}
-            className={`w-full bg-transparent border-0 focus:outline-none focus:ring-0 resize-none text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 ${compact ? 'p-2' : 'p-3'}`}
+            className={`w-full bg-transparent border-0 focus:outline-none focus:ring-0 resize-none text-gray-900 placeholder-gray-500 ${compact ? 'p-2' : 'p-3'}`}
             style={{ minHeight: compact ? '60px' : '80px', maxHeight: '200px' }}
           />
 
           {/* Drag Overlay */}
           {isDragOver && (
-            <div className="absolute inset-0 bg-blue-100 dark:bg-blue-900/30 border-2 border-dashed border-blue-400 rounded flex items-center justify-center">
+            <div className="absolute inset-0 bg-blue-100 border-2 border-dashed border-blue-400 rounded flex items-center justify-center">
               <div className="text-center">
                 <Upload className="mx-auto mb-2 text-blue-500" size={32} />
-                <p className="text-blue-700 dark:text-blue-300 font-medium">Drop your image here</p>
+                <p className="text-blue-700 font-medium">Drop your image here</p>
               </div>
             </div>
           )}
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center justify-between p-3 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+        <div className="flex items-center justify-between p-3 border-t border-gray-200 bg-gray-50">
           <div className="flex items-center space-x-2">
             {/* Image Upload Button */}
             {showImageUpload && (
               <button
                 onClick={handleImageUploadClick}
                 disabled={disabled}
-                className="flex items-center space-x-1 px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center space-x-1 px-3 py-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Upload image"
               >
                 <ImageIcon size={16} />
@@ -350,14 +350,14 @@ export const CommentEditor: React.FC<CommentEditorProps> = ({
             )}
 
             {/* Mention Hint */}
-            <div className="flex items-center space-x-1 text-gray-500 dark:text-gray-400 text-sm">
+            <div className="flex items-center space-x-1 text-gray-500 text-sm">
               <AtSign size={14} />
               <span>Type @ to mention</span>
             </div>
           </div>
 
           {/* Character Count or other indicators */}
-          <div className="text-xs text-gray-500 dark:text-gray-400">
+          <div className="text-xs text-gray-500">
             {value.length > 0 && `${value.length} characters`}
           </div>
         </div>

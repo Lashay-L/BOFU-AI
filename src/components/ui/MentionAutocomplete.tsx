@@ -21,22 +21,11 @@ const mentionScrollbarStyles = `
     background: #9ca3af;
     background-clip: content-box;
   }
-  .dark .mention-scroll::-webkit-scrollbar-thumb {
-    background: #4b5563;
-    background-clip: content-box;
-  }
-  .dark .mention-scroll::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
-    background-clip: content-box;
-  }
   
   /* Firefox scrollbar */
   .mention-scroll {
     scrollbar-width: thin;
     scrollbar-color: #d1d5db transparent;
-  }
-  .dark .mention-scroll {
-    scrollbar-color: #4b5563 transparent;
   }
 `;
 
@@ -237,7 +226,7 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
       {/* Autocomplete Menu */}
       <div
         ref={listRef}
-        className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl max-h-80 min-w-64 overflow-hidden"
+        className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl max-h-80 min-w-64 overflow-hidden"
         style={{
           left: calculatedPosition.x,
           top: calculatedPosition.y,
@@ -245,15 +234,15 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
         }}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600 px-3 py-2 z-10">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-3 py-2 z-10">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
               <Search size={14} />
               <span>Mention someone</span>
             </div>
             <button
               onClick={onClose}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              className="p-1 hover:bg-gray-100 rounded transition-colors"
             >
               <X size={14} />
             </button>
@@ -266,13 +255,15 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
           {loading && (
             <div className="px-3 py-4 text-center">
               <div className="inline-block w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-              <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">Searching...</div>
+              <div className="mt-2 text-sm text-gray-500">
+                Searching...
+              </div>
             </div>
           )}
 
           {/* No Results */}
           {!loading && users.length === 0 && searchTerm.length > 0 && (
-            <div className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+            <div className="px-3 py-4 text-center text-sm text-gray-500">
               No users found for "{searchTerm}"
             </div>
           )}
@@ -284,9 +275,9 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
                 <button
                   key={user.user_id}
                   onClick={() => onSelectMention(user)}
-                  className={`w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 transition-all duration-150 ${
+                  className={`w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center gap-3 transition-all duration-150 ${
                     index === selectedIndex 
-                      ? 'bg-blue-50 dark:bg-blue-900/30 border-r-2 border-blue-500' 
+                      ? 'bg-blue-50 border-r-2 border-blue-500' 
                       : ''
                   }`}
                 >
@@ -309,19 +300,19 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
                   {/* User Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-medium text-gray-900 dark:text-white truncate">
+                      <span className="font-medium text-gray-900 truncate">
                         {getDisplayName(user)}
                       </span>
                       {user.is_admin && (
-                        <span className="px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded text-xs font-medium">
+                        <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium">
                           Admin
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
                       <span className="truncate">{user.email}</span>
                       <span>•</span>
-                      <span className="font-mono bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">
+                      <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">
                         {user.mention_text}
                       </span>
                     </div>
@@ -338,18 +329,18 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 px-3 py-2 z-10">
-          <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between">
+        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-3 py-2 z-10">
+          <div className="text-xs text-gray-500 flex items-center justify-between">
             <div className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-xs">↑↓</kbd>
+              <kbd className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-xs">↑↓</kbd>
               <span>navigate</span>
             </div>
             <div className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-xs">↵</kbd>
+              <kbd className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-xs">↵</kbd>
               <span>select</span>
             </div>
             <div className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-xs">Esc</kbd>
+              <kbd className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-xs">Esc</kbd>
               <span>close</span>
             </div>
           </div>

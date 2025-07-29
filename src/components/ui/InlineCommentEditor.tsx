@@ -148,20 +148,20 @@ export const InlineCommentEditor: React.FC<InlineCommentEditorProps> = ({
             onKeyDown={handleKeyDown}
           >
             {/* Backdrop blur overlay for focus */}
-            <div className="absolute inset-0 -m-2 bg-black/5 backdrop-blur-sm rounded-lg" />
+            <div className="absolute inset-0 -m-2 bg-white/20 backdrop-blur-sm rounded-lg" />
             
-            <div className="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl">
+            <div className="relative bg-white border border-gray-200 rounded-lg shadow-xl">
               {/* Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <span className="text-sm font-medium text-gray-700">
                     Comment on "{selection.text.length > 30 ? selection.text.substring(0, 30) + '...' : selection.text}"
                   </span>
                 </div>
                 <button
                   onClick={handleCancel}
-                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                   title="Cancel (Esc)"
                 >
                   <X className="w-4 h-4" />
@@ -182,14 +182,14 @@ export const InlineCommentEditor: React.FC<InlineCommentEditorProps> = ({
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 rounded-b-lg">
-                <div className="text-xs text-gray-500 dark:text-gray-400">
+              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200 rounded-b-lg">
+                <div className="text-xs text-gray-500">
                   Cmd+Enter to send • Esc to cancel
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleCancel}
-                    className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                    className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 transition-colors"
                   >
                     Cancel
                   </button>
@@ -223,7 +223,7 @@ export const InlineCommentEditor: React.FC<InlineCommentEditorProps> = ({
                   absolute left-1/2 transform -translate-x-1/2 w-0 h-0 
                   ${position.placement === 'below' ? 'bottom-full' : 'top-full'}
                   border-l-8 border-r-8 border-transparent
-                  ${position.placement === 'below' ? 'border-b-8 border-b-white dark:border-b-gray-800' : 'border-t-8 border-t-white dark:border-t-gray-800'}
+                  ${position.placement === 'below' ? 'border-b-8 border-b-white' : 'border-t-8 border-t-white'}
                 `}
               />
             </div>

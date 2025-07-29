@@ -39,12 +39,6 @@ const scrollbarStyles = `
   .comment-menu-scroll::-webkit-scrollbar-thumb:hover {
     background: #9ca3af;
   }
-  .dark .comment-menu-scroll::-webkit-scrollbar-thumb {
-    background: #4b5563;
-  }
-  .dark .comment-menu-scroll::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
-  }
 
   /* Mention highlighting styles */
   .mention-user {
@@ -161,7 +155,7 @@ const renderTextWithMentions = (text: string) => {
     parts.push(
       <span
         key={`mention-${match.index}`}
-        className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors cursor-pointer"
+        className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-sm font-medium hover:bg-blue-200 transition-colors cursor-pointer"
         title={`Mentioned user: ${match[1]}`}
       >
         <AtSign size={12} />
@@ -351,14 +345,14 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
             <img
               src={comment.image_url}
               alt="Comment attachment"
-              className="max-w-full max-h-96 rounded-lg object-cover border border-gray-200 dark:border-gray-600"
+              className="max-w-full max-h-96 rounded-lg object-cover border border-gray-200"
               loading="lazy"
             />
           </div>
           
           {/* Optional Caption with Mentions */}
           {comment.content && comment.content.trim() && (
-            <div className="text-gray-700 dark:text-gray-300 text-sm">
+            <div className="text-gray-700 text-sm">
               <div className="flex items-start gap-2">
                 <Image className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
@@ -373,7 +367,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
 
     // Regular text content with mention highlighting
     return (
-      <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+      <div className="text-gray-700 whitespace-pre-wrap break-words">
         {renderTextWithMentions(comment.content)}
       </div>
     );
@@ -387,10 +381,10 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
       {/* Main Comment Card - only for top-level comments */}
       {depth === 0 ? (
         <div className={`
-          relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm transition-all duration-300
+          relative bg-white border border-gray-200 rounded-xl shadow-sm transition-all duration-300
           ${highlightedCommentId === comment.id 
-            ? 'ring-2 ring-blue-200 dark:ring-blue-700 border-blue-200 dark:border-blue-700' 
-            : 'hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600'
+            ? 'ring-2 ring-blue-200 border-blue-200' 
+            : 'hover:shadow-md hover:border-gray-300'
           }
         `}>
           {/* Main Comment Content */}
@@ -417,14 +411,14 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                 {/* User Information */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-3 mb-1">
-                    <h4 className="text-base font-semibold text-gray-900 dark:text-white truncate">
+                    <h4 className="text-base font-semibold text-gray-900 truncate">
                       {comment.user?.name || comment.user?.email || 'Anonymous User'}
                     </h4>
                     
                     {/* Badges */}
                     <div className="flex items-center space-x-2">
                       {comment.user?.isAdmin && (
-                        <span className="px-2.5 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-medium">
+                        <span className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-medium">
                           Admin
                         </span>
                       )}
@@ -456,7 +450,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                   </div>
                   
                   {/* Timestamp */}
-                  <div className="flex items-center space-x-3 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center space-x-3 text-xs text-gray-500">
                     <div className="flex items-center space-x-1">
                       <Clock className="w-3 h-3" />
                       <span>{formatDate(comment.created_at)}</span>
@@ -483,8 +477,8 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                     className={`
                       p-2 rounded-lg transition-all duration-200 
                       ${showMenu 
-                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
-                        : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        ? 'bg-blue-100 text-blue-600' 
+                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                       }
                     `}
                   >
@@ -493,7 +487,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
 
                   {/* Dropdown Menu */}
                   {showMenu && (
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
                       <div 
                         className="py-1"
                         style={{
@@ -506,7 +500,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                             onReply(comment);
                             setShowMenu(false);
                           }}
-                          className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-2 transition-colors"
+                          className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2 transition-colors"
                         >
                           <Reply className="w-4 h-4 text-blue-500" />
                           <span className="font-medium">Reply</span>
@@ -517,7 +511,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                             onEdit(comment);
                             setShowMenu(false);
                           }}
-                          className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-2 transition-colors"
+                          className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2 transition-colors"
                         >
                           <Edit2 className="w-4 h-4 text-gray-500" />
                           <span className="font-medium">Edit</span>
@@ -530,7 +524,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                               setShowResolutionDialog(true);
                               setShowMenu(false);
                             }}
-                            className="w-full px-3 py-2 text-left text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center space-x-2 transition-colors"
+                            className="w-full px-3 py-2 text-left text-sm text-green-600 hover:bg-green-50 flex items-center space-x-2 transition-colors"
                           >
                             <CheckCircle className="w-4 h-4" />
                             <span className="font-medium">Resolve</span>
@@ -542,7 +536,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                             onDelete(comment.id);
                             setShowMenu(false);
                           }}
-                          className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2 transition-colors"
+                          className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2 transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                           <span className="font-medium">Delete</span>
@@ -562,17 +556,17 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
 
             {/* Replies Section - render inside the same card */}
             {comment.replies && comment.replies.length > 0 && (
-              <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+              <div className="mt-6 pt-4 border-t border-gray-100">
                 <div className="flex items-center space-x-2 mb-4">
                   <MessageCircle className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  <span className="text-sm font-medium text-gray-600">
                     {comment.replies.length} {comment.replies.length === 1 ? 'Reply' : 'Replies'}
                   </span>
                 </div>
                 
                 <div className="space-y-4">
                   {comment.replies.map((reply) => (
-                    <div key={reply.id} className="pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+                    <div key={reply.id} className="pl-4 border-l-2 border-gray-200">
                       {/* Reply Content */}
                       <div className="flex items-start space-x-3">
                         {/* Reply Avatar */}
@@ -594,17 +588,17 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                         {/* Reply Details */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-1">
-                            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                            <span className="text-sm font-semibold text-gray-900">
                               {reply.user?.name || reply.user?.email || 'Anonymous User'}
                             </span>
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                               reply.content_type === 'image' 
-                                ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' 
-                                : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                                ? 'bg-purple-100 text-purple-700' 
+                                : 'bg-green-100 text-green-700'
                             }`}>
                               {reply.content_type === 'image' ? '🖼 Image Reply' : 'Reply'}
                             </span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                            <span className="text-xs text-gray-500">
                               {formatDate(reply.created_at)}
                             </span>
                           </div>
@@ -618,14 +612,14 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                                   <img
                                     src={reply.image_url}
                                     alt={reply.content || 'Reply image'}
-                                    className="max-w-full max-h-64 rounded-lg object-cover shadow-sm border border-gray-200 dark:border-gray-600"
+                                    className="max-w-full max-h-64 rounded-lg object-cover shadow-sm border border-gray-200"
                                     style={{ maxWidth: '100%', height: 'auto' }}
                                   />
                                 </div>
                                 {/* Image Caption */}
                                 {reply.content && reply.content !== `Image: ${reply.content}` && (
                                   <div className="mt-1">
-                                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">
+                                    <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
                                       {reply.content}
                                     </p>
                                   </div>
@@ -635,7 +629,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
 
                             {/* Text Content */}
                             {reply.content_type !== 'image' && (
-                              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+                              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
                                 {reply.content}
                               </p>
                             )}
@@ -646,19 +640,19 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                             <div className="flex items-center space-x-3 mt-2">
                               <button
                                 onClick={() => onReply(reply)}
-                                className="text-xs text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+                                className="text-xs text-gray-500 hover:text-blue-600 transition-colors"
                               >
                                 Reply
                               </button>
                               <button
                                 onClick={() => onEdit(reply)}
-                                className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors"
+                                className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
                               >
                                 Edit
                               </button>
                               <button
                                 onClick={() => onDelete(reply.id)}
-                                className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                                className="text-xs text-red-500 hover:text-red-700 transition-colors"
                               >
                                 Delete
                               </button>
@@ -674,16 +668,16 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
 
             {/* Footer Actions */}
             {showActions && (
-              <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700 mt-4">
+              <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-4">
                 <button
                   onClick={() => onReply(comment)}
-                  className="flex items-center space-x-2 px-3 py-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                 >
                   <Reply className="w-4 h-4" />
                   <span className="text-sm font-medium">Reply</span>
                 </button>
                 
-                <div className="text-xs text-gray-400 dark:text-gray-500">
+                <div className="text-xs text-gray-400">
                   ID: {comment.id.slice(-8)}
                 </div>
               </div>
@@ -692,8 +686,8 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
         </div>
       ) : (
         // This is a nested reply (shouldn't happen with new structure, but keeping for safety)
-        <div className="pl-4 border-l-2 border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
+        <div className="pl-4 border-l-2 border-gray-200">
+          <div className="text-sm text-gray-600">
             Nested reply: {comment.content}
           </div>
         </div>
@@ -710,11 +704,11 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
         >
           {/* User info */}
           <div className="flex items-center space-x-3 mb-4">
-            <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-              <Image className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+              <Image className="w-4 h-4 text-purple-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-gray-500">
                 {comment.user?.name || 'User'} • {new Date(comment.created_at).toLocaleDateString()}
               </p>
             </div>
@@ -733,9 +727,9 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
 
             {/* Comment Text */}
             {comment.content && comment.content.trim() && (
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 dark:text-white mb-2">Comment:</h4>
-                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-2">Comment:</h4>
+                <p className="text-gray-700 whitespace-pre-wrap">
                   {comment.content}
                 </p>
               </div>
@@ -792,19 +786,19 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                 value={customReason}
                 onChange={(e) => setCustomReason(e.target.value)}
                 placeholder="Enter a custom resolution reason..."
-                className="w-full h-20 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                className="w-full h-20 px-3 py-2 border border-gray-200 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
               />
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
               <button
                 onClick={() => {
                   setShowResolutionDialog(false);
                   setSelectedTemplate('');
                   setCustomReason('');
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
@@ -814,7 +808,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                   selectedTemplate || customReason.trim()
                     ? 'bg-green-600 hover:bg-green-700 text-white'
-                    : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
                 <div className="flex items-center space-x-2">

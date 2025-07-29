@@ -191,7 +191,7 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
           <motion.span 
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-700 dark:from-emerald-900/30 dark:to-green-900/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700"
+            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-700 border border-emerald-200"
           >
             <CheckCircle className="w-3 h-3 mr-1.5" />
             Resolved
@@ -202,7 +202,7 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
           <motion.span 
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-slate-100 to-gray-100 text-slate-700 dark:from-slate-900/30 dark:to-gray-900/30 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-slate-100 to-gray-100 text-slate-700 border border-slate-200"
           >
             <Archive className="w-3 h-3 mr-1.5" />
             Archived
@@ -213,7 +213,7 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
           <motion.span 
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 dark:from-blue-900/30 dark:to-indigo-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-700"
+            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border border-blue-200"
           >
             <MessageCircle className="w-3 h-3 mr-1.5" />
             Active
@@ -260,7 +260,7 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="p-6 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/20 dark:to-indigo-900/20 border-b border-blue-200/50 dark:border-blue-800/50 backdrop-blur-sm"
+            className="p-6 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-b border-blue-200/50 backdrop-blur-sm"
           >
             <div className="flex items-start space-x-4">
               <motion.div 
@@ -276,10 +276,10 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.25 }}
-                  className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2"
+                  className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2"
                 >
                   Selected Text
-                  <span className="px-2 py-1 bg-blue-200/50 dark:bg-blue-800/50 rounded-lg text-xs">
+                  <span className="px-2 py-1 bg-blue-200/50 rounded-lg text-xs">
                     {selectedText.text.length} chars
                   </span>
                 </motion.p>
@@ -287,9 +287,9 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.3 }}
-                  className="bg-white/90 dark:bg-gray-800/90 rounded-xl p-4 border border-blue-200/50 dark:border-blue-700/50 backdrop-blur-sm shadow-sm"
+                  className="bg-white/90 rounded-xl p-4 border border-blue-200/50 backdrop-blur-sm shadow-sm"
                 >
-                  <p className="text-sm text-gray-900 dark:text-gray-100 italic leading-relaxed">
+                  <p className="text-sm text-gray-900 italic leading-relaxed">
                     "{selectedText.text.length > 200 ? selectedText.text.slice(0, 200) + '...' : selectedText.text}"
                   </p>
                 </motion.div>
@@ -297,7 +297,7 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.35 }}
-                  className="text-xs text-blue-600 dark:text-blue-400 mt-3 flex items-center gap-2"
+                  className="text-xs text-blue-600 mt-3 flex items-center gap-2"
                 >
                   <Hash className="w-3 h-3" />
                   Characters {selectedText.start}-{selectedText.end}
@@ -320,7 +320,7 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2 }}
-              className="bg-gradient-to-br from-gray-50/80 to-white/80 dark:from-gray-800/80 dark:to-gray-900/80 rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 backdrop-blur-sm shadow-lg"
+              className="bg-gradient-to-br from-gray-50/80 to-white/80 rounded-2xl p-6 border border-gray-200/50 backdrop-blur-sm shadow-lg"
             >
               {/* User Info */}
               <div className="flex items-center justify-between mb-5">
@@ -353,7 +353,7 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.25 }}
-                      className="font-bold text-gray-900 dark:text-white text-lg"
+                      className="font-bold text-gray-900 text-lg"
                     >
                       {selectedComment.user?.name || selectedComment.user?.email || 'Anonymous User'}
                     </motion.h4>
@@ -361,7 +361,7 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.3 }}
-                      className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400"
+                      className="flex items-center space-x-2 text-sm text-gray-500"
                     >
                       <Clock className="w-4 h-4" />
                       <span>{formatDate(selectedComment.created_at)}</span>
@@ -375,7 +375,7 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ delay: 0.35 }}
-                      className="px-3 py-1.5 bg-gradient-to-r from-purple-100 to-violet-100 dark:from-purple-900/30 dark:to-violet-900/30 text-purple-700 dark:text-purple-300 rounded-xl text-sm font-semibold border border-purple-200 dark:border-purple-700"
+                      className="px-3 py-1.5 bg-gradient-to-r from-purple-100 to-violet-100 text-purple-700 rounded-xl text-sm font-semibold border border-purple-200"
                     >
                       Admin
                     </motion.span>
@@ -397,13 +397,13 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
                     <img
                       src={selectedComment.image_url}
                       alt="Comment attachment"
-                      className="max-w-full max-h-64 rounded-lg object-cover border border-gray-200 dark:border-gray-600 shadow-sm"
+                      className="max-w-full max-h-64 rounded-lg object-cover border border-gray-200 shadow-sm"
                     />
                   </div>
                 )}
                 
                 {/* Text Content */}
-                <p className="text-gray-900 dark:text-gray-100 leading-relaxed whitespace-pre-wrap m-0 text-base">
+                <p className="text-gray-900 leading-relaxed whitespace-pre-wrap m-0 text-base">
                   {selectedComment.content}
                 </p>
               </motion.div>
@@ -414,9 +414,9 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.45 }}
-                  className="mt-5 p-4 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border-l-4 border-blue-500 backdrop-blur-sm"
+                  className="mt-5 p-4 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 rounded-xl border-l-4 border-blue-500 backdrop-blur-sm"
                 >
-                  <div className="flex items-center space-x-3 text-sm text-blue-700 dark:text-blue-300">
+                  <div className="flex items-center space-x-3 text-sm text-blue-700">
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                     <span className="font-semibold">Inline comment</span>
                     <span>•</span>
@@ -431,7 +431,7 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className="flex items-center justify-between pt-6 border-t border-gray-200/50 dark:border-gray-700/50"
+              className="flex items-center justify-between pt-6 border-t border-gray-200/50"
             >
               <div className="flex items-center space-x-3">
                 <motion.button
@@ -452,7 +452,7 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
                   whileHover={{ scale: 1.02, y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleEdit(selectedComment)}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-gray-100/80 dark:bg-gray-700/80 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200/80 dark:hover:bg-gray-600/80 transition-all duration-200 backdrop-blur-sm font-semibold"
+                  className="flex items-center space-x-2 px-5 py-2.5 bg-gray-100/80 text-gray-700 rounded-xl hover:bg-gray-200/80 transition-all duration-200 backdrop-blur-sm font-semibold"
                 >
                   <Edit2 className="w-4 h-4" />
                   <span>Edit</span>
@@ -465,7 +465,7 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
                     whileHover={{ scale: 1.02, y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => handleStatusChange(selectedComment.id, 'resolved')}
-                    className="flex items-center space-x-2 px-4 py-2.5 text-emerald-600 hover:bg-emerald-50/80 dark:hover:bg-emerald-900/20 rounded-xl transition-all duration-200 backdrop-blur-sm font-semibold"
+                    className="flex items-center space-x-2 px-4 py-2.5 text-emerald-600 hover:bg-emerald-50/80 rounded-xl transition-all duration-200 backdrop-blur-sm font-semibold"
                   >
                     <CheckCircle className="w-4 h-4" />
                     <span>Resolve</span>
@@ -476,7 +476,7 @@ export const CommentPopover: React.FC<CommentPopoverProps> = ({
                   whileHover={{ scale: 1.02, y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleDeleteComment(selectedComment.id)}
-                  className="flex items-center space-x-2 px-4 py-2.5 text-red-600 hover:bg-red-50/80 dark:hover:bg-red-900/20 rounded-xl transition-all duration-200 backdrop-blur-sm font-semibold"
+                  className="flex items-center space-x-2 px-4 py-2.5 text-red-600 hover:bg-red-50/80 rounded-xl transition-all duration-200 backdrop-blur-sm font-semibold"
                 >
                   <Trash2 className="w-4 h-4" />
                   <span>Delete</span>
