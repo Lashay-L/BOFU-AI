@@ -531,30 +531,48 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
     const slackSuccess = urlParams.get('slack_success');
     const slackError = urlParams.get('slack_error');
     const team = urlParams.get('team');
+    const stateParam = urlParams.get('state');
     
-    if (slackSuccess === 'true') {
-      toast.success(`Slack workspace "${team || 'Unknown'}" connected successfully!`);
-      // Clear URL parameters after showing success
+    if (slackSuccess === 'true' || slackError) {
+      // Try to extract company context from state parameter
+      let companyContext = null;
+      if (stateParam) {
+        try {
+          const stateData = JSON.parse(atob(stateParam));
+          if (stateData.companyId && stateData.companyName) {
+            companyContext = { id: stateData.companyId, name: stateData.companyName };
+          }
+        } catch (e) {
+          console.log('Could not parse state parameter for company context');
+        }
+      }
+      
+      if (slackSuccess === 'true') {
+        toast.success(`Slack workspace "${team || 'Unknown'}" connected successfully!`);
+      } else if (slackError) {
+        const errorMessages: { [key: string]: string } = {
+          'access_denied': 'Access was denied during Slack authorization',
+          'invalid_request': 'Invalid OAuth request parameters',
+          'configuration_error': 'Slack integration configuration error',
+          'token_exchange_failed': 'Failed to exchange authorization code',
+          'database_error': 'Database error while saving Slack connection',
+          'server_error': 'Server error during Slack integration'
+        };
+        
+        const friendlyMessage = errorMessages[slackError] || `Slack integration error: ${slackError}`;
+        toast.error(friendlyMessage);
+      }
+      
+      // Auto-open the Slack management modal with appropriate context
+      setShowSlackManagement(true);
+      setSelectedCompanyForSlack(companyContext);
+      
+      // Clear URL parameters after processing
       const url = new URL(window.location.href);
       url.searchParams.delete('slack_success');
-      url.searchParams.delete('team');
-      window.history.replaceState({}, '', url.toString());
-    } else if (slackError) {
-      const errorMessages: { [key: string]: string } = {
-        'access_denied': 'Access was denied during Slack authorization',
-        'invalid_request': 'Invalid OAuth request parameters',
-        'configuration_error': 'Slack integration configuration error',
-        'token_exchange_failed': 'Failed to exchange authorization code',
-        'database_error': 'Database error while saving Slack connection',
-        'server_error': 'Server error during Slack integration'
-      };
-      
-      const friendlyMessage = errorMessages[slackError] || `Slack integration error: ${slackError}`;
-      toast.error(friendlyMessage);
-      
-      // Clear URL parameters after showing error
-      const url = new URL(window.location.href);
       url.searchParams.delete('slack_error');
+      url.searchParams.delete('team');
+      url.searchParams.delete('state');
       window.history.replaceState({}, '', url.toString());
     }
   }, []); // Run once on component mount

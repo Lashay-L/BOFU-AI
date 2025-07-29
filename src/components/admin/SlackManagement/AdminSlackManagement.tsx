@@ -137,7 +137,13 @@ export function AdminSlackManagement({
     try {
       // Preserve the current admin page path for return after OAuth
       const currentPath = window.location.pathname + window.location.search;
-      const oauthUrl = generateAdminSlackOAuthURL(currentPath);
+      
+      // Include company context if available
+      const companyContext = companyId && companyName ? 
+        { id: companyId, name: companyName } : 
+        undefined;
+      
+      const oauthUrl = generateAdminSlackOAuthURL(currentPath, companyContext);
       window.location.href = oauthUrl;
     } catch (error) {
       console.error('Error initiating admin Slack OAuth:', error);

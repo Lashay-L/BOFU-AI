@@ -19,7 +19,10 @@ export interface CompanySlackSettings {
 /**
  * Generate Slack OAuth authorization URL for super admin
  */
-export function generateAdminSlackOAuthURL(returnPath: string = '/admin'): string {
+export function generateAdminSlackOAuthURL(
+  returnPath: string = '/admin', 
+  companyContext?: { id: string; name: string }
+): string {
   const SLACK_CLIENT_ID = "5930579212176.9234329054229";
   const REDIRECT_URI = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-slack-oauth-callback`;
   
@@ -31,10 +34,18 @@ export function generateAdminSlackOAuthURL(returnPath: string = '/admin'): strin
     'users:read.email'
   ].join(',');
 
-  // Encode the return path into the state parameter
+  // Auto-detect the current environment and construct the full return URL
+  const currentOrigin = window.location.origin; // e.g., http://localhost:5173 or https://bofu.netlify.app
+  const fullReturnPath = `${currentOrigin}${returnPath}`;
+  
+  // Encode the return path and company context into the state parameter
   const stateData = {
     type: 'admin_connection',
-    returnPath: returnPath
+    returnPath: fullReturnPath, // Use full URL instead of just the path
+    ...(companyContext && {
+      companyId: companyContext.id,
+      companyName: companyContext.name
+    })
   };
   const state = btoa(JSON.stringify(stateData));
 
