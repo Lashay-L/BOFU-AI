@@ -305,12 +305,22 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
     // Subscribe to content changes
     const unsubscribeContentChange = realtimeCollaboration.onContentChange((payload) => {
       console.log('🔄 [UNIFIED EDITOR] Real-time content change detected:', {
-        payload,
+        timestamp: new Date().toISOString(),
         currentArticleId: articleId,
         uiMode,
-        payloadEventType: payload?.eventType,
-        payloadTable: payload?.table,
-        payloadSchema: payload?.schema
+        userContext: {
+          id: userContext?.id,
+          email: userContext?.email,
+          isAdmin: userContext?.isAdmin
+        },
+        payload: {
+          eventType: payload?.eventType,
+          table: payload?.table,
+          schema: payload?.schema,
+          payloadId: payload?.new?.id,
+          lastEditedBy: payload?.new?.last_edited_by,
+          version: payload?.new?.article_version
+        }
       });
       
       // Only process if this is a content_briefs table update for our article
@@ -327,14 +337,31 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
         
         // Only update if content actually changed
         if (newContent && oldContent !== newContent) {
-          // Check if the current user is the one who made this change (auto-save from this session)
-          const isOwnChange = payload?.new?.last_edited_by === userContext?.userId;
+          // Enhanced change detection logic to handle admin/user context
+          const lastEditedBy = payload?.new?.last_edited_by;
+          const currentUserId = userContext?.userId;
           
-          console.log('🔍 [UNIFIED EDITOR] Content change analysis:', {
+          // Basic own-change detection
+          let isOwnChange = lastEditedBy === currentUserId;
+          
+          // Special handling for admin mode: if admin is editing on behalf of original author,
+          // we still want to see updates from the original author
+          if (uiMode === 'admin' && !isOwnChange) {
+            // Admin should see all changes from other users (including the original author)
+            // Only skip updates if this admin session made the change
+            isOwnChange = false;
+          }
+          
+          console.log('🔍 [UNIFIED EDITOR] Enhanced content change analysis:', {
+            uiMode,
+            lastEditedBy,
+            currentUserId,
             isOwnChange,
-            lastEditedBy: payload?.new?.last_edited_by,
-            currentUserId: userContext?.userId,
-            shouldUpdateState: !isOwnChange
+            shouldUpdateUI: !isOwnChange || uiMode === 'admin',
+            payload: {
+              eventType: payload?.eventType,
+              version: payload?.new?.article_version
+            }
           });
           
           // Always update article state with latest data, regardless of who made the change
@@ -345,7 +372,12 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
           }
           
           contentUpdateTimeoutRef.current = setTimeout(async () => {
-            console.log('🚀 [UNIFIED EDITOR] Applying content update...', { isOwnChange });
+            console.log('🚀 [UNIFIED EDITOR] Applying content update...', { 
+              uiMode,
+              isOwnChange, 
+              updateSource: isOwnChange ? 'own change' : 'external change',
+              timeElapsed: '300ms debounce completed'
+            });
             try {
               // Update article state with new data
               if (article) {
@@ -358,6 +390,7 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
                 };
                 
                 console.log('📝 [UNIFIED EDITOR] Updating article state:', {
+                  uiMode,
                   isOwnChange,
                   oldVersion: article.article_version,
                   newVersion: updatedArticle.article_version,
@@ -369,8 +402,11 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
                 
                 // Update metadata appropriately
                 setLastSaved(new Date());
-                if (!isOwnChange) {
-                  // Only clear unsaved changes if this came from another user
+                
+                // Clear unsaved changes logic: 
+                // - For regular users: only clear if change came from another user
+                // - For admins: always update to latest state to ensure proper sync
+                if (!isOwnChange || uiMode === 'admin') {
                   setHasUnsavedChanges(false);
                 }
                 
@@ -388,9 +424,11 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
         }
       } else {
         console.log('⏭️ [UNIFIED EDITOR] Ignoring content change - not for our article:', {
+          reason: payload?.table !== 'content_briefs' ? 'wrong table' : 'wrong article ID',
           payloadTable: payload?.table,
           payloadId: payload?.new?.id,
-          ourArticleId: articleId
+          ourArticleId: articleId,
+          uiMode
         });
       }
     });
