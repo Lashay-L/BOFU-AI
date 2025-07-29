@@ -100,6 +100,7 @@ export async function createComment(data: CreateCommentData): Promise<ArticleCom
 
     console.log('📝 Creating comment in API with data:', {
       ...commentData,
+      article_id: commentData.article_id,
       content: commentData.content.substring(0, 50) + '...',
       selection_start: commentData.selection_start,
       selection_end: commentData.selection_end,
@@ -196,10 +197,10 @@ export async function updateComment(commentId: string, data: UpdateCommentData):
  */
 export async function deleteComment(commentId: string): Promise<void> {
   try {
-    // First get the comment to check if it has an image
+    // First get the comment to check if it has an image and article_id
     const { data: comment, error: fetchError } = await supabase
       .from('article_comments')
-      .select('image_url, content')
+      .select('image_url, content, article_id')
       .eq('id', commentId)
       .single();
 
@@ -212,6 +213,8 @@ export async function deleteComment(commentId: string): Promise<void> {
       .eq('id', commentId);
 
     if (error) throw error;
+
+    // Notification will be created automatically by database trigger
 
     // If comment had an image, delete it from storage
     if (comment?.image_url) {
@@ -905,8 +908,19 @@ export function subscribeToComments(
   articleId: string, 
   callback: (comments: ArticleComment[]) => void
 ) {
+  console.log('🔗 Setting up comment subscription for articleId:', articleId);
+  console.log('🔗 Current URL:', window.location.href);
+  console.log('🔗 Timestamp:', new Date().toISOString());
+  
+  // Use unique channel name to avoid conflicts between admin and user interfaces
+  const channelName = `comments_${articleId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  console.log('📡 Creating unique channel:', channelName);
+  
+  // Keep track of last notification timestamp to avoid duplicate updates
+  let lastNotificationTime = Date.now();
+  
   const subscription = supabase
-    .channel(`article_comments:${articleId}`)
+    .channel(channelName)
     .on(
       'postgres_changes',
       {
@@ -915,15 +929,101 @@ export function subscribeToComments(
         table: 'article_comments',
         filter: `article_id=eq.${articleId}`,
       },
-      async () => {
-        // Refetch all comments when changes occur
-        const comments = await getArticleComments(articleId);
-        callback(comments);
+      async (payload) => {
+        console.log('📡 Comment change detected for articleId:', articleId, 'event:', payload.eventType, 'payload:', payload);
+        
+        try {
+          if (payload.eventType === 'DELETE') {
+            console.log('🗑️ Comment deleted, refetching all comments');
+          } else if (payload.eventType === 'UPDATE') {
+            console.log('✏️ Comment updated, refetching all comments');
+          } else if (payload.eventType === 'INSERT') {
+            console.log('➕ Comment created, refetching all comments');
+          }
+          
+          // Refetch all comments when changes occur
+          const comments = await getArticleComments(articleId);
+          console.log('✅ Refetched comments:', comments.length, 'for articleId:', articleId);
+          callback(comments);
+        } catch (error) {
+          console.error('❌ Error refetching comments:', error);
+        }
       }
     )
-    .subscribe();
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'comment_notifications',
+        filter: `article_id=eq.${articleId}`,
+      },
+      async (payload) => {
+        console.log('🔔 Comment notification received for articleId:', articleId, 'operation:', payload.new?.operation_type);
+        
+        // Avoid duplicate updates by checking timestamp
+        const notificationTime = new Date(payload.new?.created_at).getTime();
+        if (notificationTime <= lastNotificationTime) {
+          console.log('🔄 Skipping duplicate notification');
+          return;
+        }
+        lastNotificationTime = notificationTime;
+        
+        try {
+          // Refetch all comments when notification received
+          const comments = await getArticleComments(articleId);
+          console.log('✅ Refetched comments via notification:', comments.length, 'for articleId:', articleId);
+          callback(comments);
+        } catch (error) {
+          console.error('❌ Error refetching comments via notification:', error);
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log('📡 Subscription status for articleId:', articleId, ':', status);
+      if (status === 'SUBSCRIBED') {
+        console.log('✅ Successfully subscribed to real-time updates for:', articleId);
+      } else if (status === 'CHANNEL_ERROR') {
+        console.error('❌ Real-time subscription failed for:', articleId, '- falling back to polling');
+      }
+    });
+
+  // Fallback polling mechanism to check for notifications every 3 seconds
+  // This ensures sync works even if real-time subscriptions fail
+  const pollInterval = setInterval(async () => {
+    try {
+      const { data: notifications, error } = await supabase
+        .from('comment_notifications')
+        .select('*')
+        .eq('article_id', articleId)
+        .gt('created_at', new Date(lastNotificationTime).toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.warn('⚠️ Polling check failed:', error);
+        return;
+      }
+
+      if (notifications && notifications.length > 0) {
+        const latestNotification = notifications[0];
+        console.log('🔄 Polling detected new notification:', latestNotification.operation_type, 'for article:', articleId);
+        
+        lastNotificationTime = new Date(latestNotification.created_at).getTime();
+        
+        // Refetch comments
+        const comments = await getArticleComments(articleId);
+        console.log('✅ Refetched comments via polling:', comments.length, 'for articleId:', articleId);
+        callback(comments);
+      }
+    } catch (error) {
+      console.warn('⚠️ Error in polling fallback:', error);
+    }
+  }, 3000); // Poll every 3 seconds
 
   return () => {
+    console.log('🔌 Unsubscribing from comments for articleId:', articleId);
+    clearInterval(pollInterval);
     supabase.removeChannel(subscription);
   };
 }

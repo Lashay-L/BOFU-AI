@@ -247,6 +247,11 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
           apply(tr, set) {
             // Get storage from extension
             const storage = extension.storage;
+            console.log('🔍 CommentHighlight apply called:', {
+              hasStorage: !!storage,
+              commentsLength: storage?.comments?.length || 0,
+              comments: storage?.comments?.map(c => ({ id: c.id, hasSelectedText: !!c.selected_text }))
+            });
             if (!storage || !storage.comments || storage.comments.length === 0) {
               return DecorationSet.empty;
             }
@@ -451,22 +456,41 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
     ];
   },
 
-  // Method to update comments
-  updateComments(comments: ArticleComment[]) {
-    this.storage.comments = comments;
-    // Force re-render of decorations
-    this.editor.view.dispatch(this.editor.state.tr);
-  },
-
-  // Method to update highlighted comment
-  updateHighlightedComment(commentId: string | null) {
-    this.storage.highlightedCommentId = commentId;
-    // Force re-render of decorations
-    this.editor.view.dispatch(this.editor.state.tr);
-  },
-
-  // Method to update click handler
-  updateOnCommentClick(onCommentClick: (comment: ArticleComment) => void) {
-    this.storage.onCommentClick = onCommentClick;
+  addCommands() {
+    return {
+      updateComments: (comments: ArticleComment[]) => ({ editor }: any) => {
+        console.log('📝 CommentHighlight updateComments called:', {
+          commentsLength: comments.length,
+          comments: comments.map((c: ArticleComment) => ({ 
+            id: c.id, 
+            hasSelectedText: !!c.selected_text,
+            selectedText: c.selected_text?.substring(0, 30) + '...'
+          }))
+        });
+        const extension = editor.extensionManager.extensions.find((ext: any) => ext.name === 'commentHighlight');
+        if (extension) {
+          extension.storage.comments = comments;
+          // Force re-render of decorations
+          editor.view.dispatch(editor.state.tr);
+        }
+        return true;
+      },
+      updateHighlightedComment: (commentId: string | null) => ({ editor }: any) => {
+        const extension = editor.extensionManager.extensions.find((ext: any) => ext.name === 'commentHighlight');
+        if (extension) {
+          extension.storage.highlightedCommentId = commentId;
+          // Force re-render of decorations
+          editor.view.dispatch(editor.state.tr);
+        }
+        return true;
+      },
+      updateOnCommentClick: (onCommentClick: (comment: ArticleComment) => void) => ({ editor }: any) => {
+        const extension = editor.extensionManager.extensions.find((ext: any) => ext.name === 'commentHighlight');
+        if (extension) {
+          extension.storage.onCommentClick = onCommentClick;
+        }
+        return true;
+      },
+    };
   },
 }); 

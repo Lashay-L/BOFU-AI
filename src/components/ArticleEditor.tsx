@@ -89,7 +89,7 @@ import { useTheme } from '../hooks/useTheme';
 import { getTextNodeAtOffset, getTextOffset, htmlToMarkdown } from '../lib/textUtils';
 import { loadArticleContent, saveArticleContent, ArticleContent, autoSaveArticleContentAsAdmin, saveArticleContentAsAdmin } from '../lib/articleApi';
 import { adminArticlesApi } from '../lib/adminApi';
-import { getArticleComments } from '../lib/commentApi';
+import { getArticleComments, subscribeToComments } from '../lib/commentApi';
 import { debounce } from 'lodash';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { Node as ProseMirrorNode } from 'prosemirror-model';
@@ -450,6 +450,30 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
   useEffect(() => {
     loadComments();
   }, [loadComments]);
+
+  // Real-time subscription for comment updates
+  useEffect(() => {
+    if (!articleId) return;
+
+    console.log('💬 [ADMIN] Setting up real-time subscription for comments on article:', articleId);
+    
+    const unsubscribe = subscribeToComments(articleId, (updatedComments) => {
+      console.log('💬 [ADMIN] Real-time comment update detected:', updatedComments.length, 'comments');
+      
+      // Update the comments state
+      const typedComments = updatedComments.map(comment => ({
+        ...comment,
+        status: comment.status as "active" | "resolved" | "archived"
+      }));
+      setComments(typedComments);
+    });
+
+    // Cleanup subscription on unmount
+    return () => {
+      console.log('💬 [ADMIN] Cleaning up real-time subscription for comments');
+      unsubscribe();
+    };
+  }, [articleId]);
 
   // Text selection tracking for inline comments
   useEffect(() => {
@@ -976,13 +1000,27 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
     if (editor && !editor.isDestroyed) {
       // Use a timeout to batch comment updates and prevent excessive re-renders
       const timeoutId = setTimeout(() => {
-        const commentHighlightExtension = editor.extensionManager.extensions.find(
-          (ext) => ext.name === 'commentHighlight'
-        );
-        if (commentHighlightExtension) {
-          commentHighlightExtension.updateHighlightedComment?.(highlightedCommentId);
+        console.log('🔍 Updating highlighted comment:', highlightedCommentId);
+        
+        // Try to update the extension directly
+        const extension = editor.extensionManager.extensions.find((ext: any) => ext.name === 'commentHighlight');
+        if (extension) {
+          console.log('✅ Found commentHighlight extension, updating highlightedCommentId');
+          extension.storage.highlightedCommentId = highlightedCommentId;
+          
+          // Force re-render of decorations
+          editor.view.dispatch(editor.state.tr);
+          console.log('✅ Forced decoration refresh for highlight');
+        } else {
+          console.warn('⚠️ commentHighlight extension not found');
+          
+          // Try using command as fallback
+          if (editor.commands.updateHighlightedComment) {
+            console.log('✅ Using updateHighlightedComment command as fallback');
+            editor.chain().focus().updateHighlightedComment(highlightedCommentId).run();
+          }
         }
-      }, 10);
+      }, 50); // Slightly longer delay to ensure extension is loaded
       
       return () => clearTimeout(timeoutId);
     }
@@ -993,14 +1031,40 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
     if (editor && !editor.isDestroyed) {
       // Use a timeout to batch comment updates and prevent excessive re-renders
       const timeoutId = setTimeout(() => {
-        const commentHighlightExtension = editor.extensionManager.extensions.find(
-          (ext) => ext.name === 'commentHighlight'
-        );
-        if (commentHighlightExtension) {
-          commentHighlightExtension.updateComments?.(comments);
-          commentHighlightExtension.updateCommentClickHandler?.(handleCommentClick);
+        console.log('🔍 Updating comments in editor, count:', comments.length);
+        
+        // Try to update the extension directly
+        const extension = editor.extensionManager.extensions.find((ext: any) => ext.name === 'commentHighlight');
+        if (extension) {
+          console.log('✅ Found commentHighlight extension, updating storage');
+          extension.storage.comments = comments;
+          extension.storage.onCommentClick = handleCommentClick;
+          
+          // Force re-render of decorations by dispatching an empty transaction
+          editor.view.dispatch(editor.state.tr);
+          console.log('✅ Forced decoration refresh');
+        } else {
+          console.warn('⚠️ commentHighlight extension not found');
+          
+          // Try using commands as fallback
+          const chain = editor.chain().focus();
+          
+          // Check if updateComments command exists
+          if (editor.commands.updateComments) {
+            console.log('✅ Using updateComments command as fallback');
+            chain.updateComments(comments);
+          }
+          
+          // Check if updateOnCommentClick command exists
+          if (editor.commands.updateOnCommentClick) {
+            console.log('✅ Using updateOnCommentClick command as fallback');
+            chain.updateOnCommentClick(handleCommentClick);
+          }
+          
+          // Run the chain
+          chain.run();
         }
-      }, 10);
+      }, 50); // Slightly longer delay to ensure extension is loaded
       
       return () => clearTimeout(timeoutId);
     }
