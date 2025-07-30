@@ -106,15 +106,16 @@ export class ProfileApi {
       console.log('[ProfileApi] Getting current profile for user:', user.id);
 
       // First try to get profile from active session
-      const { data: session } = await supabase
+      const { data: sessions } = await supabase
         .from('user_profile_sessions')
         .select('profile_id')
         .eq('user_id', user.id)
         .eq('is_active', true)
         .gte('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
+      
+      const session = sessions?.[0];
 
       // If we found an active session, get the profile separately
       if (session?.profile_id) {

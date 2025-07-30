@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -26,8 +26,6 @@ import { supabase } from '../lib/supabase';
 import UserPresence from '../components/ui/UserPresence';
 import CollaborativeCursors from '../components/ui/CollaborativeCursors';
 import { realtimeCollaboration } from '../lib/realtimeCollaboration';
-import { subscribeToComments, getArticleComments, ArticleComment } from '../lib/commentApi';
-import { CommentingSystem } from '../components/ui/CommentingSystem';
 
 export default function EditContentBrief() {
   const { id } = useParams<{ id: string }>();
@@ -37,7 +35,6 @@ export default function EditContentBrief() {
   const [useJsonEditor, setUseJsonEditor] = useState(false);
   const [jsonContent, setJsonContent] = useState('');
   const [isCollaborationReady, setIsCollaborationReady] = useState(false);
-  const [comments, setComments] = useState<ArticleComment[]>([]);
   const editorRef = useRef<HTMLDivElement>(null);
 
   // Use the extracted auto-save hook
@@ -240,17 +237,6 @@ export default function EditContentBrief() {
         setUseJsonEditor(shouldUseJsonEditor(data.brief_content));
         
         setBrief(transformedBrief);
-
-        // Load comments for this article
-        if (id) {
-          try {
-            const articleComments = await getArticleComments(id);
-            setComments(articleComments);
-            console.log('✅ Loaded comments:', articleComments.length);
-          } catch (error) {
-            console.error('❌ Failed to load comments:', error);
-          }
-        }
       } catch (error) {
         console.error('Error loading brief:', error);
         toast.error(error instanceof Error ? error.message : 'Failed to load content brief');
@@ -302,31 +288,6 @@ export default function EditContentBrief() {
     };
   }, [id, loadBrief]);
 
-  // Real-time subscription for comment updates
-  useEffect(() => {
-    if (!id) return;
-
-    console.log('💬 [USER] Setting up real-time subscription for comments on article:', id);
-    
-    const unsubscribe = subscribeToComments(id, (updatedComments) => {
-      console.log('💬 Real-time comment update detected:', updatedComments.length, 'comments');
-      
-      // Update the comments state
-      setComments(updatedComments);
-      
-      // Show a notification that comments were updated
-      toast.success('Comments updated', {
-        duration: 1500,
-        position: 'bottom-right'
-      });
-    });
-
-    // Cleanup subscription on unmount
-    return () => {
-      console.log('💬 Cleaning up real-time subscription for comments');
-      unsubscribe();
-    };
-  }, [id]);
 
   // Set initial content when editor is ready and brief is loaded
   useEffect(() => {
@@ -585,17 +546,6 @@ export default function EditContentBrief() {
               </div>
               </motion.div>
 
-              {/* Comments Sidebar */}
-              <div className="w-80 flex-shrink-0">
-                <div className="sticky top-24">
-                  <CommentingSystem
-                    articleId={id || ''}
-                    editorRef={editorRef}
-                    comments={comments}
-                    onCommentsChange={setComments}
-                  />
-                </div>
-              </div>
             </div>
           ) : (
             <motion.div 
