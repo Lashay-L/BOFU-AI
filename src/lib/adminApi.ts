@@ -56,7 +56,12 @@ async function checkAdminPermission(): Promise<{ isAdmin: boolean; role?: 'super
       .maybeSingle();
 
     if (error) {
-      console.error("Error checking admin permission:", error);
+      // Check if this is a 404/406 error (user not found in admin_profiles) - this is normal for regular users
+      if (error.code === 'PGRST116' || error.code === '406' || error.message?.includes('406') || error.message?.includes('Not Acceptable')) {
+        // This is expected for regular users who are not admins
+        return { isAdmin: false };
+      }
+      console.error("Unexpected error checking admin permission:", error);
       return { isAdmin: false };
     }
 
@@ -70,6 +75,11 @@ async function checkAdminPermission(): Promise<{ isAdmin: boolean; role?: 'super
       adminId: adminProfile.id
     };
   } catch (e) {
+    // Check for specific error codes that indicate user is not an admin (not an error)
+    if (e && typeof e === 'object' && 'code' in e && 
+        (e.code === 'PGRST116' || e.code === '406')) {
+      return { isAdmin: false };
+    }
     console.error("Exception in checkAdminPermission:", e);
     return { isAdmin: false };
   }

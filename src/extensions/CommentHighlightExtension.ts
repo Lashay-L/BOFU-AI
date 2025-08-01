@@ -126,6 +126,7 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
   name: 'commentHighlight',
 
   addOptions() {
+    console.log('🎯 CommentHighlightExtension: addOptions called');
     return {
       comments: [],
       highlightedCommentId: null,
@@ -134,6 +135,7 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
   },
 
   addStorage() {
+    console.log('🎯 CommentHighlightExtension: addStorage called');
     return {
       comments: this.options.comments,
       highlightedCommentId: this.options.highlightedCommentId,
@@ -142,6 +144,7 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
   },
 
   onCreate() {
+    console.log('🎯 CommentHighlightExtension: onCreate called');
     // Add a persistent global click listener with HIGH PRIORITY to intercept clicks before text selection
     this.globalClickHandler = (event: Event) => {
       const mouseEvent = event as MouseEvent;
@@ -289,18 +292,10 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
                     positions.start,
                     positions.end,
                     {
-                      class: 'comment-highlight-tiptap',
-                      style: `
-                        background-color: ${backgroundColor};
-                        border-bottom: 2px solid ${borderColor};
-                        border-radius: 2px;
-                        padding: 1px 2px;
-                        margin: 0 1px;
-                        cursor: pointer;
-                        transition: background-color 0.2s ease, border-color 0.2s ease;
-                      `,
+                      class: `comment-highlight-tiptap${isHighlighted ? ' highlighted' : ''}`,
                       title: `Comment by ${comment.user?.name || 'Unknown'}: ${comment.content.substring(0, 100)}${comment.content.length > 100 ? '...' : ''}`,
                       'data-comment-id': comment.id,
+                      'data-status': comment.status,
                     }
                   );
 
@@ -314,7 +309,9 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
               }
             });
 
-            return DecorationSet.create(tr.doc, decorations);
+            const decorationSet = DecorationSet.create(tr.doc, decorations);
+            console.log('📋 Created DecorationSet with', decorations.length, 'decorations');
+            return decorationSet;
           },
         },
         props: {
@@ -428,28 +425,7 @@ export const CommentHighlightExtension = Extension.create<CommentHighlightOption
               }
               return false;
             },
-            mouseover(view, event) {
-              const target = event.target as HTMLElement;
-              if (target && target.classList.contains('comment-highlight-tiptap')) {
-                const commentId = target.getAttribute('data-comment-id');
-                const comment = extension.storage.comments.find(c => c.id === commentId);
-                if (comment) {
-                  target.style.backgroundColor = getCommentColor(comment, true);
-                }
-              }
-              return false;
-            },
-            mouseout(view, event) {
-              const target = event.target as HTMLElement;
-              if (target && target.classList.contains('comment-highlight-tiptap')) {
-                const commentId = target.getAttribute('data-comment-id');
-                const comment = extension.storage.comments.find(c => c.id === commentId);
-                if (comment && extension.storage.highlightedCommentId !== comment.id) {
-                  target.style.backgroundColor = getCommentColor(comment, false);
-                }
-              }
-              return false;
-            },
+            // Removed mouseover and mouseout handlers since styling is now handled by CSS
           },
         },
       }),

@@ -89,40 +89,19 @@ export function MainHeader({
         unreadCount += userUnreadCount;
         console.log('🔔 User notifications loaded:', { unread: userUnreadCount });
         
-        // Check if user is admin and get brief approval notifications
-        try {
-          const { data: adminProfile, error: adminError } = await supabase
-            .from('admin_profiles')
-            .select('id, admin_role')
-            .eq('id', user.id)
-            .single();
-            
-          // Only proceed if we have a valid admin profile and no error
-          if (adminProfile && !adminError) {
-            console.log('🔔 Admin user detected, loading brief approval notifications');
+        // Check if user is admin using AdminContext
+        if (isAdmin) {
+          console.log('🔔 Admin user detected, loading brief approval notifications');
+          try {
             const briefNotifications = await getBriefApprovalNotifications(
-              adminProfile.id, 
+              user.id, 
               clientIdsForFiltering
             );
             const unreadBriefCount = briefNotifications.filter(n => !n.is_read).length;
             unreadCount += unreadBriefCount;
             console.log('🔔 Brief notifications loaded:', { total: briefNotifications.length, unread: unreadBriefCount });
-          } else if (adminError) {
-            // Check if this is a 406 error or user not found error - this is normal for regular users
-            if (adminError.code === 'PGRST116' || adminError.code === '406' || adminError.message?.includes('406')) {
-              // This is expected for regular users, no need to log
-              console.log('🔔 User is not an admin (expected)');
-            } else {
-              // Log unexpected errors
-              console.log('🔔 Admin check failed (unexpected):', adminError);
-            }
-          }
-        } catch (adminError) {
-          // User is not an admin - this is normal, no need to log
-          // Only log if it's an unexpected error (not PGRST116 or 406 errors)
-          if (adminError && typeof adminError === 'object' && 'code' in adminError && 
-              adminError.code !== 'PGRST116' && adminError.code !== '406') {
-            console.log('🔔 Admin check failed (unexpected):', adminError);
+          } catch (error) {
+            console.error('❌ Error loading brief notifications:', error);
           }
         }
         

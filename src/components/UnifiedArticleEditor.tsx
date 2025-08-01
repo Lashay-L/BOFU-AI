@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArticleEditor } from './ArticleEditor';
+import { LazyArticleEditor } from './LazyArticleEditor';
+import { EditorExtensionsFactory } from '../lib/editorExtensions';
 import { toast } from 'react-hot-toast';
 import { 
   unifiedArticleService, 
@@ -52,6 +53,11 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
   useEffect(() => {
     setAICopilotVisible(showAICoPilot);
   }, [showAICoPilot, setAICopilotVisible]);
+
+  // Preload advanced editor extensions in the background
+  useEffect(() => {
+    EditorExtensionsFactory.preloadAdvancedExtensions();
+  }, []);
 
   // Handle AI copilot toggle with layout awareness
   const handleAICopilotToggle = useCallback(() => {
@@ -233,7 +239,7 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
       
       if (result.success) {
         setArticle(result.data!);
-        toast.success(`Article status changed to ${status}`);
+        toast.success(`Article status changed to ${status || 'unknown'}`);
       } else {
         toast.error(result.error || 'Failed to update status');
       }
@@ -287,8 +293,8 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
         
         // Join the article for real-time collaboration
         const userMetadata = {
-          name: userContext.email?.split('@')[0] || 'Unknown',
-          email: userContext.email,
+          name: (userContext?.email || 'unknown').split('@')[0],
+          email: userContext?.email || 'unknown',
         };
         
         await realtimeCollaboration.joinArticle(articleId, userMetadata);
@@ -306,20 +312,20 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
     const unsubscribeContentChange = realtimeCollaboration.onContentChange((payload) => {
       console.log('🔄 [UNIFIED EDITOR] Real-time content change detected:', {
         timestamp: new Date().toISOString(),
-        currentArticleId: articleId,
-        uiMode,
+        currentArticleId: articleId || 'none',
+        uiMode: uiMode || 'unknown',
         userContext: {
-          id: userContext?.id,
-          email: userContext?.email,
-          isAdmin: userContext?.isAdmin
+          id: userContext?.id || 'none',
+          email: userContext?.email || 'none',
+          isAdmin: !!userContext?.isAdmin
         },
         payload: {
-          eventType: payload?.eventType,
-          table: payload?.table,
-          schema: payload?.schema,
-          payloadId: payload?.new?.id,
-          lastEditedBy: payload?.new?.last_edited_by,
-          version: payload?.new?.article_version
+          eventType: payload?.eventType || 'none',
+          table: payload?.table || 'none',
+          schema: payload?.schema || 'none',
+          payloadId: payload?.new?.id || 'none',
+          lastEditedBy: payload?.new?.last_edited_by || 'none',
+          version: payload?.new?.article_version || 'none'
         }
       });
       
@@ -617,8 +623,8 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
         </div>
 
         {/* Article Editor */}
-        <ArticleEditor
-          key={`article-${article.id}`} // Stable key - only change when article ID changes
+        <LazyArticleEditor
+          key={`article-${article?.id || 'none'}`} // Stable key - only change when article ID changes
           articleId={articleId!}
           initialContent={article.content}
           onSave={(content) => saveArticle(content, { showToast: true })}

@@ -22,7 +22,8 @@ import { VersionHistoryModal } from '../components/admin/VersionHistoryModal';
 import { MetadataEditorModal } from '../components/admin/MetadataEditorModal';
 import { ArticleEditor } from '../components/ArticleEditor';
 import type { ArticleListItem, UserProfile } from '../types/adminApi';
-import { ArticleContent, loadArticleContentAsAdmin, autoSaveArticleContentAsAdmin } from '../lib/articleApi';
+import type { UnifiedArticleContent } from '../lib/unifiedArticleApi';
+import { unifiedArticleService } from '../lib/unifiedArticleApi';
 import { toast } from 'react-hot-toast';
 import { 
   auditLogger, 
@@ -48,7 +49,7 @@ interface ArticleEditingState {
   isOpen: boolean;
   article: ArticleListItem | null;
   originalAuthor: UserProfile | null;
-  articleContent: ArticleContent | null;
+  articleContent: UnifiedArticleContent | null;
   isLoadingContent: boolean;
   contentError: string | null;
 }
@@ -274,7 +275,11 @@ function AdminArticleManagementPage({ user }: AdminArticleManagementPageProps) {
       // Load the actual article content using admin API
       if (adminId) {
         try {
-          const articleContent = await loadArticleContentAsAdmin(article.id, adminId);
+          const result = await unifiedArticleService.loadArticle(article.id);
+          if (!result.success) {
+            throw new Error(result.error || 'Failed to load article content');
+          }
+          const articleContent = result.data;
           
           if (articleContent) {
             console.log('🔥 Article content loaded successfully:', {
@@ -413,25 +418,24 @@ function AdminArticleManagementPage({ user }: AdminArticleManagementPageProps) {
     
     if (articleEditing.article && adminId && articleEditing.originalAuthor) {
       try {
-        console.log('🔄 [ADMIN] Calling autoSaveArticleContentAsAdmin with:', {
+        console.log('🔄 [ADMIN] Calling unified API auto-save with:', {
           articleId: articleEditing.article.id,
           adminId,
           originalAuthorId: articleEditing.originalAuthor.id,
           contentLength: content.length
         });
         
-        // Use the admin auto-save API
-        const success = await autoSaveArticleContentAsAdmin(
+        // Use the unified auto-save API
+        const result = await unifiedArticleService.autoSave(
           articleEditing.article.id,
-          content,
-          adminId,
-          articleEditing.originalAuthor.id
+          content
         );
+        const success = result.success;
         
         if (success) {
           console.log('✅ [ADMIN] Auto-save successful for article:', articleEditing.article.id);
         } else {
-          console.error('❌ [ADMIN] Auto-save failed for article:', articleEditing.article.id);
+          console.error('❌ [ADMIN] Auto-save failed for article:', articleEditing.article.id, result.error);
         }
       } catch (error) {
         console.error('❌ [ADMIN] Error during auto-save:', error);

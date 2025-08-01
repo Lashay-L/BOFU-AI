@@ -16,7 +16,7 @@ import { makeWebhookRequest } from './utils/webhookUtils';
 import { parseProductData } from './types/product';
 import { ProductAnalysis } from './types/product/types';
 import { AdminAuthModal } from './components/admin/AdminAuthModal';
-import { Routes, Route, useNavigate, useLocation, Navigate, useParams } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { AuthModal } from './components/auth/AuthModal';
 import { ScrapedBlog } from './utils/blogScraper';
@@ -31,7 +31,6 @@ import { ProfileContextProvider } from './contexts/ProfileContext';
 import ProductsListPage from './pages/ProductsListPage';
 import DedicatedProductPage from './pages/DedicatedProductPage';
 import LandingPage from './pages/LandingPage';
-import ArticleEditorPage from './pages/ArticleEditorPage';
 import { AdminContextProvider } from './contexts/AdminContext';
 import { AdminRoute } from './components/admin/AdminRoute';
 import UnifiedArticleEditor from './components/UnifiedArticleEditor';
@@ -43,7 +42,6 @@ const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage'));
 const ImageRepositoryPage = lazy(() => import('./components/media/ImageRepositoryPage'));
 const UserSelectorTest = lazy(() => import('./components/admin/UserSelectorTest').then(m => ({ default: m.UserSelectorTest })));
 const AdminArticleListTest = lazy(() => import('./components/admin/AdminArticleListTest').then(m => ({ default: m.AdminArticleListTest })));
-const ArticleEditorAdminTest = lazy(() => import('./components/admin/ArticleEditorAdminTest').then(m => ({ default: m.ArticleEditorAdminTest })));
 const AuditLogViewerTest = lazy(() => import('./components/admin/AuditLogViewerTest').then(m => ({ default: m.AuditLogViewerTest })));
 const ProfileTest = lazy(() => import('./components/profile/ProfileTest').then(m => ({ default: m.ProfileTest })));
 
@@ -54,11 +52,6 @@ const PageLoading = () => (
   </div>
 );
 
-// Legacy redirect component for old article editor routes
-const LegacyArticleEditorRedirect = () => {
-  const { id } = useParams();
-  return <Navigate to={`/articles/${id}`} replace />;
-};
 
 function App() {
   const [documents, setDocuments] = useState<ProcessedDocument[]>([]);
@@ -1043,11 +1036,6 @@ function App() {
                   <AdminArticleListTest />
                 </Suspense>
               } />
-              <Route path="/article-editor-admin-test" element={
-                <Suspense fallback={<PageLoading />}>
-                  <ArticleEditorAdminTest />
-                </Suspense>
-              } />
               <Route path="/audit-log-viewer-test" element={
                 <Suspense fallback={<PageLoading />}>
                   <AuditLogViewerTest />
@@ -1070,11 +1058,6 @@ function App() {
                 )
               } />
 
-              {/* Legacy routes - can be removed after testing */}
-              {/* Legacy route - redirect to unified article editor */}
-              <Route path="/article-editor/:id" element={
-                <LegacyArticleEditorRedirect />
-              } />
 
               <Route path="/profile-test" element={
                 <Suspense fallback={<PageLoading />}>

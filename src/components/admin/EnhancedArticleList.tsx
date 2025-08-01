@@ -33,7 +33,7 @@ import type {
 } from '../../types/adminApi';
 import { toast } from 'react-hot-toast';
 import { ArticleCard } from './ArticleCard';
-import { deleteArticle } from '../../lib/articleApi';
+import { unifiedArticleService } from '../../lib/unifiedArticleApi';
 import { ConfirmationDialog } from '../ui/ConfirmationDialog';
 
 interface EnhancedArticleListProps {
@@ -220,7 +220,7 @@ export const EnhancedArticleList: React.FC<EnhancedArticleListProps> = ({
 
     setIsDeleting(true);
     try {
-      const result = await deleteArticle(articleToDelete.id);
+      const result = await unifiedArticleService.deleteArticle(articleToDelete.id);
       
       if (result.success) {
         // Remove the article from the local state

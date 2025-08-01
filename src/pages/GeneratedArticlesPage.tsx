@@ -4,7 +4,7 @@ import { useAuth } from '../lib/auth'; // Assuming useAuth provides the user obj
 import { ExternalLink, CalendarDays, FileText, Edit3, Trash2 } from 'lucide-react'; // Added Trash2 icon
 import { UserDashboardLayout } from '../components/user-dashboard/UserDashboardLayout';
 import { useNavigate } from 'react-router-dom'; // Added for navigation
-import { deleteArticle } from '../lib/articleApi'; // Import delete function
+import { unifiedArticleService } from '../lib/unifiedArticleApi'; // Import unified API service
 import { ConfirmationDialog } from '../components/ui/ConfirmationDialog'; // Import confirmation dialog
 import { toast } from 'react-hot-toast'; // For user feedback
 
@@ -139,7 +139,7 @@ const GeneratedArticlesPage: React.FC = () => {
 
     setIsDeleting(true);
     try {
-      const result = await deleteArticle(articleToDelete.id);
+      const result = await unifiedArticleService.deleteArticle(articleToDelete.id);
       
       if (result.success) {
         // Remove the article from the local state

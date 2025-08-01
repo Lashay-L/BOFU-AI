@@ -471,6 +471,55 @@
   background: rgba(255, 255, 255, 0.3);
 }
 
+/* Comment highlighting styles */
+.ProseMirror .comment-highlight-tiptap {
+  background-color: rgba(254, 240, 138, 0.4) !important;
+  border-bottom: 2px solid #eab308 !important;
+  border-radius: 2px !important;
+  padding: 1px 2px !important;
+  margin: 0 1px !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease !important;
+  display: inline !important;
+  position: relative !important;
+  color: inherit !important;
+  font-weight: inherit !important;
+}
+
+.ProseMirror .comment-highlight-tiptap:hover {
+  background-color: rgba(254, 240, 138, 0.7) !important;
+}
+
+.ProseMirror .comment-highlight-tiptap[data-status="archived"] {
+  background-color: rgba(161, 161, 170, 0.15) !important;
+  border-bottom-color: #6b7280 !important;
+}
+
+.ProseMirror .comment-highlight-tiptap[data-status="archived"]:hover {
+  background-color: rgba(161, 161, 170, 0.4) !important;
+}
+
+.ProseMirror .comment-highlight-tiptap[data-status="resolved"] {
+  background-color: transparent !important;
+  border-bottom-color: transparent !important;
+  cursor: default !important;
+}
+
+.ProseMirror .comment-highlight-tiptap.highlighted {
+  background-color: rgba(254, 240, 138, 0.8) !important;
+  border-bottom-width: 3px !important;
+}
+
+/* Dark mode comment styles */
+.dark .ProseMirror .comment-highlight-tiptap {
+  background-color: rgba(254, 240, 138, 0.3) !important;
+  border-bottom-color: #ca8a04 !important;
+}
+
+.dark .ProseMirror .comment-highlight-tiptap:hover {
+  background-color: rgba(254, 240, 138, 0.5) !important;
+}
+
 /* Print styles */
 @media print {
   .floating-toolbar,

@@ -327,3 +327,15 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Ensure comment highlights are visible above other content */
+.ProseMirror .comment-highlight-tiptap {
+  position: relative;
+  z-index: 1;
+}
+
+/* Ensure proper layering in the editor */
+.ProseMirror {
+  position: relative;
+  z-index: 0;
+}

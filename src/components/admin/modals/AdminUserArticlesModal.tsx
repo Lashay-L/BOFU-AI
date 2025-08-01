@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { BaseModal } from '../../ui/BaseModal';
 import { ArticleCard } from '../ArticleCard';
-import { deleteArticleAsAdmin } from '../../../lib/articleApi';
+import { unifiedArticleService } from '../../../lib/unifiedArticleApi';
 import { AdminContext } from '../../../contexts/AdminContext';
 
 // Types for the modal
@@ -187,7 +187,7 @@ export const AdminUserArticlesModal = ({
     setDeletingArticleId(article.id);
     
     try {
-      const result = await deleteArticleAsAdmin(article.id, adminContext.adminId);
+      const result = await unifiedArticleService.deleteArticle(article.id);
       
       if (result.success) {
         toast.success('Article deleted successfully');

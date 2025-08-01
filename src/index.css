@@ -73,7 +73,83 @@
   }
 }
 
-/* Comment highlighting is now handled by CommentHighlightExtension */
+/* Comment highlighting styles */
+.comment-highlight-tiptap,
+.ProseMirror .comment-highlight-tiptap,
+.article-editor-content .comment-highlight-tiptap {
+  /* Important to override any other styles */
+  background-color: rgba(254, 240, 138, 0.4) !important;
+  border-bottom: 2px solid #eab308 !important;
+  border-radius: 2px !important;
+  padding: 1px 2px !important;
+  margin: 0 1px !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease !important;
+  display: inline !important;
+  position: relative !important;
+  /* Override any mark element styles */
+  color: inherit !important;
+  font-weight: inherit !important;
+}
+
+.comment-highlight-tiptap:hover,
+.ProseMirror .comment-highlight-tiptap:hover,
+.article-editor-content .comment-highlight-tiptap:hover {
+  background-color: rgba(254, 240, 138, 0.7) !important;
+}
+
+/* Archived comments have gray highlighting */
+.comment-highlight-tiptap[data-status="archived"],
+.ProseMirror .comment-highlight-tiptap[data-status="archived"],
+.article-editor-content .comment-highlight-tiptap[data-status="archived"] {
+  background-color: rgba(161, 161, 170, 0.15) !important;
+  border-bottom-color: #6b7280 !important;
+}
+
+.comment-highlight-tiptap[data-status="archived"]:hover,
+.ProseMirror .comment-highlight-tiptap[data-status="archived"]:hover,
+.article-editor-content .comment-highlight-tiptap[data-status="archived"]:hover {
+  background-color: rgba(161, 161, 170, 0.4) !important;
+}
+
+/* Resolved comments should not be visible */
+.comment-highlight-tiptap[data-status="resolved"],
+.ProseMirror .comment-highlight-tiptap[data-status="resolved"],
+.article-editor-content .comment-highlight-tiptap[data-status="resolved"] {
+  background-color: transparent !important;
+  border-bottom-color: transparent !important;
+  cursor: default !important;
+}
+
+/* Highlighted/selected comment state */
+.comment-highlight-tiptap.highlighted,
+.ProseMirror .comment-highlight-tiptap.highlighted,
+.article-editor-content .comment-highlight-tiptap.highlighted {
+  background-color: rgba(254, 240, 138, 0.8) !important;
+  border-bottom-width: 3px !important;
+}
+
+/* Dark mode styles for comments */
+.dark .comment-highlight-tiptap,
+.dark .ProseMirror .comment-highlight-tiptap,
+.dark .article-editor-content .comment-highlight-tiptap {
+  background-color: rgba(254, 240, 138, 0.3) !important;
+  border-bottom-color: #ca8a04 !important;
+}
+
+.dark .comment-highlight-tiptap:hover,
+.dark .ProseMirror .comment-highlight-tiptap:hover,
+.dark .article-editor-content .comment-highlight-tiptap:hover {
+  background-color: rgba(254, 240, 138, 0.5) !important;
+}
+
+/* Ensure comment highlights are not affected by other mark styles */
+.ProseMirror .comment-highlight-tiptap mark,
+.ProseMirror mark.comment-highlight-tiptap {
+  background-color: inherit !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
 
 /* Custom Scrollbar Styles */
 .custom-scrollbar {
