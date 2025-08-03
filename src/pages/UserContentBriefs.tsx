@@ -462,14 +462,14 @@ export default function UserContentBriefs() {
           <div className="relative z-10">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div className="flex items-center space-x-4">
-                <div className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg">
+                <div className="p-3 rounded-2xl bg-gradient-to-br from-yellow-500 to-amber-600 shadow-lg">
                   <Layers className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-indigo-800 to-purple-800 bg-clip-text text-transparent">
+                  <h1 className="text-3xl font-bold text-yellow-500">
                     Content Briefs
                   </h1>
-                  <p className="text-gray-600 mt-1">Manage and organize your content strategy</p>
+                  <p className="text-white mt-1">Manage and organize your content strategy</p>
                 </div>
               </div>
               
@@ -538,7 +538,7 @@ export default function UserContentBriefs() {
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                <div className="p-3 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
                   <BarChart3 size={20} className="text-white" />
                 </div>
                 <div>
@@ -571,7 +571,7 @@ export default function UserContentBriefs() {
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                <div className="p-3 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
                   <Target size={20} className="text-white" />
                 </div>
                 <div>
@@ -606,7 +606,7 @@ export default function UserContentBriefs() {
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                <div className="p-3 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
                   <Clock size={20} className="text-white" />
                 </div>
                 <div>
@@ -641,7 +641,7 @@ export default function UserContentBriefs() {
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <div className="p-3 bg-gradient-to-br from-slate-500 to-gray-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                <div className="p-3 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
                   <Edit size={20} className="text-white" />
                 </div>
                 <div>

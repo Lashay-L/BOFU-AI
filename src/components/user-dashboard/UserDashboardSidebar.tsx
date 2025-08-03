@@ -169,7 +169,7 @@ const UserDashboardSidebar = () => {
                     <h1 className="text-lg font-bold text-white tracking-tight">
                       {getCompanyName(user)}
                     </h1>
-                    <div className="text-xs text-blue-300 font-medium uppercase tracking-wide mt-0.5">
+                    <div className="text-xs text-yellow-400 font-medium uppercase tracking-wide mt-0.5">
                       Dashboard
                     </div>
                   </div>
@@ -237,12 +237,12 @@ const UserDashboardSidebar = () => {
                         to={item.href}
                         className={`group flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
                           isActive
-                            ? 'bg-gray-700/50 text-blue-300 border border-gray-600/50'
+                            ? 'bg-gray-700/50 text-yellow-400 border border-gray-600/50'
                             : 'text-gray-300 hover:text-white hover:bg-gray-700/30'
                         } ${collapsed ? 'justify-center px-2' : ''}`}
                         title={collapsed ? item.name : undefined}
                       >
-                        <div className={isActive ? 'text-blue-300' : ''}>
+                        <div className={isActive ? 'text-yellow-400' : ''}>
                           {item.icon}
                         </div>
                         {!collapsed && (
@@ -256,7 +256,7 @@ const UserDashboardSidebar = () => {
                           </div>
                         )}
                         {collapsed && item.count !== undefined && (
-                          <span className="absolute top-0 right-0 -mr-1 -mt-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-xs font-medium text-white">
+                          <span className="absolute top-0 right-0 -mr-1 -mt-1 flex h-4 w-4 items-center justify-center rounded-full bg-yellow-500 text-xs font-medium text-white">
                             {item.count}
                           </span>
                         )}
@@ -271,13 +271,13 @@ const UserDashboardSidebar = () => {
                     <span
                       className={`group flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
                         isActive
-                          ? 'bg-gray-700/50 text-blue-300 border border-gray-600/50'
+                          ? 'bg-gray-700/50 text-yellow-400 border border-gray-600/50'
                           : 'text-gray-300 hover:text-white hover:bg-gray-700/30'
                       } ${collapsed ? 'justify-center' : ''}`}
                     >
                       <FileTextIcon
                         className={`h-5 w-5 ${collapsed ? '' : 'mr-3 flex-shrink-0'} ${
-                          isActive ? 'text-blue-300' : 'text-gray-400 group-hover:text-gray-300'
+                          isActive ? 'text-yellow-400' : 'text-gray-400 group-hover:text-gray-300'
                         }`}
                         aria-hidden="true"
                       />
