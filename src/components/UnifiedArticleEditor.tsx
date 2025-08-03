@@ -345,25 +345,32 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
         if (newContent && oldContent !== newContent) {
           // Enhanced change detection logic to handle admin/user context
           const lastEditedBy = payload?.new?.last_edited_by;
-          const currentUserId = userContext?.userId;
+          const currentUserId = userContext?.id;
           
           // Basic own-change detection
           let isOwnChange = lastEditedBy === currentUserId;
           
-          // Special handling for admin mode: if admin is editing on behalf of original author,
-          // we still want to see updates from the original author
-          if (uiMode === 'admin' && !isOwnChange) {
+          // Special handling for different UI modes
+          if (uiMode === 'admin') {
             // Admin should see all changes from other users (including the original author)
             // Only skip updates if this admin session made the change
-            isOwnChange = false;
+            isOwnChange = lastEditedBy === currentUserId;
+          } else if (uiMode === 'user') {
+            // User should see all changes from admins and other collaborators
+            // Only skip updates if this user session made the change
+            isOwnChange = lastEditedBy === currentUserId;
           }
+          
+          // Force update logic: always show external changes
+          const shouldForceUpdate = !isOwnChange;
           
           console.log('🔍 [UNIFIED EDITOR] Enhanced content change analysis:', {
             uiMode,
             lastEditedBy,
             currentUserId,
             isOwnChange,
-            shouldUpdateUI: !isOwnChange || uiMode === 'admin',
+            shouldForceUpdate,
+            shouldUpdateUI: shouldForceUpdate,
             payload: {
               eventType: payload?.eventType,
               version: payload?.new?.article_version
@@ -410,9 +417,9 @@ export const UnifiedArticleEditor: React.FC<UnifiedArticleEditorProps> = ({ forc
                 setLastSaved(new Date());
                 
                 // Clear unsaved changes logic: 
-                // - For regular users: only clear if change came from another user
-                // - For admins: always update to latest state to ensure proper sync
-                if (!isOwnChange || uiMode === 'admin') {
+                // - Always clear unsaved changes for external updates
+                // - This ensures both user and admin see the latest content
+                if (shouldForceUpdate) {
                   setHasUnsavedChanges(false);
                 }
                 

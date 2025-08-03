@@ -204,10 +204,10 @@ const GeneratedArticlesPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
         <header className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+            <h1 className="text-3xl font-bold text-white tracking-tight">
               Generated Articles
             </h1>
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="mt-1 text-sm text-gray-300">
               Access and edit your generated articles using our professional editor or open them in Google Docs.
             </p>
           </div>

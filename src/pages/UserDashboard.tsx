@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserDashboardLayout } from '../components/user-dashboard/UserDashboardLayout';
+import { UserActivityFeed } from '../components/user-dashboard/UserActivityFeed';
 import { DataboxEmbed } from '../components/common/DataboxEmbed';
+import { ArticleGenerationTracker } from '../components/user-dashboard/ArticleGenerationTracker';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
-import { clearContentBriefData } from '../lib/contentBriefApi';
-import { PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline';
-import { format } from 'date-fns';
-import { toast } from 'react-hot-toast';
+import { ChartBarIcon, DocumentTextIcon, ChatBubbleLeftIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 interface ContentBrief {
   id: string;
@@ -16,6 +15,8 @@ interface ContentBrief {
   created_at: string;
   updated_at: string;
   brief_content?: any;
+  article_content?: string;
+  title?: string;
 }
 
 interface DashboardStats {
@@ -23,20 +24,28 @@ interface DashboardStats {
   approved: number;
   pending: number;
   drafts: number;
+  generatedArticles: number;
+  publishedArticles: number;
+  draftArticles: number;
+  totalComments: number;
 }
 
 export default function UserDashboard() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [contentBriefs, setContentBriefs] = useState<ContentBrief[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalBriefs: 0,
     approved: 0,
     pending: 0,
-    drafts: 0
+    drafts: 0,
+    generatedArticles: 0,
+    publishedArticles: 0,
+    draftArticles: 0,
+    totalComments: 0
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAnalyticsExpanded, setIsAnalyticsExpanded] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -71,10 +80,33 @@ export default function UserDashboard() {
       )
       .subscribe();
 
-    // Cleanup subscription on unmount or user change
+    // Additional subscription for article_content updates to sync with admin changes
+    const articleSubscription = supabase
+      .channel(`user_article_updates_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'content_briefs',
+          filter: `user_id=eq.${user.id}` // Listen for updates to user's content briefs
+        },
+        (payload) => {
+          console.log('🔄 Real-time article content update detected:', payload);
+          // Check if article_content was updated
+          if (payload.new && payload.old && payload.new.article_content !== payload.old.article_content) {
+            console.log('🔄 Article content changed, refreshing dashboard...');
+            fetchDashboardData();
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscriptions on unmount or user change
     return () => {
-      console.log('🔄 Cleaning up real-time subscription for user content briefs');
+      console.log('🔄 Cleaning up real-time subscriptions for user content briefs');
       subscription.unsubscribe();
+      articleSubscription.unsubscribe();
     };
   }, [user?.id]);
 
@@ -114,22 +146,60 @@ export default function UserDashboard() {
       }
 
       // Filter out briefs with empty content (cleared briefs)
-      const filteredBriefs = (briefs || []).filter(brief => {
-        return brief.brief_content && 
-               typeof brief.brief_content === 'object' && 
-               Object.keys(brief.brief_content).length > 0;
+      const filteredBriefs = (briefs || []).filter((brief: ContentBrief) => {
+        // Allow briefs with any content (string or object with content)
+        if (!brief.brief_content) return false;
+        
+        // If it's a string, check if it's not empty
+        if (typeof brief.brief_content === 'string') {
+          return brief.brief_content.trim().length > 0 && brief.brief_content !== '{}';
+        }
+        
+        // If it's an object, check if it has keys
+        if (typeof brief.brief_content === 'object') {
+          return Object.keys(brief.brief_content).length > 0;
+        }
+        
+        return true;
       });
 
       console.log('[DASHBOARD] Fetched briefs:', briefs?.length || 0, 'Filtered:', filteredBriefs.length);
-      setContentBriefs(filteredBriefs);
 
       // Calculate stats using filtered briefs
       const totalBriefs = filteredBriefs.length;
       const approved = filteredBriefs.filter((brief: ContentBrief) => brief.status === 'approved').length;
       const pending = filteredBriefs.filter((brief: ContentBrief) => brief.status === 'pending').length;
       const drafts = filteredBriefs.filter((brief: ContentBrief) => brief.status === 'draft').length;
+      
+      // Calculate article stats
+      const generatedArticles = filteredBriefs.filter((brief: ContentBrief) => 
+        brief.article_content && brief.article_content.trim().length > 0
+      ).length;
+      const publishedArticles = filteredBriefs.filter((brief: ContentBrief) => 
+        brief.status === 'approved' && brief.article_content && brief.article_content.trim().length > 0
+      ).length;
+      const draftArticles = filteredBriefs.filter((brief: ContentBrief) => 
+        brief.status === 'draft' && brief.article_content && brief.article_content.trim().length > 0
+      ).length;
 
-      setStats({ totalBriefs, approved, pending, drafts });
+      // Fetch comment stats
+      const { data: comments } = await supabase
+        .from('article_comments')
+        .select('id')
+        .in('content_brief_id', filteredBriefs.map(brief => brief.id));
+      
+      const totalComments = comments?.length || 0;
+
+      setStats({ 
+        totalBriefs, 
+        approved, 
+        pending, 
+        drafts, 
+        generatedArticles, 
+        publishedArticles, 
+        draftArticles, 
+        totalComments 
+      });
     } catch (error) {
       console.error('[DASHBOARD] Error fetching dashboard data:', error);
       setError(error instanceof Error ? error.message : 'Failed to load dashboard data');
@@ -138,63 +208,14 @@ export default function UserDashboard() {
     }
   };
 
-  const handleEditBrief = (briefId: string) => {
-    navigate(`/dashboard/content-briefs/edit/${briefId}`);
-  };
-
-  const handleDeleteBrief = async (briefId: string) => {
-    if (!confirm('Are you sure you want to clear the content brief data? This will remove the brief content but preserve any generated article content, comments, and version history.')) return;
-    
-    if (!user?.id) {
-      console.error('No user ID available');
-      return;
-    }
-
-    try {
-      const result = await clearContentBriefData(briefId);
-      
-      if (!result.success) {
-        toast.error(result.error || 'Failed to clear content brief data');
-        return;
-      }
-
-      // Show success message with cleanup details
-      const clearedImages = result.clearedImages?.length || 0;
-      if (clearedImages > 0) {
-        toast.success(`Content brief data cleared successfully. Cleaned up ${clearedImages} brief-only images. Generated article preserved.`);
-      } else {
-        toast.success('Content brief data cleared successfully. Generated article preserved.');
-      }
-
-      // Refresh data
-      fetchDashboardData();
-    } catch (error) {
-      console.error('Error clearing content brief data:', error);
-      toast.error('Failed to clear content brief data');
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const statusStyles = {
-      approved: 'bg-green-100 text-green-800 border-green-200',
-      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      draft: 'bg-gray-100 text-gray-800 border-gray-200'
-    };
-
-    return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full border ${statusStyles[status as keyof typeof statusStyles]}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
-  };
 
   if (authLoading) {
     return (
       <UserDashboardLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Checking authentication...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto"></div>
+            <p className="mt-4 text-gray-300">Checking authentication...</p>
           </div>
         </div>
       </UserDashboardLayout>
@@ -206,8 +227,8 @@ export default function UserDashboard() {
       <UserDashboardLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading dashboard...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto"></div>
+            <p className="mt-4 text-gray-300">Loading dashboard...</p>
           </div>
         </div>
       </UserDashboardLayout>
@@ -219,13 +240,13 @@ export default function UserDashboard() {
       <UserDashboardLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-800 font-medium">Error loading dashboard</p>
-              <p className="text-red-600 text-sm mt-1">{error}</p>
+            <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-red-300 font-medium">Error loading dashboard</p>
+              <p className="text-red-400 text-sm mt-1">{error}</p>
             </div>
             <button
               onClick={fetchDashboardData}
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
             >
               Try Again
             </button>
@@ -240,120 +261,155 @@ export default function UserDashboard() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">Manage your content briefs and track progress</p>
+          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          <p className="text-gray-300">Manage your content briefs and track progress</p>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-600">Total Briefs</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.totalBriefs}</p>
+        {/* Enhanced Stats Dashboard */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          {/* Content Briefs Section */}
+          <div className="lg:col-span-2">
+            <div className="bg-gray-800/60 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/30">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white flex items-center">
+                  <DocumentTextIcon className="h-6 w-6 text-blue-400 mr-2" />
+                  Content Briefs
+                </h3>
+                <span className="text-sm text-blue-300 bg-blue-500/20 px-2 py-1 rounded-full border border-blue-500/30">
+                  {stats.totalBriefs} Total
+                </span>
               </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-600">Approved</p>
-                <p className="text-3xl font-bold text-green-600">{stats.approved}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-3xl font-bold text-yellow-600">{stats.pending}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-600">Drafts</p>
-                <p className="text-3xl font-bold text-gray-600">{stats.drafts}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Analytics Dashboard */}
-        <div className="mb-8">
-          <DataboxEmbed 
-            dashboardName="Analytics Dashboard"
-            className="w-full"
-            fallbackMessage="Analytics dashboard will be configured by your administrator"
-          />
-        </div>
-
-        {/* Content Briefs List */}
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Recent Content Briefs</h2>
-          </div>
-
-          {contentBriefs.length === 0 ? (
-            <div className="p-12 text-center">
-              <p className="text-gray-500">No content briefs found. Create your first brief to get started.</p>
-              <button
-                onClick={() => navigate('/dashboard/content-briefs')}
-                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
-              >
-                Create Content Brief
-              </button>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {contentBriefs.map((brief) => (
-                <div key={brief.id} className="p-6 hover:bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-3">
-                        <h3 className="text-lg font-medium text-gray-900 truncate">
-                          {brief.product_name}
-                        </h3>
-                        {getStatusBadge(brief.status)}
-                      </div>
-                      <div className="mt-2 flex items-center text-sm text-gray-500 space-x-4">
-                        <span>Created {format(new Date(brief.created_at), 'MMM d, yyyy')}</span>
-                        <span>Updated {format(new Date(brief.updated_at), 'MMM d, yyyy')}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-2 ml-4">
-                      <button
-                        onClick={() => handleEditBrief(brief.id)}
-                        className="inline-flex items-center p-2 border border-gray-300 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-50"
-                        title="Edit"
-                      >
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-                      
-                      <button
-                        onClick={() => navigate(`/dashboard/content-briefs`)}
-                        className="inline-flex items-center p-2 border border-gray-300 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-50"
-                        title="View"
-                      >
-                        <EyeIcon className="h-4 w-4" />
-                      </button>
-
-                      <button
-                        onClick={() => handleDeleteBrief(brief.id)}
-                        className="inline-flex items-center p-2 border border-gray-300 rounded-md text-red-400 hover:text-red-500 hover:bg-red-50"
-                        title="Delete"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-gray-700/50 backdrop-blur-sm rounded-xl p-4 border border-gray-600/30">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-400">{stats.approved}</div>
+                    <div className="text-sm text-gray-300 mt-1">Approved</div>
+                    <div className="w-full bg-gray-600/50 rounded-full h-2 mt-2">
+                      <div 
+                        className="bg-green-500 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${stats.totalBriefs > 0 ? (stats.approved / stats.totalBriefs) * 100 : 0}%` }}
+                      ></div>
                     </div>
                   </div>
                 </div>
-              ))}
+                
+                <div className="bg-gray-700/50 backdrop-blur-sm rounded-xl p-4 border border-gray-600/30">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-yellow-400">{stats.pending}</div>
+                    <div className="text-sm text-gray-300 mt-1">Pending</div>
+                    <div className="w-full bg-gray-600/50 rounded-full h-2 mt-2">
+                      <div 
+                        className="bg-yellow-500 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${stats.totalBriefs > 0 ? (stats.pending / stats.totalBriefs) * 100 : 0}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-gray-700/50 backdrop-blur-sm rounded-xl p-4 border border-gray-600/30">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-gray-300">{stats.drafts}</div>
+                    <div className="text-sm text-gray-300 mt-1">Drafts</div>
+                    <div className="w-full bg-gray-600/50 rounded-full h-2 mt-2">
+                      <div 
+                        className="bg-gray-400 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${stats.totalBriefs > 0 ? (stats.drafts / stats.totalBriefs) * 100 : 0}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Activity Summary */}
+          <div className="space-y-6">
+            {/* Generated Articles */}
+            <div className="bg-gray-800/60 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/30">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white flex items-center">
+                  <ChartBarIcon className="h-6 w-6 text-purple-400 mr-2" />
+                  Articles
+                </h3>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-300">Generated</span>
+                  <span className="text-2xl font-bold text-purple-400">{stats.generatedArticles}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-300">Published</span>
+                  <span className="text-lg font-semibold text-green-400">{stats.publishedArticles}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-300">In Draft</span>
+                  <span className="text-lg font-semibold text-orange-400">{stats.draftArticles}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Comments & Activity */}
+            <div className="bg-gray-800/60 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/30">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white flex items-center">
+                  <ChatBubbleLeftIcon className="h-6 w-6 text-emerald-400 mr-2" />
+                  Collaboration
+                </h3>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-300">Total Comments</span>
+                  <span className="text-2xl font-bold text-emerald-400">{stats.totalComments}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-300">Avg per Brief</span>
+                  <span className="text-lg font-semibold text-teal-400">
+                    {stats.totalBriefs > 0 ? (stats.totalComments / stats.totalBriefs).toFixed(1) : '0'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Article Generation Tracking */}
+        <div className="mb-8">
+          <ArticleGenerationTracker />
+        </div>
+
+        {/* Recent Activity Feed */}
+        <div className="mb-8">
+          <UserActivityFeed />
+        </div>
+
+        {/* Collapsible Analytics Dashboard */}
+        <div className="bg-gray-800/60 backdrop-blur-sm rounded-2xl border border-gray-700/30 overflow-hidden">
+          <button
+            onClick={() => setIsAnalyticsExpanded(!isAnalyticsExpanded)}
+            className="w-full p-6 flex items-center justify-between hover:bg-gray-700/30 transition-colors"
+          >
+            <div className="flex items-center">
+              <ChartBarIcon className="h-6 w-6 text-blue-400 mr-3" />
+              <h3 className="text-lg font-semibold text-white">Analytics Dashboard</h3>
+            </div>
+            {isAnalyticsExpanded ? (
+              <ChevronDownIcon className="h-5 w-5 text-gray-400" />
+            ) : (
+              <ChevronRightIcon className="h-5 w-5 text-gray-400" />
+            )}
+          </button>
+          
+          {isAnalyticsExpanded && (
+            <div className="border-t border-gray-700/30 p-6">
+              <DataboxEmbed 
+                dashboardName="Analytics Dashboard"
+                className="w-full bg-transparent border-gray-600/30"
+                fallbackMessage="Analytics dashboard will be configured by your administrator"
+                showTitle={false}
+              />
             </div>
           )}
         </div>

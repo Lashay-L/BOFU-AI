@@ -9,6 +9,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   * Project URL: https://nhxjashreguofalhaofj.supabase.co
   * Service Key: sbp_3d5cd8b7a046e8dfcf1706d7265af9092b0230cc
 
+**IMPORTANT MCP Server Usage:**
+- ALWAYS use `supabase_bofu` MCP server for this project
+- NEVER use `supabase_medimind_expert` for BOFU project operations
+- Use `mcp__supabase_bofu__*` functions for all database operations
+
 ## Development Commands
 
 **Core Development:**

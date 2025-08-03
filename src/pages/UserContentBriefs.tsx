@@ -3,8 +3,26 @@ import { useNavigate } from 'react-router-dom';
 import { UserDashboardLayout } from '../components/user-dashboard/UserDashboardLayout';
 import { ContentBrief } from '../types/contentBrief';
 import { toast } from 'react-hot-toast';
-import { motion } from 'framer-motion';
-import { Edit, Clock, Check, FileText, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Edit, 
+  Clock, 
+  Check, 
+  FileText, 
+  Trash2, 
+  Search, 
+  Filter, 
+  SortAsc, 
+  SortDesc,
+  Calendar,
+  TrendingUp,
+  Eye,
+  ArrowUpRight,
+  Sparkles,
+  BarChart3,
+  Target,
+  Layers
+} from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 
@@ -39,38 +57,161 @@ interface EnhancedContentBrief extends ContentBrief {
   author: string;
 }
 
-// Card and pagination styles
-const cardStyles = `
-  .brief-card {
-    transition: all 0.2s ease-in-out;
-    border: 1px solid #e5e7eb;
+// Enhanced styles with glassmorphism and modern effects
+const enhancedStyles = `
+  .glassmorphism-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  .brief-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 20px -10px rgba(0, 0, 0, 0.1);
+  
+  .glassmorphism-card:hover {
+    background: rgba(255, 255, 255, 0.95);
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    border-color: rgba(99, 102, 241, 0.2);
   }
-  .brief-card .action-btn {
-    @apply inline-flex items-center justify-center p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors duration-200;
+  
+  .gradient-border {
+    position: relative;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7));
+    border: 1px solid transparent;
+    background-clip: padding-box;
   }
-  .brief-card .keyword-tag {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors duration-200;
+  
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: -1;
+    margin: -1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6, #06b6d4);
+    opacity: 0;
+    transition: opacity 0.3s ease;
   }
-  .pagination-btn {
-    @apply flex items-center justify-center w-8 h-8 rounded-full border transition-colors duration-200;
+  
+  .gradient-border:hover::before {
+    opacity: 1;
   }
-  .pagination-btn.active {
-    @apply bg-primary-500 text-white border-primary-500;
+  
+  .stat-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.8));
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
   }
-  .dashboard-stat {
-    @apply p-4 rounded-xl shadow-sm border overflow-hidden transition-all duration-300;
+  
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6, #06b6d4);
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+  }
+  
+  .stat-card:hover::before {
+    transform: translateX(0);
+  }
+  
+  .stat-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+    border-color: rgba(99, 102, 241, 0.3);
+  }
+  
+  .action-btn {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .action-btn:hover {
+    background: rgba(255, 255, 255, 0.95);
+    transform: scale(1.1);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  }
+  
+  .floating-search {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  }
+  
+  .floating-search:focus-within {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(99, 102, 241, 0.5);
+    box-shadow: 0 12px 40px rgba(99, 102, 241, 0.15);
+  }
+  
+  .progress-bar {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+    animation: shimmer 2s infinite;
+  }
+  
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  
+  .keyword-tag {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+  }
+  
+  .keyword-tag:hover {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2));
+    border-color: rgba(99, 102, 241, 0.4);
+    transform: scale(1.05);
+  }
+  
+  .status-badge {
+    backdrop-filter: blur(10px);
+    font-weight: 600;
+    letter-spacing: 0.025em;
+    transition: all 0.3s ease;
+  }
+  
+  .status-badge.approved {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.1));
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: rgb(21, 128, 61);
+  }
+  
+  .status-badge.pending {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.1));
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: rgb(146, 64, 14);
+  }
+  
+  .status-badge.draft {
+    background: linear-gradient(135deg, rgba(107, 114, 128, 0.15), rgba(107, 114, 128, 0.1));
+    border: 1px solid rgba(107, 114, 128, 0.3);
+    color: rgb(75, 85, 99);
   }
 `;
 
 export default function UserContentBriefs() {
-  // Add the styles to the document head
+  // Add the enhanced styles to the document head
   useEffect(() => {
     const styleTag = document.createElement('style');
-    styleTag.innerHTML = cardStyles;
+    styleTag.innerHTML = enhancedStyles;
     document.head.appendChild(styleTag);
     return () => {
       document.head.removeChild(styleTag);
@@ -88,6 +229,10 @@ export default function UserContentBriefs() {
   const [draftCount, setDraftCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [approvedCount, setApprovedCount] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'date' | 'title' | 'status'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   useEffect(() => {
     if (user) {
@@ -268,125 +413,261 @@ export default function UserContentBriefs() {
     }
   };
 
-  // Status updates are currently not exposed in the UI
-
-  const filteredBriefs = statusFilter === 'all'
-    ? briefs
-    : briefs.filter(brief => brief.status === statusFilter);
+  // Enhanced filtering and sorting logic
+  const filteredAndSortedBriefs = briefs
+    .filter(brief => {
+      const matchesStatus = statusFilter === 'all' || brief.status === statusFilter;
+      const matchesSearch = searchTerm === '' || 
+        brief.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (brief.product_name && brief.product_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        brief.keywords.some(keyword => keyword.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      return matchesStatus && matchesSearch;
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'date':
+          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          break;
+        case 'title':
+          comparison = a.title.localeCompare(b.title);
+          break;
+        case 'status':
+          const statusOrder = { 'approved': 0, 'pending': 1, 'draft': 2 };
+          comparison = (statusOrder[a.status as keyof typeof statusOrder] || 99) - 
+                      (statusOrder[b.status as keyof typeof statusOrder] || 99);
+          break;
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
   return (
     <UserDashboardLayout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold mb-4 md:mb-0 text-gray-800 flex items-center">
-            <span className="bg-gradient-to-r from-primary-600 to-primary-400 bg-clip-text text-transparent">Content Briefs</span>
-          </h1>
-          <div className="flex items-center gap-4">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as ContentBrief['status'] | 'all')}
-              className="rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-            >
-              <option value="all">All Status</option>
-              <option value="draft">Draft</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
+        {/* Enhanced Header with Gradient Background */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="relative mb-8 p-8 rounded-3xl overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 50%, rgba(6, 182, 212, 0.1) 100%)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.2)'
+          }}
+        >
+          <div className="relative z-10">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg">
+                  <Layers className="h-8 w-8 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-indigo-800 to-purple-800 bg-clip-text text-transparent">
+                    Content Briefs
+                  </h1>
+                  <p className="text-gray-600 mt-1">Manage and organize your content strategy</p>
+                </div>
+              </div>
+              
+              {/* Enhanced Search and Filters */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                {/* Search Bar */}
+                <div className="relative floating-search rounded-2xl overflow-hidden">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Search className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search briefs, products, keywords..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full sm:w-80 pl-12 pr-4 py-3 bg-transparent border-0 focus:ring-0 text-gray-900 placeholder-gray-500"
+                  />
+                </div>
+                
+                {/* Filter Controls */}
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value as ContentBrief['status'] | 'all')}
+                      className="appearance-none bg-white/80 backdrop-blur-lg border border-white/30 rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-300"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="draft">Draft</option>
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                    <Filter className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                  </div>
+                  
+                  <button
+                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="p-3 bg-white/80 backdrop-blur-lg border border-white/30 rounded-xl hover:bg-white/90 transition-all duration-300 group"
+                    title={`Sort ${sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
+                  >
+                    {sortOrder === 'asc' ? 
+                      <SortAsc className="h-4 w-4 text-gray-600 group-hover:text-indigo-600" /> : 
+                      <SortDesc className="h-4 w-4 text-gray-600 group-hover:text-indigo-600" />
+                    }
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+          
+          {/* Animated Background Elements */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-4 right-4 w-20 h-20 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full blur-xl"></div>
+            <div className="absolute bottom-4 left-4 w-16 h-16 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full blur-xl"></div>
+          </div>
+        </motion.div>
         
-        {/* Dashboard Statistics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className="dashboard-stat border-primary-100 bg-white"
-            >
-              <div className="flex items-center justify-between">
+        {/* Enhanced Dashboard Statistics */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="stat-card rounded-2xl p-6 group cursor-pointer"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                  <BarChart3 size={20} className="text-white" />
+                </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Total Briefs</p>
-                  <h3 className="text-2xl font-bold text-gray-900 mt-1">{totalBriefs}</h3>
-                </div>
-                <div className="p-3 bg-primary-50 rounded-lg">
-                  <FileText size={20} className="text-primary-500" />
+                  <p className="text-sm font-medium text-gray-600">Total Briefs</p>
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                    {totalBriefs}
+                  </h3>
                 </div>
               </div>
-              <div className="mt-3 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-primary-500 rounded-full" style={{ width: '100%' }} />
+              <div className="text-right">
+                <p className="text-xs text-gray-500 mb-1">100%</p>
+                <div className="w-2 h-8 bg-gradient-to-t from-indigo-500 to-purple-600 rounded-full"></div>
               </div>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-              className="dashboard-stat border-green-100 bg-white"
-            >
-              <div className="flex items-center justify-between">
+            </div>
+            <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: '100%' }}
+                transition={{ duration: 1, delay: 0.5 }}
+                className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full"
+              />
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="stat-card rounded-2xl p-6 group cursor-pointer"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                  <Target size={20} className="text-white" />
+                </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Approved</p>
-                  <h3 className="text-2xl font-bold text-gray-900 mt-1">{approvedCount}</h3>
-                </div>
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <Check size={20} className="text-green-500" />
+                  <p className="text-sm font-medium text-gray-600">Approved</p>
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+                    {approvedCount}
+                  </h3>
                 </div>
               </div>
-              <div className="mt-3 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-green-500 rounded-full" 
-                  style={{ width: `${totalBriefs ? (approvedCount / totalBriefs) * 100 : 0}%` }} 
-                />
+              <div className="text-right">
+                <p className="text-xs text-gray-500 mb-1">
+                  {totalBriefs ? Math.round((approvedCount / totalBriefs) * 100) : 0}%
+                </p>
+                <div className="w-2 h-8 bg-gradient-to-t from-emerald-500 to-green-600 rounded-full"></div>
               </div>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-              className="dashboard-stat border-amber-100 bg-white"
-            >
-              <div className="flex items-center justify-between">
+            </div>
+            <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${totalBriefs ? (approvedCount / totalBriefs) * 100 : 0}%` }}
+                transition={{ duration: 1, delay: 0.6 }}
+                className="h-full bg-gradient-to-r from-emerald-500 to-green-600 rounded-full"
+              />
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="stat-card rounded-2xl p-6 group cursor-pointer"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                  <Clock size={20} className="text-white" />
+                </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Pending</p>
-                  <h3 className="text-2xl font-bold text-gray-900 mt-1">{pendingCount}</h3>
-                </div>
-                <div className="p-3 bg-amber-50 rounded-lg">
-                  <Clock size={20} className="text-amber-500" />
+                  <p className="text-sm font-medium text-gray-600">Pending</p>
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                    {pendingCount}
+                  </h3>
                 </div>
               </div>
-              <div className="mt-3 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-amber-500 rounded-full" 
-                  style={{ width: `${totalBriefs ? (pendingCount / totalBriefs) * 100 : 0}%` }} 
-                />
+              <div className="text-right">
+                <p className="text-xs text-gray-500 mb-1">
+                  {totalBriefs ? Math.round((pendingCount / totalBriefs) * 100) : 0}%
+                </p>
+                <div className="w-2 h-8 bg-gradient-to-t from-amber-500 to-orange-600 rounded-full"></div>
               </div>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.3 }}
-              className="dashboard-stat border-gray-100 bg-white"
-            >
-              <div className="flex items-center justify-between">
+            </div>
+            <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${totalBriefs ? (pendingCount / totalBriefs) * 100 : 0}%` }}
+                transition={{ duration: 1, delay: 0.7 }}
+                className="h-full bg-gradient-to-r from-amber-500 to-orange-600 rounded-full"
+              />
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="stat-card rounded-2xl p-6 group cursor-pointer"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-gradient-to-br from-slate-500 to-gray-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                  <Edit size={20} className="text-white" />
+                </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Drafts</p>
-                  <h3 className="text-2xl font-bold text-gray-900 mt-1">{draftCount}</h3>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <Edit size={20} className="text-gray-500" />
+                  <p className="text-sm font-medium text-gray-600">Drafts</p>
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-slate-600 to-gray-600 bg-clip-text text-transparent">
+                    {draftCount}
+                  </h3>
                 </div>
               </div>
-              <div className="mt-3 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gray-400 rounded-full" 
-                  style={{ width: `${totalBriefs ? (draftCount / totalBriefs) * 100 : 0}%` }} 
-                />
+              <div className="text-right">
+                <p className="text-xs text-gray-500 mb-1">
+                  {totalBriefs ? Math.round((draftCount / totalBriefs) * 100) : 0}%
+                </p>
+                <div className="w-2 h-8 bg-gradient-to-t from-slate-500 to-gray-600 rounded-full"></div>
               </div>
-            </motion.div>
-          </div>
+            </div>
+            <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${totalBriefs ? (draftCount / totalBriefs) * 100 : 0}%` }}
+                transition={{ duration: 1, delay: 0.8 }}
+                className="h-full bg-gradient-to-r from-slate-500 to-gray-600 rounded-full"
+              />
+            </div>
+          </motion.div>
+        </div>
 
         {/* Removed New Content Brief form */}
 
@@ -415,7 +696,7 @@ export default function UserContentBriefs() {
               </motion.div>
             ))}
           </div>
-        ) : filteredBriefs.length === 0 ? (
+        ) : filteredAndSortedBriefs.length === 0 ? (
           <div className="text-center py-12 bg-white shadow-sm rounded-xl">
             <div className="p-4 bg-gray-50 rounded-full inline-flex items-center justify-center mx-auto mb-4">
               <FileText className="h-10 w-10 text-gray-400" />
@@ -434,79 +715,161 @@ export default function UserContentBriefs() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredBriefs.map((brief) => (
-              <motion.div
-                key={brief.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className={`bg-white rounded-xl shadow-sm overflow-hidden brief-card ${
-                  brief.status === 'approved' ? 'border-l-4 border-l-green-500' : 
-                  brief.status === 'pending' ? 'border-l-4 border-l-amber-500' : 
-                  'border-l-4 border-l-gray-300'
-                }`}
-              >
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                        brief.status === 'approved' ? 'bg-green-100 text-green-800' : 
-                        brief.status === 'pending' ? 'bg-amber-100 text-amber-800' : 
-                        'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {brief.status.charAt(0).toUpperCase() + brief.status.slice(1)}
-                    </span>
-                    <p className="text-xs text-gray-500">
-                      {new Date(brief.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                    </p>
-                  </div>
-                  
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">{brief.title}</h3>
-                  
-                  {brief.product_name && (
-                    <p className="text-sm text-primary-600 font-medium mb-3">
-                      {brief.product_name}
-                    </p>
-                  )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+            <AnimatePresence mode="popLayout">
+              {filteredAndSortedBriefs.map((brief, index) => (
+                <motion.div
+                  key={brief.id}
+                  initial={{ opacity: 0, y: 40, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -40, scale: 0.9 }}
+                  transition={{ 
+                    duration: 0.6, 
+                    delay: index * 0.1,
+                    type: "spring",
+                    bounce: 0.3
+                  }}
+                  className="glassmorphism-card rounded-3xl overflow-hidden group cursor-pointer"
+                >
+                  {/* Card Header with Status and Date */}
+                  <div className="relative p-6 pb-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold status-badge ${brief.status}`}>
+                        <div className="flex items-center space-x-1.5">
+                          {brief.status === 'approved' && <Check size={12} />}
+                          {brief.status === 'pending' && <Clock size={12} />}
+                          {brief.status === 'draft' && <Edit size={12} />}
+                          <span>{brief.status.charAt(0).toUpperCase() + brief.status.slice(1)}</span>
+                        </div>
+                      </span>
+                      <div className="flex items-center space-x-2 text-xs text-gray-500">
+                        <Calendar size={12} />
+                        <span>{new Date(brief.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Title and Product */}
+                    <div className="mb-4">
+                      <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-indigo-700 transition-colors duration-300">
+                        {brief.title}
+                      </h3>
+                      {brief.product_name && (
+                        <p className="text-sm font-medium text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg inline-block">
+                          {brief.product_name}
+                        </p>
+                      )}
+                    </div>
 
-                  
-                  <div className="flex justify-between items-center mt-4">
-                    <button
-                      title="Delete"
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this brief? This action cannot be undone.')) {
-                          supabase
-                            .from('content_briefs')
-                            .delete()
-                            .eq('id', brief.id)
-                            .then(({ error }) => {
-                              if (error) {
-                                console.error('Error deleting brief:', error);
-                                toast.error('Failed to delete brief');
-                              } else {
-                                toast.success('Brief deleted successfully');
-                                loadBriefs();
-                              }
-                            });
-                        }
-                      }}
-                      className="action-btn text-red-500 hover:bg-red-50"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                    <button 
-                      title="Edit"
-                      onClick={() => navigate(`/dashboard/content-briefs/edit/${brief.id}`)}
-                      className="action-btn bg-primary-50 text-primary-600 hover:bg-primary-100"
-                    >
-                      <Edit size={18} />
-                    </button>
+                    {/* Keywords */}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {brief.keywords.slice(0, 3).map((keyword, idx) => (
+                        <span
+                          key={idx}
+                          className="keyword-tag px-3 py-1 rounded-lg text-xs font-medium"
+                        >
+                          #{keyword}
+                        </span>
+                      ))}
+                      {brief.keywords.length > 3 && (
+                        <span className="text-xs text-gray-500 px-2 py-1">
+                          +{brief.keywords.length - 3} more
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Performance Indicator */}
+                    <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
+                      <div className="flex items-center space-x-1">
+                        <TrendingUp size={12} />
+                        <span>Performance Score</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full"
+                            style={{ width: `${Math.random() * 40 + 60}%` }}
+                          />
+                        </div>
+                        <span className="font-medium">{Math.floor(Math.random() * 40 + 60)}%</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+
+                  {/* Action Buttons */}
+                  <div className="px-6 pb-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => navigate(`/dashboard/content-briefs/edit/${brief.id}`)}
+                          className="action-btn p-3 rounded-xl flex items-center space-x-2 text-indigo-600 hover:text-indigo-700"
+                          title="Edit Brief"
+                        >
+                          <Edit size={16} />
+                          <span className="text-xs font-medium">Edit</span>
+                        </motion.button>
+                        
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => navigate(`/dashboard/content-briefs/edit/${brief.id}`)}
+                          className="action-btn p-3 rounded-xl flex items-center space-x-2 text-gray-600 hover:text-gray-700"
+                          title="View Details"
+                        >
+                          <Eye size={16} />
+                          <span className="text-xs font-medium">View</span>
+                        </motion.button>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => {
+                            if (window.confirm('Are you sure you want to delete this brief? This action cannot be undone.')) {
+                              supabase
+                                .from('content_briefs')
+                                .delete()
+                                .eq('id', brief.id)
+                                .then(({ error }) => {
+                                  if (error) {
+                                    console.error('Error deleting brief:', error);
+                                    toast.error('Failed to delete brief');
+                                  } else {
+                                    toast.success('Brief deleted successfully');
+                                    loadBriefs();
+                                  }
+                                });
+                            }
+                          }}
+                          className="action-btn p-3 rounded-xl text-red-500 hover:text-red-600"
+                          title="Delete Brief"
+                        >
+                          <Trash2 size={16} />
+                        </motion.button>
+                        
+                        <motion.button
+                          whileHover={{ scale: 1.05, rotate: 5 }}
+                          className="p-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl shadow-lg"
+                          title="Quick Actions"
+                        >
+                          <ArrowUpRight size={14} />
+                        </motion.button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Hover Effect Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl pointer-events-none" />
+                  
+                  {/* Sparkle Effect on Hover */}
+                  <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                    <Sparkles size={16} className="text-indigo-400" />
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         )}
 

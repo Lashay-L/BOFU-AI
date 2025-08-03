@@ -165,29 +165,42 @@ export function useUsersData() {
         }
       });
       
-      // Create company representatives with accurate counts
+      // Create company representatives with accurate counts - FIX: Include ALL users, not just first one
       const companyRepresentatives = new Map();
       
       usersWithCounts.forEach(user => {
         const companyName = user.company_name;
+        const companyBriefSet = companyBriefCounts.get(companyName);
+        const briefCount = companyBriefSet ? companyBriefSet.size : 0;
+        const researchCount = companyResearchCounts.get(companyName) || 0;
+        
+        // Always update with the latest counts, and prefer the earliest created user as main
         if (!companyRepresentatives.has(companyName)) {
-          const companyBriefSet = companyBriefCounts.get(companyName);
-          const briefCount = companyBriefSet ? companyBriefSet.size : 0;
-          const researchCount = companyResearchCounts.get(companyName) || 0;
-          
           companyRepresentatives.set(companyName, {
             ...user,
             user_type: 'main',
             briefCount: briefCount,
             researchResultsCount: researchCount
           });
+        } else {
+          // If this user was created earlier, make them the main representative
+          const currentRep = companyRepresentatives.get(companyName);
+          if (new Date(user.created_at) < new Date(currentRep.created_at)) {
+            companyRepresentatives.set(companyName, {
+              ...user,
+              user_type: 'main',
+              briefCount: briefCount,
+              researchResultsCount: researchCount
+            });
+          }
         }
       });
 
       const finalUsers = Array.from(companyRepresentatives.values());
 
       console.log('🔍 [CONTENT_BRIEF_DEBUG] Final company representatives (ALL COMPANIES):', {
-        totalCompanies: finalUsers.length
+        totalCompanies: finalUsers.length,
+        companies: finalUsers.map(u => ({ company: u.company_name, mainUser: u.email, briefCount: u.briefCount }))
       });
 
       setUsers(finalUsers);
@@ -230,7 +243,11 @@ export function useUsersData() {
       const mainAccount = sortedUsers[0]; // First user is considered main
       const subAccounts = sortedUsers.slice(1); // Rest are sub-accounts
       
-      console.log(`🔍 Company "${companyName}": main=${mainAccount.email}, subs=${subAccounts.length}`);
+      console.log(`🔍 Company "${companyName}": main=${mainAccount.email}, subs=${subAccounts.length}`, {
+        allUsers: companyUsers.map(u => u.email),
+        mainUserBriefs: mainAccount.briefCount,
+        mainUserId: mainAccount.id
+      });
       
       companies.set(companyName, {
         company_name: companyName,

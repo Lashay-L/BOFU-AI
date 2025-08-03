@@ -975,13 +975,23 @@ const ArticleEditorComponent: React.FC<ArticleEditorProps> = ({
   // Handle image insert
   const handleImageInsert = (imageUrl: string, metadata?: { altText?: string; caption?: string; width?: number; height?: number }) => {
     if (editor) {
-      editor.chain().focus().setImage({ 
-        src: imageUrl,
-        alt: metadata?.altText || '',
-        caption: metadata?.caption || '',
-        width: metadata?.width,
-        height: metadata?.height
-      }).run();
+      // Store current cursor position
+      const { from, to } = editor.state.selection;
+      
+      // Insert image at current cursor position
+      editor.chain()
+        .focus()
+        .insertContentAt(from, {
+          type: 'imageWithResize',
+          attrs: {
+            src: imageUrl,
+            alt: metadata?.altText || '',
+            caption: metadata?.caption || '',
+            width: metadata?.width,
+            height: metadata?.height
+          }
+        })
+        .run();
     }
   };
 

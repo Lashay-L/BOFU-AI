@@ -60,7 +60,12 @@ export function RichTextEditor({ content, onChange, onImageUpload }: RichTextEdi
     const file = e.target.files[0];
     try {
       const url = await onImageUpload(file);
-      editor.chain().focus().setImage({ src: url }).run();
+      // Insert image at current cursor position instead of appending
+      const { from } = editor.state.selection;
+      editor.chain().focus().insertContentAt(from, {
+        type: 'image',
+        attrs: { src: url }
+      }).run();
     } catch (error) {
       console.error('Failed to upload image:', error);
     }

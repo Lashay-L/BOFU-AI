@@ -158,18 +158,18 @@ const UserDashboardSidebar = () => {
   return (
     <div className={`hidden md:flex md:flex-shrink-0 transition-all duration-300 ${collapsed ? 'md:w-16' : 'md:w-64'}`}>
       <div className="flex flex-col w-full">
-        <div className="flex flex-col h-full border-r border-gray-200 bg-white shadow-sm">
+        <div className="flex flex-col h-full border-r border-gray-700/50 bg-gray-900/95 backdrop-blur-sm shadow-lg">
           {/* Sidebar header with logo and collapse button */}
-          <div className="flex items-center justify-between flex-shrink-0 h-16 px-4 border-b border-gray-200">
+          <div className="flex items-center justify-between flex-shrink-0 h-16 px-4 border-b border-gray-700/50">
             {!collapsed && (
               <div className="flex items-center">
                 <div className="relative">
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg blur-sm opacity-15"></div>
-                  <div className="relative bg-white px-4 py-3 rounded-lg border border-gray-200 shadow-sm">
-                    <h1 className="text-lg font-bold text-gray-900 tracking-tight">
+                  <div className="relative bg-gray-800/60 backdrop-blur-sm px-4 py-3 rounded-lg border border-gray-700/30 shadow-sm">
+                    <h1 className="text-lg font-bold text-white tracking-tight">
                       {getCompanyName(user)}
                     </h1>
-                    <div className="text-xs text-blue-700 font-medium uppercase tracking-wide mt-0.5">
+                    <div className="text-xs text-blue-300 font-medium uppercase tracking-wide mt-0.5">
                       Dashboard
                     </div>
                   </div>
@@ -188,7 +188,7 @@ const UserDashboardSidebar = () => {
             )}
             <button
               onClick={() => setCollapsed(!collapsed)}
-              className="text-gray-500 hover:text-gray-600 focus:outline-none"
+              className="text-gray-400 hover:text-gray-300 focus:outline-none"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {collapsed ? (
@@ -202,17 +202,17 @@ const UserDashboardSidebar = () => {
 
           {/* User profile summary */}
           {!collapsed && (
-            <div className="flex items-center px-4 py-3 border-b border-gray-200">
+            <div className="flex items-center px-4 py-3 border-b border-gray-700/50">
               <div className="flex-shrink-0">
-                <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-medium text-sm">
+                <div className="h-8 w-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-300 font-medium text-sm">
                   {user?.email?.charAt(0).toUpperCase() || 'U'}
                 </div>
               </div>
               <div className="ml-3 min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900 truncate">
+                <p className="text-sm font-medium text-white truncate">
                   {user?.email || 'User'}
                 </p>
-                <p className="text-xs text-gray-500 truncate">PRO Plan</p>
+                <p className="text-xs text-gray-400 truncate">PRO Plan</p>
               </div>
             </div>
           )}
@@ -223,7 +223,7 @@ const UserDashboardSidebar = () => {
               {Object.entries(groupedNavigation).map(([section, items]) => (
                 <div key={section} className="space-y-1">
                   {!collapsed && (
-                    <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <h3 className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                       {section}
                     </h3>
                   )}
@@ -235,24 +235,28 @@ const UserDashboardSidebar = () => {
                       <Link
                         key={item.name}
                         to={item.href}
-                        className={`nav-item ${isActive ? 'active' : ''} ${collapsed ? 'justify-center px-2' : ''}`}
+                        className={`group flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
+                          isActive
+                            ? 'bg-gray-700/50 text-blue-300 border border-gray-600/50'
+                            : 'text-gray-300 hover:text-white hover:bg-gray-700/30'
+                        } ${collapsed ? 'justify-center px-2' : ''}`}
                         title={collapsed ? item.name : undefined}
                       >
-                        <div className={isActive ? 'text-primary-600' : ''}>
+                        <div className={isActive ? 'text-blue-300' : ''}>
                           {item.icon}
                         </div>
                         {!collapsed && (
                           <div className="flex flex-1 items-center justify-between">
                             <span>{item.name}</span>
                             {item.count !== undefined && (
-                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-700/60 text-gray-300 border border-gray-600/30">
                                 {item.count}
                               </span>
                             )}
                           </div>
                         )}
                         {collapsed && item.count !== undefined && (
-                          <span className="absolute top-0 right-0 -mr-1 -mt-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary-500 text-xs font-medium text-white">
+                          <span className="absolute top-0 right-0 -mr-1 -mt-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-xs font-medium text-white">
                             {item.count}
                           </span>
                         )}
@@ -265,15 +269,15 @@ const UserDashboardSidebar = () => {
                 <NavLink to="/dashboard/generated-articles" title={collapsed ? "Generated Articles" : undefined}>
                   {({ isActive }) => (
                     <span
-                      className={`nav-item group flex items-center rounded-md px-2 py-2 text-sm font-medium ${
+                      className={`group flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
                         isActive
-                          ? 'bg-gray-100 text-primary-600'
-                          : 'text-gray-700 hover:bg-gray-50 hover:text-primary-600'
+                          ? 'bg-gray-700/50 text-blue-300 border border-gray-600/50'
+                          : 'text-gray-300 hover:text-white hover:bg-gray-700/30'
                       } ${collapsed ? 'justify-center' : ''}`}
                     >
                       <FileTextIcon
                         className={`h-5 w-5 ${collapsed ? '' : 'mr-3 flex-shrink-0'} ${
-                          isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'
+                          isActive ? 'text-blue-300' : 'text-gray-400 group-hover:text-gray-300'
                         }`}
                         aria-hidden="true"
                       />
@@ -281,7 +285,7 @@ const UserDashboardSidebar = () => {
                         <div className="flex flex-1 items-center justify-between">
                           <span>Generated Articles</span>
                           {generatedArticlesCount > 0 && (
-                            <span className="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
+                            <span className="ml-2 inline-flex items-center rounded-full bg-gray-700/60 px-2 py-0.5 text-xs font-medium text-gray-300 border border-gray-600/30">
                               {generatedArticlesCount}
                             </span>
                           )}
@@ -293,23 +297,6 @@ const UserDashboardSidebar = () => {
               </li>
             </nav>
 
-            {/* Usage stats */}
-            {!collapsed && (
-              <div className="px-3 mt-6">
-                <div className="rounded-lg bg-gray-50 p-3">
-                  <h3 className="text-xs font-medium text-gray-700">Your usage</h3>
-                  <div className="mt-2">
-                    <div className="flex justify-between text-xs text-gray-600 mb-1">
-                      <span>4/10 briefs used</span>
-                      <span>40%</span>
-                    </div>
-                    <div className="progress-bar">
-                      <div className="progress-bar-value" style={{ width: '40%' }}></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
           </div>
         </div>

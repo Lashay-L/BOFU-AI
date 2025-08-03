@@ -18,10 +18,10 @@ export const DataboxEmbed: React.FC<DataboxEmbedProps> = ({
 
   if (loading) {
     return (
-      <div className={`bg-white rounded-lg border border-gray-200 p-6 ${className}`}>
+      <div className={`bg-gray-700/50 rounded-lg border border-gray-600/30 p-6 ${className}`}>
         <div className="animate-pulse">
-          <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="aspect-video bg-gray-200 rounded"></div>
+          {showTitle && <div className="h-6 bg-gray-600 rounded w-1/4 mb-4"></div>}
+          <div className="aspect-video bg-gray-600 rounded"></div>
         </div>
       </div>
     );
@@ -29,18 +29,18 @@ export const DataboxEmbed: React.FC<DataboxEmbedProps> = ({
 
   if (error) {
     return (
-      <div className={`bg-white rounded-lg border border-red-200 p-6 ${className}`}>
+      <div className={`bg-gray-700/50 rounded-lg border border-red-500/30 p-6 ${className}`}>
         {showTitle && (
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">{dashboardName}</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">{dashboardName}</h3>
         )}
         <div className="text-center py-8">
-          <div className="text-red-600 mb-2">
+          <div className="text-red-400 mb-2">
             <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <p className="text-red-800 font-medium">Error loading dashboard</p>
-          <p className="text-red-600 text-sm mt-1">{error}</p>
+          <p className="text-red-300 font-medium">Error loading dashboard</p>
+          <p className="text-red-400 text-sm mt-1">{error}</p>
         </div>
       </div>
     );
@@ -48,9 +48,9 @@ export const DataboxEmbed: React.FC<DataboxEmbedProps> = ({
 
   if (!dashboardEmbed?.dashboard_identifier) {
     return (
-      <div className={`bg-white rounded-lg border border-gray-200 p-6 ${className}`}>
+      <div className={`bg-gray-700/50 rounded-lg border border-gray-600/30 p-6 ${className}`}>
         {showTitle && (
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">{dashboardName}</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">{dashboardName}</h3>
         )}
         <div className="text-center py-8">
           <div className="text-gray-400 mb-2">
@@ -58,8 +58,8 @@ export const DataboxEmbed: React.FC<DataboxEmbedProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <p className="text-gray-600 font-medium">Dashboard Not Available</p>
-          <p className="text-gray-500 text-sm mt-1">{fallbackMessage}</p>
+          <p className="text-gray-300 font-medium">Dashboard Not Available</p>
+          <p className="text-gray-400 text-sm mt-1">{fallbackMessage}</p>
         </div>
       </div>
     );
@@ -68,10 +68,10 @@ export const DataboxEmbed: React.FC<DataboxEmbedProps> = ({
   const embedUrl = `https://app.databox.com/datawall/${dashboardEmbed.dashboard_identifier}?i`;
 
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 overflow-hidden ${className}`}>
+    <div className={`bg-gray-700/50 rounded-lg border border-gray-600/30 overflow-hidden ${className}`}>
       {showTitle && (
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">{dashboardName}</h3>
+        <div className="px-6 py-4 border-b border-gray-600/30">
+          <h3 className="text-lg font-semibold text-white">{dashboardName}</h3>
         </div>
       )}
       <div className="relative" style={{ padding: '63% 0 0 0' }}>

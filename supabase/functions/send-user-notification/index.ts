@@ -96,6 +96,13 @@ serve(async (req) => {
     let message: string
     let slackBlocks: any[]
 
+    // Determine frontend URL (production vs development)
+    const frontendUrl = userProfile.email.includes('demo') ? 'http://localhost:5173' : 'https://bofu.netlify.app'
+    
+    // Create dashboard links
+    const userDashboardLink = `${frontendUrl}/dashboard/content-briefs/edit/${briefId}`
+    const adminDashboardLink = `${frontendUrl}/admin`
+
     if (notificationType === 'brief_generated') {
       title = `Content Brief Generated: ${briefTitle}`
       message = `Your content brief "${briefTitle}"${productName ? ` for ${productName}` : ''} has been generated and is ready for your approval.`
@@ -121,21 +128,21 @@ serve(async (req) => {
           fields: [
             {
               type: 'mrkdwn',
-              text: `*📄 Brief Title:* ${briefTitle}`
+              text: `*📄 Brief Title:*\n${briefTitle}`
             },
             {
               type: 'mrkdwn',
-              text: `*🏢 Company:* ${userProfile.company_name || 'N/A'}`
+              text: `*🏢 Company:*\n${userProfile.company_name || 'N/A'}`
             },
             ...(productName ? [{
               type: 'mrkdwn',
-              text: `*🎯 Product:* ${productName}`
+              text: `*🎯 Product:*\n${productName}`
             }, {
               type: 'mrkdwn',
-              text: `*👤 Requested by:* ${userProfile.email}`
+              text: `*👤 Requested by:*\n${userProfile.email}`
             }] : [{
               type: 'mrkdwn',
-              text: `*👤 Requested by:* ${userProfile.email}`
+              text: `*👤 Requested by:*\n${userProfile.email}`
             }])
           ]
         },
@@ -145,6 +152,30 @@ serve(async (req) => {
             type: 'mrkdwn',
             text: `*📊 Status:* ✅ Generated | 🔄 Pending Approval`
           }
+        },
+        {
+          type: 'actions',
+          elements: [
+            {
+              type: 'button',
+              text: {
+                type: 'plain_text',
+                text: '👤 Open User Dashboard',
+                emoji: true
+              },
+              style: 'primary',
+              url: userDashboardLink
+            },
+            {
+              type: 'button',
+              text: {
+                type: 'plain_text',
+                text: '⚙️ Open Admin Dashboard',
+                emoji: true
+              },
+              url: adminDashboardLink
+            }
+          ]
         }
       ]
     } else if (notificationType === 'article_generated') {
@@ -172,21 +203,21 @@ serve(async (req) => {
           fields: [
             {
               type: 'mrkdwn',
-              text: `*📰 Article Title:* ${briefTitle}`
+              text: `*📰 Article Title:*\n${briefTitle}`
             },
             {
               type: 'mrkdwn',
-              text: `*🏢 Company:* ${userProfile.company_name || 'N/A'}`
+              text: `*🏢 Company:*\n${userProfile.company_name || 'N/A'}`
             },
             ...(productName ? [{
               type: 'mrkdwn',
-              text: `*🎯 Product Focus:* ${productName}`
+              text: `*🎯 Product Focus:*\n${productName}`
             }, {
               type: 'mrkdwn',
-              text: `*👤 Author:* ${userProfile.email}`
+              text: `*👤 Author:*\n${userProfile.email}`
             }] : [{
               type: 'mrkdwn',
-              text: `*👤 Author:* ${userProfile.email}`
+              text: `*👤 Author:*\n${userProfile.email}`
             }])
           ]
         },
@@ -196,6 +227,30 @@ serve(async (req) => {
             type: 'mrkdwn',
             text: `*📊 Status:* ✅ Generated | 📝 Ready for Editing | 🔍 Awaiting Review`
           }
+        },
+        {
+          type: 'actions',
+          elements: [
+            {
+              type: 'button',
+              text: {
+                type: 'plain_text',
+                text: '👤 Open User Dashboard',
+                emoji: true
+              },
+              style: 'primary',
+              url: userDashboardLink
+            },
+            {
+              type: 'button',
+              text: {
+                type: 'plain_text',
+                text: '⚙️ Open Admin Dashboard',
+                emoji: true
+              },
+              url: adminDashboardLink
+            }
+          ]
         }
       ]
     } else {
