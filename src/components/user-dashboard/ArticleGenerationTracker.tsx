@@ -53,33 +53,33 @@ type SortOrder = 'asc' | 'desc';
 const STATUS_CONFIG = {
   draft: {
     label: 'Draft',
-    color: 'from-gray-500 to-gray-600',
-    bgColor: 'bg-gray-100 dark:bg-gray-800',
-    textColor: 'text-gray-700 dark:text-gray-300',
+    color: 'from-gray-400 to-gray-500',
+    bgColor: 'bg-gray-50 dark:bg-gray-800/50',
+    textColor: 'text-gray-600 dark:text-gray-400',
     icon: FileText,
     progress: 25
   },
   pending: {
     label: 'In Review',
-    color: 'from-amber-500 to-orange-500',
-    bgColor: 'bg-amber-100 dark:bg-amber-900/30',
-    textColor: 'text-amber-700 dark:text-amber-300',
+    color: 'from-yellow-400 to-yellow-500',
+    bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
+    textColor: 'text-yellow-700 dark:text-yellow-400',
     icon: Clock,
     progress: 65
   },
   approved: {
     label: 'Approved',
-    color: 'from-emerald-500 to-green-500',
-    bgColor: 'bg-emerald-100 dark:bg-emerald-900/30',
-    textColor: 'text-emerald-700 dark:text-emerald-300',
+    color: 'from-blue-500 to-blue-600',
+    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    textColor: 'text-blue-700 dark:text-blue-400',
     icon: CheckCircle,
     progress: 90
   },
   published: {
     label: 'Published',
-    color: 'from-blue-500 to-purple-500',
-    bgColor: 'bg-blue-100 dark:bg-blue-900/30',
-    textColor: 'text-blue-700 dark:text-blue-300',
+    color: 'from-green-500 to-green-600',
+    bgColor: 'bg-green-50 dark:bg-green-900/20',
+    textColor: 'text-green-700 dark:text-green-400',
     icon: Globe,
     progress: 100
   }
@@ -87,7 +87,7 @@ const STATUS_CONFIG = {
 
 const PRODUCT_COLORS = [
   'from-rose-500 to-pink-600',
-  'from-blue-500 to-cyan-600',
+  'from-blue-500 to-cyan-600', 
   'from-green-500 to-emerald-600',
   'from-purple-500 to-violet-600',
   'from-orange-500 to-red-600',
@@ -359,11 +359,11 @@ export function ArticleGenerationTracker() {
   if (loading) {
     return (
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5" />
-        <div className="relative backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border border-white/20 rounded-2xl shadow-2xl p-8">
+        <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/3 via-blue-500/3 to-gray-500/3" />
+        <div className="relative backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl p-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto"></div>
               <p className="mt-4 text-gray-600 dark:text-gray-400">Loading article tracking data...</p>
             </div>
           </div>
@@ -375,8 +375,8 @@ export function ArticleGenerationTracker() {
   if (error) {
     return (
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 via-orange-500/5 to-yellow-500/5" />
-        <div className="relative backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border border-white/20 rounded-2xl shadow-2xl p-8">
+        <div className="absolute inset-0 bg-gradient-to-br from-red-500/3 via-yellow-500/3 to-gray-500/3" />
+        <div className="relative backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl p-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
@@ -384,7 +384,7 @@ export function ArticleGenerationTracker() {
               <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">{error}</p>
               <button
                 onClick={fetchArticleData}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="mt-4 px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg hover:bg-yellow-600 transition-colors font-medium"
               >
                 Try Again
               </button>
@@ -403,11 +403,11 @@ export function ArticleGenerationTracker() {
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden"
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5" />
-        <div className="relative backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border border-white/20 rounded-2xl shadow-2xl p-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/3 via-blue-500/3 to-gray-500/3" />
+        <div className="relative backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-yellow-600 to-blue-600 bg-clip-text text-transparent">
                 Article Generation Pipeline
               </h2>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
@@ -432,58 +432,6 @@ export function ArticleGenerationTracker() {
             </div>
           </div>
 
-          {/* Stats Dashboard */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200/50 dark:border-blue-800/50">
-              <div className="flex items-center">
-                <BarChart3 className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-                <div className="ml-3">
-                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{stats.total}</p>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">Total Articles</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-amber-50 to-orange-100 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl p-4 border border-amber-200/50 dark:border-amber-800/50">
-              <div className="flex items-center">
-                <Zap className="h-8 w-8 text-amber-600 dark:text-amber-400" />
-                <div className="ml-3">
-                  <p className="text-2xl font-bold text-amber-900 dark:text-amber-100">{stats.inProgress}</p>
-                  <p className="text-sm text-amber-700 dark:text-amber-300">In Progress</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-emerald-50 to-green-100 dark:from-emerald-900/20 dark:to-green-900/20 rounded-xl p-4 border border-emerald-200/50 dark:border-emerald-800/50">
-              <div className="flex items-center">
-                <CheckCircle className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
-                <div className="ml-3">
-                  <p className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">{stats.completed}</p>
-                  <p className="text-sm text-emerald-700 dark:text-emerald-300">Completed</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-violet-100 dark:from-purple-900/20 dark:to-violet-900/20 rounded-xl p-4 border border-purple-200/50 dark:border-purple-800/50">
-              <div className="flex items-center">
-                <Globe className="h-8 w-8 text-purple-600 dark:text-purple-400" />
-                <div className="ml-3">
-                  <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{stats.published}</p>
-                  <p className="text-sm text-purple-700 dark:text-purple-300">Published</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-pink-50 to-rose-100 dark:from-pink-900/20 dark:to-rose-900/20 rounded-xl p-4 border border-pink-200/50 dark:border-pink-800/50">
-              <div className="flex items-center">
-                <TrendingUp className="h-8 w-8 text-pink-600 dark:text-pink-400" />
-                <div className="ml-3">
-                  <p className="text-2xl font-bold text-pink-900 dark:text-pink-100">{stats.avgCompletionTime}d</p>
-                  <p className="text-sm text-pink-700 dark:text-pink-300">Avg. Time</p>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </motion.div>
 
@@ -494,8 +442,8 @@ export function ArticleGenerationTracker() {
         transition={{ delay: 0.1 }}
         className="relative overflow-hidden"
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-gray-500/5 via-blue-500/5 to-purple-500/5" />
-        <div className="relative backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border border-white/20 rounded-xl shadow-lg p-4">
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-500/3 via-blue-500/3 to-yellow-500/3" />
+        <div className="relative backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-lg p-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex flex-1 items-center space-x-4">
               {/* Search */}
@@ -508,7 +456,7 @@ export function ArticleGenerationTracker() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search articles, products, keywords..."
-                  className="block w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm"
+                  className="block w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm"
                 />
               </div>
 
@@ -516,7 +464,7 @@ export function ArticleGenerationTracker() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm"
               >
                 <option value="all">All Status</option>
                 <option value="draft">Draft</option>
@@ -537,7 +485,7 @@ export function ArticleGenerationTracker() {
                   <span className="text-sm text-gray-600 dark:text-gray-400">
                     {selectedArticles.size} selected
                   </span>
-                  <button className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
+                  <button className="px-3 py-1 bg-yellow-500 text-gray-900 rounded text-sm hover:bg-yellow-600 transition-colors font-medium">
                     Export
                   </button>
                 </motion.div>
@@ -554,8 +502,8 @@ export function ArticleGenerationTracker() {
         transition={{ delay: 0.2 }}
         className="relative overflow-hidden"
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5" />
-        <div className="relative backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border border-white/20 rounded-2xl shadow-2xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/3 via-gray-500/3 to-yellow-500/3" />
+        <div className="relative backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl">
           {filteredAndSortedArticles.length === 0 ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
