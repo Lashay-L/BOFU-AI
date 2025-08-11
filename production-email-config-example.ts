@@ -3,7 +3,7 @@
 // File: supabase/functions/send-brief-approval-notification/index.ts
 // ============================================================================
 
-async function sendEmailNotification({
+export async function sendEmailNotification({
   adminEmail,
   adminName,
   userEmail,
@@ -17,8 +17,13 @@ async function sendEmailNotification({
   briefTitle: string
 }) {
   try {
-    // 🔧 EMAIL CONFIGURATION
-    const RESEND_API_KEY = "re_NVLwoaTM_PUxwR9fcMoD3jfdCzERYgQKb";
+    // 🔧 EMAIL CONFIGURATION - Use environment variable
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+    
+    if (!RESEND_API_KEY) {
+      console.error('❌ RESEND_API_KEY environment variable is required');
+      return false;
+    }
     
     // 🚀 PRODUCTION SETTINGS (ACTIVE - domain verified)
     const FROM_EMAIL = "noreply@notifications.yourdomain.com";  // ← Update this
@@ -31,12 +36,8 @@ async function sendEmailNotification({
     console.log("🚀 PRODUCTION MODE - Email Configuration:");
     console.log(`📧 FROM_EMAIL: ${FROM_EMAIL}`);
     console.log(`📧 TO_EMAIL: ${RECIPIENT_EMAIL}`);
-    console.log(`🔑 RESEND_API_KEY: ${!!RESEND_API_KEY ? 'Configured' : 'Missing'}`);
+    console.log(`🔑 RESEND_API_KEY: ${RESEND_API_KEY ? 'Configured' : 'Missing'}`);
 
-    if (!RESEND_API_KEY) {
-      console.error('❌ RESEND_API_KEY not configured')
-      return false
-    }
 
     const emailData = {
       from: FROM_EMAIL,

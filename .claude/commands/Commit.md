@@ -1,1 +1,1 @@
-Push and commit my changes to this reppo https://github.com/LashaKh/BOFU
+Push and commit my changes to this reppo https://github.com/Lashay-L/BOFU-AI 

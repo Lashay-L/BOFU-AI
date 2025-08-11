@@ -37,9 +37,20 @@ npm run build     # Includes rollup-plugin-visualizer for bundle analysis
 
 **Required Environment Variables:**
 ```bash
+# CRITICAL: Copy .env.example to .env and fill in your values
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_GEMINI_API_KEY=your_gemini_api_key              # For document/image analysis
+OPENAI_API_KEY=your_openai_api_key                   # For chat functionality
+VITE_UNIVERSAL_ASSISTANT_ID=your_assistant_id       # OpenAI Assistant ID
+RESEND_API_KEY=your_resend_api_key                   # For email notifications
 ```
+
+**Environment Setup:**
+1. `cp .env.example .env`
+2. Fill in all API keys with your actual values
+3. Never commit .env files to version control
+4. Rotate API keys regularly for security
 
 ## MCP Server Usage Guide
 

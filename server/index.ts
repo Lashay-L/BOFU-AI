@@ -26,8 +26,16 @@ const openai = new OpenAI({
 });
 
 // Initialize Supabase client
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://nhxjashreguofalhaofj.supabase.co';
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGphc2hyZWd1b2ZhbGhhb2ZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MDg4NDQsImV4cCI6MjA1OTA4NDg0NH0.yECqdVt448XiKOZZovyFHfYLsIcwDRhPyPUIUpvy_to';
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+if (!supabaseUrl) {
+  throw new Error('SUPABASE_URL environment variable is required');
+}
+
+if (!supabaseKey) {
+  throw new Error('SUPABASE_ANON_KEY environment variable is required');
+}
 const supabase = createClient(supabaseUrl, supabaseKey);
 console.log('Supabase initialized with URL:', supabaseUrl);
 

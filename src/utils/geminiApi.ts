@@ -1,7 +1,8 @@
 import { encode } from 'base64-arraybuffer';
+import { featureValidation } from './environmentValidation';
 
-// API key for Gemini API - in production, this should be stored in environment variables
-const API_KEY = 'AIzaSyDGv9wWoMpmzL6wpPmP7va_KJYEe9D8_8s';
+// API key for Gemini API - loaded from environment variables with validation
+const API_KEY = featureValidation.geminiAnalysis();
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 2000; // 2 seconds
 

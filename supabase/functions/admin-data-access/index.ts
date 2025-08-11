@@ -464,8 +464,18 @@ serve(async (req) => {
 
         console.log('[AdminDataAccess] Fetching user articles for', requestBody.userIds.length, 'users')
         
-        // Query content_briefs table for articles with content
-        const { data: userArticleData, error: userArticleError } = await supabaseAdmin
+        // Check if current user is super admin or sub admin
+        const { data: articlesAdminProfile, error: articlesAdminError } = await supabaseAdmin
+          .from('admin_profiles')
+          .select('admin_role')
+          .eq('id', currentUser.id)
+          .single()
+
+        if (articlesAdminError || !articlesAdminProfile) {
+          throw new Error('Admin profile not found or unauthorized')
+        }
+
+        let userArticleQuery = supabaseAdmin
           .from('content_briefs')
           .select(`
             id,
@@ -482,11 +492,52 @@ serve(async (req) => {
             editing_status,
             last_edited_by
           `)
-          .in('user_id', requestBody.userIds)
           .not('article_content', 'is', null)
           .neq('article_content', '')
           .neq('article_content', 'null')
           .order('updated_at', { ascending: false })
+
+        // If sub-admin, filter by assigned clients only
+        if (articlesAdminProfile.admin_role === 'sub_admin') {
+          console.log('🔒 [FETCH_USER_ARTICLES] Sub-admin detected, applying client filters')
+          
+          // Get assigned client user IDs
+          const { data: articlesClientAssignments, error: articlesAssignmentsError } = await supabaseAdmin
+            .from('admin_client_assignments')
+            .select('client_user_id')
+            .eq('admin_id', currentUser.id)
+            .eq('is_active', true)
+
+          if (articlesAssignmentsError) {
+            throw articlesAssignmentsError
+          }
+
+          if (!articlesClientAssignments || articlesClientAssignments.length === 0) {
+            console.log('📭 [FETCH_USER_ARTICLES] Sub-admin has no client assignments')
+            result = []
+            break
+          }
+
+          const articlesAssignedClientIds = articlesClientAssignments.map(assignment => assignment.client_user_id)
+          console.log('📄 [FETCH_USER_ARTICLES] Filtering by assigned client IDs:', articlesAssignedClientIds)
+
+          // Filter user articles to only assigned clients and the requested userIds
+          const allowedUserIds = requestBody.userIds.filter(userId => articlesAssignedClientIds.includes(userId))
+          
+          if (allowedUserIds.length === 0) {
+            console.log('🚫 [FETCH_USER_ARTICLES] No allowed user IDs for sub-admin')
+            result = []
+            break
+          }
+
+          userArticleQuery = userArticleQuery.in('user_id', allowedUserIds)
+        } else {
+          // Super admin can access articles from requested userIds
+          console.log('🔓 [FETCH_USER_ARTICLES] Super admin detected, allowing access to all requested users')
+          userArticleQuery = userArticleQuery.in('user_id', requestBody.userIds)
+        }
+
+        const { data: userArticleData, error: userArticleError } = await userArticleQuery
 
         if (userArticleError) {
           console.error('[AdminDataAccess] Error fetching user articles:', userArticleError)

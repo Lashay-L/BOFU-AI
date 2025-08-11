@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import * as Sentry from '@sentry/react';
 import App from './App.tsx';
 import './index.css';
+import { validateAndLogEnvironment } from './utils/environmentValidation';
 
 // Initialize Sentry
 Sentry.init({
@@ -17,6 +18,32 @@ Sentry.init({
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1.0,
 });
+
+// Validate environment variables on startup
+try {
+  validateAndLogEnvironment();
+} catch (error) {
+  console.error('❌ Application startup failed due to environment configuration:', error);
+  // Create error display div if environment validation fails
+  const root = document.getElementById('root');
+  if (root) {
+    root.innerHTML = `
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; font-family: system-ui;">
+        <h1 style="color: #dc2626; margin-bottom: 16px;">❌ Configuration Error</h1>
+        <p style="text-align: center; margin-bottom: 16px; max-width: 500px;">
+          Required environment variables are missing. Please check your .env file configuration.
+        </p>
+        <code style="background: #f3f4f6; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+          ${error instanceof Error ? error.message : 'Unknown configuration error'}
+        </code>
+        <p style="color: #6b7280; text-align: center; max-width: 500px;">
+          Copy .env.example to .env and fill in your API keys, then reload the page.
+        </p>
+      </div>
+    `;
+  }
+  throw error; // Re-throw to prevent further initialization
+}
 
 // Comprehensive React global availability fix for production bundling issues
 // This ensures all React APIs are available for third-party libraries
