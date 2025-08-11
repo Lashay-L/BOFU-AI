@@ -172,13 +172,14 @@ export const adminArticlesApi = {
         sort_order = 'desc'
       } = params;
 
+      console.log('🚨 ADMIN API CALLED - TITLE FIX ACTIVE!', new Date().toISOString());
       console.log('DEBUG: Fetching content_briefs with role-based filtering...');
       console.log('DEBUG: Admin role:', adminCheck.role);
 
       // Step 1: Fetch content_briefs with role-based filtering
       let query = supabase
         .from('content_briefs')
-        .select('id, user_id, product_name, possible_article_titles, editing_status, last_edited_at, last_edited_by, article_version, created_at, updated_at, article_content, google_doc_url, brief_content', { count: 'exact' });
+        .select('id, user_id, product_name, title, possible_article_titles, editing_status, last_edited_at, last_edited_by, article_version, created_at, updated_at, article_content, google_doc_url, brief_content', { count: 'exact' });
 
       // Apply role-based filtering
       if (adminCheck.role === 'sub_admin') {
@@ -274,16 +275,22 @@ export const adminArticlesApi = {
           const user = usersMap.get(article.user_id);
           console.log('DEBUG: Processing article:', article.id, 'with user:', user?.email || 'NOT FOUND');
           
-          // Parse article title from possible_article_titles (same logic as user dashboard)
+          // Parse article title (same logic as user dashboard - check title field first)
           let parsedTitle = `Untitled Article ${article.id.substring(0, 4)}`;
           console.log('DEBUG TITLE PARSING:', {
             articleId: article.id,
+            title: article.title,
             possible_article_titles: article.possible_article_titles,
-            type: typeof article.possible_article_titles,
+            type_title: typeof article.title,
+            type_possible: typeof article.possible_article_titles,
             product_name: article.product_name
           });
           
-          if (typeof article.possible_article_titles === 'string' && article.possible_article_titles.trim() !== '') {
+          // First check if there's a direct title field (matching user dashboard logic)
+          if (article.title && article.title.trim() !== '') {
+            parsedTitle = article.title.trim();
+            console.log('DEBUG: Using direct title field:', parsedTitle);
+          } else if (typeof article.possible_article_titles === 'string' && article.possible_article_titles.trim() !== '') {
             const titlesString = article.possible_article_titles;
             console.log('DEBUG: Parsing titles string:', titlesString);
             const match = titlesString.match(/^1\\.s*(.*?)(?:\\n2\\.|$)/s);
@@ -299,9 +306,10 @@ export const adminArticlesApi = {
               }
             }
           } else {
-            console.log('DEBUG: No valid possible_article_titles, using default title');
+            console.log('DEBUG: No valid title or possible_article_titles, using default title');
           }
           console.log('DEBUG: Final parsed title:', parsedTitle);
+          console.log('🔥 ADMIN API FIX APPLIED - Title parsing updated at:', new Date().toISOString());
           
           // Extract first keyword from brief content
           const firstKeyword = extractFirstKeyword(article.brief_content);
@@ -406,9 +414,12 @@ export const adminArticlesApi = {
 
       console.log('DEBUG: Successfully fetched article and user profile');
 
-      // Parse article title from possible_article_titles (same logic as user dashboard)
+      // Parse article title (same logic as user dashboard - check title field first)
       let parsedTitle = `Untitled Article ${fetchedArticle.id.substring(0, 4)}`;
-      if (typeof fetchedArticle.possible_article_titles === 'string' && fetchedArticle.possible_article_titles.trim() !== '') {
+      // First check if there's a direct title field (matching user dashboard logic)
+      if (fetchedArticle.title && fetchedArticle.title.trim() !== '') {
+        parsedTitle = fetchedArticle.title.trim();
+      } else if (typeof fetchedArticle.possible_article_titles === 'string' && fetchedArticle.possible_article_titles.trim() !== '') {
         const titlesString = fetchedArticle.possible_article_titles;
         const match = titlesString.match(/^1\\.s*(.*?)(?:\\n2\\.|$)/s);
         if (match && match[1]) {
@@ -530,9 +541,12 @@ export const adminArticlesApi = {
         .eq('id', data.user_id)
         .maybeSingle();
 
-      // Parse article title from possible_article_titles (same logic as user dashboard)
+      // Parse article title (same logic as user dashboard - check title field first)
       let parsedTitle = `Untitled Article ${data.id.substring(0, 4)}`;
-      if (typeof data.possible_article_titles === 'string' && data.possible_article_titles.trim() !== '') {
+      // First check if there's a direct title field (matching user dashboard logic)
+      if (data.title && data.title.trim() !== '') {
+        parsedTitle = data.title.trim();
+      } else if (typeof data.possible_article_titles === 'string' && data.possible_article_titles.trim() !== '') {
         const titlesString = data.possible_article_titles;
         const match = titlesString.match(/^1\\.s*(.*?)(?:\\n2\\.|$)/s);
         if (match && match[1]) {

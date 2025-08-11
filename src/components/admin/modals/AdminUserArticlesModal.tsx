@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { motion } from 'framer-motion';
-import { supabaseAdmin } from '../../../lib/supabase';
+import { supabase } from '../../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { 
   Building2, 
@@ -104,10 +104,6 @@ export const AdminUserArticlesModal = ({
   const fetchCompanyArticles = async () => {
     setLoading(true);
     try {
-      if (!supabaseAdmin) {
-        console.error('Admin client not available');
-        return;
-      }
 
       let userIds: string[] = [];
       
@@ -122,41 +118,87 @@ export const AdminUserArticlesModal = ({
         userIds = [user.id];
       }
 
-      // First, fetch articles without the join
-      const { data: articlesData, error } = await supabaseAdmin
-        .from('content_briefs')
-        .select('id, user_id, product_name, possible_article_titles, article_content, editing_status, last_edited_at, last_edited_by, article_version, created_at, updated_at, google_doc_url, brief_content')
-        .in('user_id', userIds)
-        .not('article_content', 'is', null)
-        .order('created_at', { ascending: false });
+      // Use secure Edge Function to fetch articles
+      const { data: articleResponse, error } = await supabase.functions.invoke('admin-data-access', {
+        body: { 
+          action: 'fetch_user_articles',
+          userIds: userIds
+        }
+      });
 
       if (error) {
-        console.error('Error fetching articles:', error);
-        toast.error('Failed to fetch articles');
-        return;
+        console.error('Error fetching user articles via Edge Function:', error);
+        throw error;
       }
 
+      if (!articleResponse.success) {
+        console.error('User articles Edge Function returned error:', articleResponse.error);
+        throw new Error(articleResponse.error);
+      }
+
+      const articlesData = articleResponse.data.filter(article => article.article_content && article.article_content !== null && article.article_content !== 'null');
+
+
+      // Parse titles for all articles first
+      const parseArticleTitle = (article: any): string => {
+        let parsedTitle = `Untitled Article ${article.id.substring(0, 4)}`;
+        
+        console.log('🔥 ADMIN MODAL: Parsing title for article', article.id, {
+          title: article.title,
+          possible_article_titles: article.possible_article_titles,
+          product_name: article.product_name
+        });
+        
+        // First check if there's a direct title field (matching user dashboard logic)
+        if (article.title && article.title.trim() !== '') {
+          parsedTitle = article.title.trim();
+          console.log('✅ ADMIN MODAL: Using title field:', parsedTitle);
+        } else if (typeof article.possible_article_titles === 'string' && article.possible_article_titles.trim() !== '') {
+          const titlesString = article.possible_article_titles;
+          const match = titlesString.match(/^1\\.s*(.*?)(?:\\n2\\.|$)/s);
+          if (match && match[1]) {
+            parsedTitle = match[1].trim();
+            console.log('✅ ADMIN MODAL: Using parsed from possible_article_titles:', parsedTitle);
+          } else {
+            const firstLine = titlesString.split('\n')[0].trim();
+            if (firstLine) {
+              parsedTitle = firstLine;
+              console.log('✅ ADMIN MODAL: Using first line from possible_article_titles:', parsedTitle);
+            }
+          }
+        }
+        
+        console.log('🎯 ADMIN MODAL: Final title for', article.id, ':', parsedTitle);
+        return parsedTitle;
+      };
+
       // If we have articles, fetch user information for those users
-      let enrichedArticles = articlesData || [];
+      let enrichedArticles = articlesData?.map(article => ({
+        ...article,
+        title: parseArticleTitle(article)
+      })) || [];
       
       if (articlesData && articlesData.length > 0) {
         const articleUserIds = [...new Set(articlesData.map(article => article.user_id))];
         
-        // Fetch user profiles for the article authors
-        const { data: usersData, error: usersError } = await supabaseAdmin
-          .from('user_profiles')
-          .select('id, email, company_name')
-          .in('id', articleUserIds);
+        // Use Edge Function to fetch user profiles for the article authors
+        const { data: usersResponse, error: usersError } = await supabase.functions.invoke('admin-data-access', {
+          body: { 
+            action: 'fetch_users'
+          }
+        });
 
-        if (usersError) {
-          console.error('Error fetching user profiles:', usersError);
+        if (usersError || !usersResponse.success) {
+          console.error('Error fetching user profiles via Edge Function:', usersError || usersResponse.error);
           // Continue without user data - we'll show the article anyway
         } else {
-          // Create a map for quick lookup
-          const userMap = new Map(usersData.map(u => [u.id, u]));
+          // Filter users to only those that have articles and create a map for quick lookup
+          const allUsers = [...(usersResponse.data.mainUsers || []), ...(usersResponse.data.subProfiles || [])];
+          const relevantUsers = allUsers.filter(u => articleUserIds.includes(u.id));
+          const userMap = new Map(relevantUsers.map(u => [u.id, u]));
           
-          // Enrich articles with user data
-          enrichedArticles = articlesData.map(article => ({
+          // Enrich articles with user data (title parsing already done above)
+          enrichedArticles = enrichedArticles.map(article => ({
             ...article,
             user_profiles: userMap.get(article.user_id) || null
           }));

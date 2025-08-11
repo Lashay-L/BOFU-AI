@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabaseAdmin, supabase } from '../../../../lib/supabase';
+import { supabase } from '../../../../lib/supabase';
 import { toast } from 'react-hot-toast';
 
 interface DeletionSummary {
@@ -24,46 +24,25 @@ export function useUserDeletion() {
     try {
       setIsLoadingSummary(true);
 
-      if (!supabaseAdmin) {
-        toast.error('Admin permissions not configured');
-        return null;
+      // Use secure Edge Function to get deletion summary
+      const { data: summaryResponse, error } = await supabase.functions.invoke('admin-data-access', {
+        body: { 
+          action: 'get_deletion_summary',
+          userId: userId
+        }
+      });
+
+      if (error) {
+        console.error('Error fetching deletion summary via Edge Function:', error);
+        throw error;
       }
 
-      // Query all related tables to get counts
-      const [
-        contentBriefsResult,
-        researchResultsResult,
-        approvedProductsResult,
-        articleCommentsResult,
-        articlePresenceResult,
-        versionHistoryResult,
-        commentStatusHistoryResult,
-        userDashboardEmbedsResult,
-        companyProfilesResult
-      ] = await Promise.all([
-        supabaseAdmin.from('content_briefs').select('id', { count: 'exact' }).eq('user_id', userId),
-        supabaseAdmin.from('research_results').select('id', { count: 'exact' }).eq('user_id', userId),
-        supabaseAdmin.from('approved_products').select('id', { count: 'exact' }).eq('approved_by', userId),
-        supabaseAdmin.from('article_comments').select('id', { count: 'exact' }).eq('user_id', userId),
-        supabaseAdmin.from('article_presence').select('id', { count: 'exact' }).eq('user_id', userId),
-        supabaseAdmin.from('version_history').select('id', { count: 'exact' }).eq('created_by', userId),
-        supabaseAdmin.from('comment_status_history').select('id', { count: 'exact' }).eq('changed_by', userId),
-        supabaseAdmin.from('user_dashboard_embeds').select('id', { count: 'exact' }).eq('user_id', userId),
-        supabaseAdmin.from('company_profiles').select('id', { count: 'exact' }).eq('user_id', userId)
-      ]);
+      if (!summaryResponse.success) {
+        console.error('Deletion summary Edge Function returned error:', summaryResponse.error);
+        throw new Error(summaryResponse.error);
+      }
 
-      const summary: DeletionSummary = {
-        contentBriefs: contentBriefsResult.count || 0,
-        researchResults: researchResultsResult.count || 0,
-        approvedProducts: approvedProductsResult.count || 0,
-        articleComments: articleCommentsResult.count || 0,
-        articlePresence: articlePresenceResult.count || 0,
-        versionHistory: versionHistoryResult.count || 0,
-        commentStatusHistory: commentStatusHistoryResult.count || 0,
-        userDashboardEmbeds: userDashboardEmbedsResult.count || 0,
-        companyProfiles: companyProfilesResult.count || 0
-      };
-
+      const summary: DeletionSummary = summaryResponse.data;
       setDeletionSummary(summary);
       return summary;
 
@@ -81,148 +60,24 @@ export function useUserDeletion() {
     try {
       setIsDeleting(true);
 
-      if (!supabaseAdmin) {
-        toast.error('Admin permissions not configured');
-        return false;
-      }
-
       console.log(`🗑️ Starting deletion process for user: ${userEmail} (${userId})`);
 
-      // Step 1: Delete user dashboard embeds
-      const { error: dashboardEmbedsError } = await supabaseAdmin
-        .from('user_dashboard_embeds')
-        .delete()
-        .eq('user_id', userId);
+      // Use secure Edge Function to delete user and all related data
+      const { data: deleteResponse, error } = await supabase.functions.invoke('admin-data-access', {
+        body: { 
+          action: 'delete_user',
+          userId: userId
+        }
+      });
 
-      if (dashboardEmbedsError) {
-        console.error('Error deleting user dashboard embeds:', dashboardEmbedsError);
-        toast.error('Failed to delete user dashboard data');
-        return false;
+      if (error) {
+        console.error('Error deleting user via Edge Function:', error);
+        throw error;
       }
 
-      // Step 2: Delete comment status history records where user made changes
-      const { error: commentStatusError } = await supabaseAdmin
-        .from('comment_status_history')
-        .delete()
-        .eq('changed_by', userId);
-
-      if (commentStatusError) {
-        console.error('Error deleting comment status history:', commentStatusError);
-        toast.error('Failed to delete comment history records');
-        return false;
-      }
-
-      // Step 3: Delete version history records created by user
-      const { error: versionHistoryError } = await supabaseAdmin
-        .from('version_history')
-        .delete()
-        .eq('created_by', userId);
-
-      if (versionHistoryError) {
-        console.error('Error deleting version history:', versionHistoryError);
-        toast.error('Failed to delete version history records');
-        return false;
-      }
-
-      // Step 4: Delete article presence records
-      const { error: presenceError } = await supabaseAdmin
-        .from('article_presence')
-        .delete()
-        .eq('user_id', userId);
-
-      if (presenceError) {
-        console.error('Error deleting article presence:', presenceError);
-        toast.error('Failed to delete presence records');
-        return false;
-      }
-
-      // Step 5: Delete article comments
-      const { error: commentsError } = await supabaseAdmin
-        .from('article_comments')
-        .delete()
-        .eq('user_id', userId);
-
-      if (commentsError) {
-        console.error('Error deleting article comments:', commentsError);
-        toast.error('Failed to delete user comments');
-        return false;
-      }
-
-      // Step 6: Delete approved products (where user was the approver)
-      const { error: approvedProductsError } = await supabaseAdmin
-        .from('approved_products')
-        .delete()
-        .eq('approved_by', userId);
-
-      if (approvedProductsError) {
-        console.error('Error deleting approved products:', approvedProductsError);
-        toast.error('Failed to delete approved products');
-        return false;
-      }
-
-      // Step 7: Clear content briefs content but preserve the briefs themselves
-      // This allows content briefs to remain as historical records while removing user association
-      const { error: contentBriefsError } = await supabaseAdmin
-        .from('content_briefs')
-        .update({
-          user_id: null, // Remove user association
-          article_content: null, // Clear article content
-          link: null, // Clear any Google Doc links
-          editing_status: null, // Reset editing status
-          last_edited_by: null, // Clear last editor reference
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId);
-
-      if (contentBriefsError) {
-        console.error('Error updating content briefs:', contentBriefsError);
-        toast.error('Failed to update content briefs');
-        return false;
-      }
-
-      // Step 8: Delete research results
-      const { error: researchResultsError } = await supabaseAdmin
-        .from('research_results')
-        .delete()
-        .eq('user_id', userId);
-
-      if (researchResultsError) {
-        console.error('Error deleting research results:', researchResultsError);
-        toast.error('Failed to delete research results');
-        return false;
-      }
-
-      // Step 9: Delete company profiles
-      const { error: companyProfilesError } = await supabaseAdmin
-        .from('company_profiles')
-        .delete()
-        .eq('user_id', userId);
-
-      if (companyProfilesError) {
-        console.error('Error deleting company profiles:', companyProfilesError);
-        toast.error('Failed to delete company profiles');
-        return false;
-      }
-
-      // Step 10: Delete user profile
-      const { error: userProfileError } = await supabaseAdmin
-        .from('user_profiles')
-        .delete()
-        .eq('id', userId);
-
-      if (userProfileError) {
-        console.error('Error deleting user profile:', userProfileError);
-        toast.error('Failed to delete user profile');
-        return false;
-      }
-
-      // Step 11: Delete the user account from Supabase Auth
-      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-
-      if (authError) {
-        console.error('Error deleting user auth account:', authError);
-        toast.error('Failed to delete user authentication account');
-        return false;
+      if (!deleteResponse.success) {
+        console.error('User deletion Edge Function returned error:', deleteResponse.error);
+        throw new Error(deleteResponse.error);
       }
 
       console.log(`✅ Successfully deleted user account: ${userEmail}`);

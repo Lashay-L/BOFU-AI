@@ -117,3 +117,28 @@ export interface AdminProductCardProps {
   onUpdateSection: (approvedProductId: string, sectionType: string, newValue: any) => void;
   onGenerateArticle: () => void;
 }
+
+// Interface for article tracking data in admin context
+export interface ArticleTrackingData {
+  id: string;
+  productName: string;
+  articleTitle: string;
+  briefLink: string;
+  articleLink?: string;
+  status: 'draft' | 'pending' | 'approved' | 'published';
+  progress: number;
+  lastModified: string;
+  keywords: string[];
+  category: string;
+  author: string;
+  estimatedReadTime?: number;
+  qualityScore?: number;
+}
+
+// Props for AdminArticleTracker component
+export interface AdminArticleTrackerProps {
+  contentBriefs: ContentBrief[];
+  companyGroup: CompanyGroup;
+  isLoading: boolean;
+  onRefreshData: () => void;
+}

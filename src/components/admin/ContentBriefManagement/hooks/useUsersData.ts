@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabaseAdmin } from '../../../../lib/supabase';
+import { supabase } from '../../../../lib/supabase';
 import { UserProfile, CompanyGroup } from '../types';
 import { useAdminContext } from '../../../../contexts/AdminContext';
 
@@ -14,39 +14,26 @@ export function useUsersData() {
     setError(null);
 
     try {
-      console.log('🔍 useUsersData: Starting to fetch users...');
+      console.log('🔍 useUsersData: Starting to fetch users via secure Edge Function...');
       
-      if (!supabaseAdmin) {
-        console.error('Admin client not available');
-        setError('Admin permissions not configured');
-        return;
-      }
-      
-      // Step 1: Fetch main user profiles
-      const { data: mainUsersData, error: mainUsersError } = await supabaseAdmin
-        .from('user_profiles')
-        .select('*')
-        .not('company_name', 'is', null)
-        .neq('company_name', '');
+      // Call secure Edge Function for admin data access
+      const { data: usersResponse, error: usersError } = await supabase.functions.invoke('admin-data-access', {
+        body: { action: 'fetch_users' }
+      });
 
-      if (mainUsersError) {
-        console.error('Error fetching main users:', mainUsersError);
-        throw mainUsersError;
+      if (usersError) {
+        console.error('Error fetching users via Edge Function:', usersError);
+        throw usersError;
       }
 
-      console.log('🔍 [CONTENT_BRIEF_DEBUG] Main users fetched:', mainUsersData?.length || 0);
-
-      // Step 2: Fetch company profiles to understand user hierarchy
-      const { data: companyProfiles, error: companyError } = await supabaseAdmin
-        .from('company_profiles')
-        .select('*');
-
-      if (companyError) {
-        console.error('Error fetching company profiles:', companyError);
-        throw companyError;
+      if (!usersResponse.success) {
+        console.error('Edge Function returned error:', usersResponse.error);
+        throw new Error(usersResponse.error);
       }
 
-      console.log('🔍 [CONTENT_BRIEF_DEBUG] Company profiles fetched:', companyProfiles?.length || 0);
+      const { mainUsers: mainUsersData, companyProfiles } = usersResponse.data;
+      console.log('🔍 [CONTENT_BRIEF_DEBUG] Main users fetched via Edge Function:', mainUsersData?.length || 0);
+      console.log('🔍 [CONTENT_BRIEF_DEBUG] Company profiles fetched via Edge Function:', companyProfiles?.length || 0);
 
       // Step 3: Process all users from user_profiles (simplified - no company_profiles needed)
       const allUsers: UserProfile[] = (mainUsersData || []).map(user => ({
@@ -72,31 +59,35 @@ export function useUsersData() {
         userIds: uniqueUserIds.slice(0, 5)
       });
 
-      // Step 6: Fetch content briefs for all users
-      const { data: contentBriefs, error: briefsError } = await supabaseAdmin
-        .from('content_briefs')
-        .select('user_id, product_name, id')
-        .in('user_id', uniqueUserIds)
-        .order('created_at', { ascending: false });
+      // Step 6: Fetch content briefs for all users via Edge Function
+      const { data: briefsResponse, error: briefsError } = await supabase.functions.invoke('admin-data-access', {
+        body: { action: 'fetch_content_briefs' }
+      });
 
+      let contentBriefs = [];
       if (briefsError) {
-        console.error('Error fetching content briefs:', briefsError);
+        console.error('Error fetching content briefs via Edge Function:', briefsError);
+      } else if (!briefsResponse.success) {
+        console.error('Content briefs Edge Function returned error:', briefsResponse.error);
       } else {
+        contentBriefs = briefsResponse.data.filter((brief: any) => uniqueUserIds.includes(brief.user_id));
         console.log('🔍 [CONTENT_BRIEF_DEBUG] Raw content briefs fetched:', {
           totalBriefs: contentBriefs?.length || 0
         });
       }
 
-      // Step 7: Fetch research results for all users  
-      const { data: researchResults, error: researchError } = await supabaseAdmin
-        .from('research_results')
-        .select('user_id, id')
-        .in('user_id', uniqueUserIds)
-        .order('created_at', { ascending: false });
+      // Step 7: Fetch research results for all users via Edge Function
+      const { data: researchResponse, error: researchError } = await supabase.functions.invoke('admin-data-access', {
+        body: { action: 'fetch_research_results' }
+      });
 
+      let researchResults = [];
       if (researchError) {
-        console.error('Error fetching research results:', researchError);
+        console.error('Error fetching research results via Edge Function:', researchError);
+      } else if (!researchResponse.success) {
+        console.error('Research results Edge Function returned error:', researchResponse.error);
       } else {
+        researchResults = researchResponse.data.filter((result: any) => uniqueUserIds.includes(result.user_id));
         console.log('🔍 [CONTENT_BRIEF_DEBUG] Raw research results fetched:', {
           totalResults: researchResults?.length || 0
         });

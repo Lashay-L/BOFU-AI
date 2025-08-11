@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabaseAdmin } from '../../../../lib/supabase';
+import { supabase } from '../../../../lib/supabase';
 import { getApprovedProducts, updateApprovedProduct } from '../../../../lib/research';
 import { toast } from 'react-hot-toast';
 
@@ -78,16 +78,21 @@ export function useApprovedProducts() {
     if (!confirmation) return false;
 
     try {
-      if (!supabaseAdmin) {
-        throw new Error('Admin client not available');
-      }
-      
-      const { error } = await supabaseAdmin
-        .from('approved_products')
-        .delete()
-        .eq('id', approvedProductId);
+      // Use Edge Function for secure admin operations
+      const { data: deleteResponse, error } = await supabase.functions.invoke('admin-data-access', {
+        body: { 
+          action: 'delete_approved_product',
+          productId: approvedProductId
+        }
+      });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
+      if (!deleteResponse.success) {
+        throw new Error(deleteResponse.error || 'Failed to delete product');
+      }
 
       toast.success('Approved product deleted successfully');
       

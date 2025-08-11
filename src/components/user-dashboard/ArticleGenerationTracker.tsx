@@ -178,17 +178,26 @@ export function ArticleGenerationTracker() {
       setLoading(true);
       setError(null);
 
+      if (!user?.id) {
+        throw new Error('User ID is not available');
+      }
+
       const { data: briefs, error: briefsError } = await supabase
         .from('content_briefs')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
 
       if (briefsError) throw briefsError;
 
       // Transform data to ArticleTrackingData format
       const transformedData: ArticleTrackingData[] = (briefs || [])
-        .filter(brief => brief.brief_content && brief.brief_content !== '{}')
+        .filter(brief => {
+          // Only show content briefs that have both brief content AND generated article content
+          const hasBriefContent = brief.brief_content && brief.brief_content !== '{}';
+          const hasArticleContent = brief.article_content && brief.article_content.trim().length > 0 && brief.article_content !== 'null';
+          return hasBriefContent && hasArticleContent;
+        })
         .map((brief: ContentBrief) => {
           const briefContent = typeof brief.brief_content === 'string' 
             ? JSON.parse(brief.brief_content) 

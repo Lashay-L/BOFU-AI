@@ -39,7 +39,7 @@ interface UserProfile {
   avatar_url?: string;
   created_at: string;
   updated_at: string;
-  user_type?: 'main' | 'sub';
+  user_type?: 'main' | 'sub' | 'system';
   profile_role?: 'admin' | 'manager' | 'editor' | 'viewer';
   parent_user_id?: string;
   profile_name?: string;
@@ -92,6 +92,7 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [userSortBy, setUserSortBy] = useState<'company' | 'email' | 'date'>('company');
   const [selectedArticle, setSelectedArticle] = useState<any>(null);
+  const [systemArticlesCount, setSystemArticlesCount] = useState(0);
   const [passwordResetLoading, setPasswordResetLoading] = useState<Set<string>>(new Set());
   const [directPasswordChangeUser, setDirectPasswordChangeUser] = useState<UserProfile | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
@@ -310,36 +311,33 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
       try {
         if (!mounted) return;
         
-        console.log(`[AdminDashboard] Fetching users with admin permissions...`);
+        console.log(`[AdminDashboard] Fetching users via secure Edge Function...`);
         
-        if (!supabaseAdmin) {
-          console.error('Admin client not available');
+        // Use secure Edge Function to fetch users
+        const { data: usersResponse, error: usersError } = await supabase.functions.invoke('admin-data-access', {
+          body: { action: 'fetch_users' }
+        });
+
+        console.log('[AdminDashboard] Edge Function response - Error:', usersError, 'Data:', usersResponse);
+
+        if (usersError) {
+          console.error('[AdminDashboard] Edge Function error fetching users:', usersError);
+          if (mounted) setSetupError('Failed to load users via Edge Function');
           return;
         }
-        
-        // Fetch main accounts from user_profiles using admin client
-        const { data: mainUsers, error: mainError } = await supabaseAdmin
-          .from('user_profiles')
-          .select('*')
-          .order('company_name', { ascending: true });
 
-        if (mainError) {
-          console.error('[AdminDashboard] Error fetching main users:', mainError);
-          if (mounted) setSetupError('Failed to load main users');
+        if (!usersResponse.success) {
+          console.error('[AdminDashboard] Edge Function returned error:', usersResponse.error);
+          if (mounted) setSetupError(usersResponse.error || 'Failed to load users');
           return;
         }
 
         if (!mounted) return;
 
-        // Fetch sub accounts from company_profiles using admin client
-        const { data: subProfiles, error: subError } = await supabaseAdmin
-          .from('company_profiles')
-          .select('*')
-          .order('company_id', { ascending: true });
-
-        if (subError) {
-          console.error('[AdminDashboard] Error fetching sub profiles:', subError);
-        }
+        console.log('[AdminDashboard] Raw Edge Function response:', usersResponse);
+        const mainUsers = usersResponse.data.mainUsers || [];
+        const subProfiles = usersResponse.data.subProfiles || [];
+        console.log('[AdminDashboard] Parsed users - Main:', mainUsers, 'Sub:', subProfiles);
 
         if (!mounted) return;
 
@@ -420,35 +418,40 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
         // Deduplicate user IDs to avoid counting the same articles multiple times
         const uniqueUserIds = [...new Set(userIds)];
         
-        const { data: articleCounts, error: articleError } = await supabaseAdmin
-          .from('content_briefs')
-          .select('user_id, product_name, id')
-          .in('user_id', uniqueUserIds)
-          .not('article_content', 'is', null)
-          .neq('article_content', '')
-          .neq('article_content', 'null');
+        // Use secure Edge Function for article counts
+        const { data: articleResponse, error: articleError } = await supabase.functions.invoke('admin-data-access', {
+          body: { 
+            action: 'fetch_article_counts',
+            userIds: uniqueUserIds
+          }
+        });
+
+        let articleCounts = [];
+        let systemArticlesCount = 0;
+        
+        if (articleError) {
+          console.error('[AdminDashboard] Error fetching article counts via Edge Function:', articleError);
+        } else if (!articleResponse.success) {
+          console.error('[AdminDashboard] Article counts Edge Function returned error:', articleResponse.error);
+        } else {
+          articleCounts = articleResponse.data;
+        }
 
         if (!mounted) return;
 
-        if (articleError) {
-          console.error('[AdminDashboard] Error fetching article counts:', articleError);
+        if (articleError || !articleResponse?.success) {
+          console.error('[AdminDashboard] Error fetching article counts:', articleError || articleResponse?.error);
         } else {
-          // Count unique articles per user (by article ID to count each article individually)
-          const articleCountMap: { [key: string]: number } = {};
-          const uniqueArticles = new Set();
-          
-          (articleCounts || []).forEach(article => {
-            // Use article ID for uniqueness - each article should be counted individually
-            const uniqueKey = article.id;
-            if (!uniqueArticles.has(uniqueKey)) {
-              uniqueArticles.add(uniqueKey);
-              articleCountMap[article.user_id] = (articleCountMap[article.user_id] || 0) + 1;
-            }
-          });
+          // Edge Function now returns article counts directly as an object {userId: count}
+          const articleCountMap: { [key: string]: number } = articleCounts || {};
 
+          // Extract system articles count
+          systemArticlesCount = articleCountMap['system'] || 0;
+          delete articleCountMap['system']; // Remove from user map
+          
           console.log('[AdminDashboard] Article count processing:', {
-            totalRecords: articleCounts?.length || 0,
-            uniqueArticles: uniqueArticles.size,
+            usersWithArticles: Object.keys(articleCountMap).length,
+            systemArticles: systemArticlesCount,
             userCounts: articleCountMap
           });
 
@@ -484,6 +487,7 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
 
         if (mounted) {
           setUsers(transformedUsers);
+          setSystemArticlesCount(systemArticlesCount || 0);
         }
       } catch (error) {
         console.error('[AdminDashboard] Exception fetching users:', error);
@@ -1156,6 +1160,62 @@ export function AdminDashboard({ onLogout, user }: AdminDashboardProps) {
                 <option value="date">Sort by Join Date</option>
               </select>
             </div>
+
+            {/* System Generated Articles Section */}
+            {systemArticlesCount > 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-gradient-to-r from-blue-900/40 to-purple-900/40 backdrop-blur-sm border border-blue-700/50 rounded-2xl overflow-hidden cursor-pointer hover:from-blue-800/50 hover:to-purple-800/50 transition-all duration-200"
+                onClick={() => {
+                  // Create a system user object to handle system articles
+                  const systemUser = {
+                    id: 'system',
+                    email: 'System Generated',
+                    company_name: 'System',
+                    user_type: 'system' as const,
+                    created_at: new Date().toISOString(),
+                    articleCount: systemArticlesCount
+                  };
+                  handleUserArticleSelection(systemUser);
+                }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <div className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl">
+                        <div className="h-6 w-6 text-white flex items-center justify-center">
+                          🤖
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-white mb-1">
+                          System Generated Articles
+                        </h3>
+                        <div className="flex items-center gap-4 text-sm text-gray-400">
+                          <span>{systemArticlesCount} articles</span>
+                          <span>•</span>
+                          <span>Automated content generation</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm text-gray-400">
+                        Auto-generated content
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400">Click to view articles</span>
+                        <div className="text-gray-400">
+                          →
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
             {/* Company Groups - Simplified View */}
             <div className="space-y-4">

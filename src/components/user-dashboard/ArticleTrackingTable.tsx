@@ -1,5 +1,26 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// Force include gradient classes for Tailwind purging
+const GRADIENT_CLASSES = [
+  'from-rose-500 to-pink-600',
+  'from-blue-500 to-cyan-600', 
+  'from-green-500 to-emerald-600',
+  'from-purple-500 to-violet-600',
+  'from-orange-500 to-red-600',
+  'from-teal-500 to-blue-600',
+  'from-indigo-500 to-purple-600',
+  'from-yellow-500 to-orange-600'
+];
+
+// Backup color function in case the prop doesn't work
+const getProductColorFallback = (productName: string) => {
+  const hash = productName.split('').reduce((a, b) => {
+    a = ((a << 5) - a) + b.charCodeAt(0);
+    return a & a;
+  }, 0);
+  return GRADIENT_CLASSES[Math.abs(hash) % GRADIENT_CLASSES.length];
+};
 import { 
   ExternalLink,
   Edit3,
@@ -49,33 +70,33 @@ interface ArticleTrackingTableProps {
 const STATUS_CONFIG = {
   draft: {
     label: 'Draft',
-    color: 'from-gray-500 to-gray-600',
-    bgColor: 'bg-gray-100 dark:bg-gray-800',
-    textColor: 'text-gray-700 dark:text-gray-300',
+    color: 'from-gray-400 to-gray-500',
+    bgColor: 'bg-gray-50 dark:bg-gray-800/50',
+    textColor: 'text-gray-600 dark:text-gray-400',
     icon: FileText,
     progress: 25
   },
   pending: {
     label: 'In Review',
-    color: 'from-amber-500 to-orange-500',
-    bgColor: 'bg-amber-100 dark:bg-amber-900/30',
-    textColor: 'text-amber-700 dark:text-amber-300',
+    color: 'from-yellow-400 to-yellow-500',
+    bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
+    textColor: 'text-yellow-700 dark:text-yellow-400',
     icon: Clock,
     progress: 65
   },
   approved: {
     label: 'Approved',
-    color: 'from-emerald-500 to-green-500',
-    bgColor: 'bg-emerald-100 dark:bg-emerald-900/30',
-    textColor: 'text-emerald-700 dark:text-emerald-300',
+    color: 'from-blue-500 to-blue-600',
+    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    textColor: 'text-blue-700 dark:text-blue-400',
     icon: CheckCircle,
     progress: 90
   },
   published: {
     label: 'Published',
-    color: 'from-blue-500 to-purple-500',
-    bgColor: 'bg-blue-100 dark:bg-blue-900/30',
-    textColor: 'text-blue-700 dark:text-blue-300',
+    color: 'from-green-500 to-green-600',
+    bgColor: 'bg-green-50 dark:bg-green-900/20',
+    textColor: 'text-green-700 dark:text-green-400',
     icon: Globe,
     progress: 100
   }
@@ -145,7 +166,7 @@ export function ArticleTrackingTable({
             strokeWidth="3"
             fill="transparent"
             strokeDasharray={strokeDasharray}
-            className="text-blue-600 dark:text-blue-400 transition-all duration-300"
+            className="text-yellow-600 dark:text-yellow-400 transition-all duration-300"
           />
         </svg>
         <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -245,7 +266,7 @@ export function ArticleTrackingTable({
               {/* Card Header */}
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">
-                  <div className={`inline-flex px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${getProductColor(article.productName)} text-white`}>
+                  <div className={`inline-flex px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${getProductColor(article.productName) || getProductColorFallback(article.productName)} text-white`}>
                     {article.productName}
                   </div>
                   <div className="flex items-center space-x-2">
@@ -298,7 +319,7 @@ export function ArticleTrackingTable({
                   <div className="flex space-x-2">
                     <a
                       href={article.briefLink}
-                      className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30 transition-colors"
+                      className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-yellow-700 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-300 dark:hover:bg-yellow-900/30 transition-colors"
                     >
                       <Edit3 className="w-4 h-4 mr-2" />
                       Edit Brief
@@ -306,7 +327,7 @@ export function ArticleTrackingTable({
                     {article.articleLink ? (
                       <a
                         href={article.articleLink}
-                        className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-300 dark:hover:bg-green-900/30 transition-colors"
+                        className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30 transition-colors"
                       >
                         <Edit3 className="w-4 h-4 mr-2" />
                         Edit Article
@@ -325,7 +346,7 @@ export function ArticleTrackingTable({
                       href={article.articleLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full inline-flex items-center justify-center px-3 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-purple-700 dark:text-purple-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      className="w-full inline-flex items-center justify-center px-3 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     >
                       <Globe className="w-4 h-4 mr-2" />
                       View Published Article
@@ -360,7 +381,7 @@ export function ArticleTrackingTable({
                   type="checkbox"
                   checked={selectedArticles.size === articles.length && articles.length > 0}
                   onChange={onSelectAll}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
                 />
               </th>
               <th 
@@ -427,12 +448,12 @@ export function ArticleTrackingTable({
                       type="checkbox"
                       checked={selectedArticles.has(article.id)}
                       onChange={() => onSelectArticle(article.id)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
                     />
                   </td>
                   
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r ${getProductColor(article.productName)} text-white shadow-sm`}>
+                    <div className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r ${getProductColor(article.productName) || getProductColorFallback(article.productName)} text-white shadow-sm`}>
                       {article.productName}
                     </div>
                   </td>
@@ -477,7 +498,7 @@ export function ArticleTrackingTable({
                   <td className="px-6 py-4 whitespace-nowrap">
                     <a
                       href={article.briefLink}
-                      className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium"
+                      className="inline-flex items-center text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-300 text-sm font-medium"
                     >
                       <Edit3 className="w-4 h-4 mr-1" />
                       Edit Brief
@@ -489,7 +510,7 @@ export function ArticleTrackingTable({
                     {article.articleLink ? (
                       <a
                         href={article.articleLink}
-                        className="inline-flex items-center text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 text-sm font-medium"
+                        className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium"
                       >
                         <Edit3 className="w-4 h-4 mr-1" />
                         Edit Article
@@ -511,7 +532,7 @@ export function ArticleTrackingTable({
                         href={article.articleLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 text-sm font-medium"
+                        className="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 text-sm font-medium"
                       >
                         <Globe className="w-4 h-4 mr-1" />
                         View Article

@@ -16,7 +16,8 @@ const modalVariants = cva(
         md: "max-w-lg w-full", 
         lg: "max-w-2xl w-full",
         xl: "max-w-4xl w-full",
-        full: "max-w-7xl w-full h-full",
+        full: "max-w-6xl w-full h-[85vh]",
+        chat: "w-[1200px] h-[700px]",
         auto: "w-auto"
       },
       theme: {
@@ -140,7 +141,7 @@ export function BaseModal({
         >
           <div 
             className={cn(
-              "fixed inset-0 bg-black bg-opacity-25 backdrop-blur-sm",
+              "fixed inset-0 bg-black bg-opacity-50",
               overlayClassName
             )}
             onClick={handleOverlayClick}
@@ -170,6 +171,7 @@ export function BaseModal({
                   modalVariants({ size, theme }),
                   contentClassName
                 )}
+                onClick={(e) => e.stopPropagation()}
               >
                 <Dialog.Panel className="w-full text-left align-middle">
                   

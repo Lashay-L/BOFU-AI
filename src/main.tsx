@@ -100,23 +100,3 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>
 );
 
-// Stagewise toolbar integration (development only)
-if (import.meta.env.DEV) {
-  import('@stagewise/toolbar-react').then(({ StagewiseToolbar }) => {
-    // Create stagewise toolbar configuration
-    const stagewiseConfig = {
-      plugins: []
-    };
-
-    // Create a separate container for the toolbar
-    const toolbarContainer = document.createElement('div');
-    toolbarContainer.id = 'stagewise-toolbar-root';
-    document.body.appendChild(toolbarContainer);
-
-    // Mount the toolbar
-    const toolbarRoot = createRoot(toolbarContainer);
-    toolbarRoot.render(<StagewiseToolbar config={stagewiseConfig} />);
-  }).catch((error) => {
-    console.log('Stagewise toolbar not available in development:', error);
-  });
-}

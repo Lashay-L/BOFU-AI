@@ -12,6 +12,7 @@ interface ContentBriefInput {
   articleTitle: string;
   contentFramework: string;
   research_result_id: string | null;
+  user_id: string; // Add user_id field
 }
 
 // Define the structure for Moonlit product card input
@@ -93,7 +94,8 @@ export async function approveContentBriefWithMoonlit(briefData: ContentBriefInpu
       "Content Framework": formattedContentFramework,
       "Suggested Title": briefData.articleTitle,
       "Internal Links": briefData.internalLinks,
-      "Research Result ID": briefData.research_result_id || ''
+      "Research Result ID": briefData.research_result_id || '',
+      "User ID": briefData.user_id // Add user_id to the request body
     };
 
     console.log('🚀 Form data being sent to Moonlit for article generation:', {

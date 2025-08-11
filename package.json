@@ -5,10 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:with-stagewise": "concurrently \"vite --port 5174\" \"npx stagewise@latest --app-port 5174 --port 3001\"",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "dev:server": "node server/server.js"
+    "dev:server": "node server/server.js",
+    "stagewise": "npx stagewise@latest",
+    "stagewise:bridge": "npx stagewise@latest -b"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",
@@ -18,7 +21,6 @@
     "@radix-ui/react-select": "^2.2.4",
     "@radix-ui/react-slot": "^1.2.2",
     "@sentry/react": "^9.30.0",
-    "@stagewise/toolbar-react": "^0.4.8",
     "@supabase/supabase-js": "^2.50.0",
     "@tiptap/core": "^2.11.7",
     "@tiptap/extension-character-count": "^2.14.0",
@@ -102,6 +104,7 @@
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
+    "concurrently": "^9.2.0",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",

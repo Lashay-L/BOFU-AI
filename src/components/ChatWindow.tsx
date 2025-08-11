@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import OpenAI from 'openai';
 import { supabase } from '../lib/supabase';
 import ChatInterface from './chat/ChatInterface';
 import { BaseModal } from './ui/BaseModal';
@@ -52,12 +51,26 @@ const getFriendlyErrorMessage = (errorCode: string | null, defaultMessage: strin
   }
 };
 
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true, 
-});
-
 const VITE_UNIVERSAL_ASSISTANT_ID = import.meta.env.VITE_UNIVERSAL_ASSISTANT_ID;
+
+// Helper function to call OpenAI Edge Functions securely
+const callOpenAIEdgeFunction = async (action: string, params: any) => {
+  const { data, error } = await supabase.functions.invoke('openai-chat', {
+    body: { action, ...params }
+  });
+
+  if (error) {
+    console.error(`[ChatWindow] Edge Function error for ${action}:`, error);
+    throw new Error(error.message || `Failed to execute ${action}`);
+  }
+
+  if (!data.success) {
+    console.error(`[ChatWindow] Edge Function failed for ${action}:`, data.error);
+    throw new Error(data.error || `${action} failed`);
+  }
+
+  return data.data;
+};
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose }) => {
   // Legacy state management (preserved exactly)
@@ -102,15 +115,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose }) => {
     setErrorMessage(null);
     console.log('Frontend: Fetching products...');
     try {
-      if (!import.meta.env.VITE_OPENAI_API_KEY) {
-        console.error('VITE_OPENAI_API_KEY is not set in .env file.');
-        setErrorMessage(
-          'OpenAI API Key is not configured. Please contact support.'
-        );
-        setChatStatus('product_load_error');
-        setIsLoadingProducts(false);
-        return;
-      }
       if (!VITE_UNIVERSAL_ASSISTANT_ID) {
         console.error('VITE_UNIVERSAL_ASSISTANT_ID is not set in .env file.');
         setErrorMessage(
@@ -197,45 +201,33 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose }) => {
     setErrorMessage(null);
 
     try {
-      console.log('Frontend: Sending message to OpenAI...');
+      console.log('Frontend: Sending message to OpenAI via Edge Function...');
       
       let threadIdToUse = currentThreadId;
       if (!threadIdToUse) {
         console.log('Frontend: Creating new thread...');
         
-        // Configure thread with vector store if available (correct approach)
-        const threadConfig: any = {};
+        let threadResponse;
         if (selectedProduct.openai_vector_store_id) {
-          threadConfig.tool_resources = {
-            file_search: {
-              vector_store_ids: [selectedProduct.openai_vector_store_id],
-            },
-          };
           console.log('Frontend: Creating thread with vector store:', selectedProduct.openai_vector_store_id);
+          threadResponse = await callOpenAIEdgeFunction('create_thread_with_vector_store', {
+            vectorStoreId: selectedProduct.openai_vector_store_id
+          });
+        } else {
+          console.log('Frontend: Creating thread without vector store');
+          threadResponse = await callOpenAIEdgeFunction('create_thread', {});
         }
-        
-        const threadResponse = await openai.beta.threads.create(threadConfig);
         threadIdToUse = threadResponse.id;
         setCurrentThreadId(threadIdToUse);
         console.log('Frontend: Thread created:', threadIdToUse);
       }
 
-      console.log('Frontend: Adding message to thread...');
-      const messageData: any = {
-        role: 'user',
-        content: inputValue.trim(),
-      };
-
-      // Vector store is configured at thread level, not message level
-      await openai.beta.threads.messages.create(threadIdToUse, messageData);
-
-      console.log('Frontend: Creating run...');
-      const runConfig: any = {
-        assistant_id: VITE_UNIVERSAL_ASSISTANT_ID,
-      };
-
-      // Vector store is configured at thread level, not run level
-      const run = await openai.beta.threads.runs.create(threadIdToUse, runConfig);
+      console.log('Frontend: Sending message and creating run...');
+      const run = await callOpenAIEdgeFunction('send_message', {
+        threadId: threadIdToUse,
+        message: inputValue.trim(),
+        assistantId: VITE_UNIVERSAL_ASSISTANT_ID
+      });
 
       console.log('Frontend: Waiting for run completion...');
       const maxAttempts = 60;
@@ -251,7 +243,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose }) => {
         }
         
         await new Promise((resolve) => setTimeout(resolve, 1000));
-        const runCheck = await openai.beta.threads.runs.retrieve(threadIdToUse, run.id);
+        const runCheck = await callOpenAIEdgeFunction('get_run_status', {
+          threadId: threadIdToUse,
+          runId: run.id
+        });
         runStatus = runCheck.status;
         attempts++;
         console.log(`Frontend: Run status: ${runStatus} (attempt ${attempts})`);
@@ -259,7 +254,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose }) => {
 
       if (runStatus === 'completed') {
         console.log('Frontend: Run completed, fetching messages...');
-        const messages = await openai.beta.threads.messages.list(threadIdToUse);
+        const messages = await callOpenAIEdgeFunction('get_messages', {
+          threadId: threadIdToUse
+        });
         
         if (messages.data.length > 0) {
           const assistantMessage = messages.data.find(
@@ -398,7 +395,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose }) => {
       isOpen={isOpen}
       onClose={onClose}
       title=""
-      size="full"
+      size="chat"
       theme="dark"
       showCloseButton={false}
     >

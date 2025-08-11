@@ -48,7 +48,6 @@ import { Product, Message, ChatStatus } from '../../types/chat';
 import { Product as ProductType } from '../../types';
 import { chatService, ChatConversation, ChatMessage } from '../../services/chatService';
 import { supabase } from '../../lib/supabase';
-import OpenAI from 'openai';
 
 interface ArticleAICoPilotProps {
   isVisible: boolean;
@@ -140,11 +139,24 @@ const iconMap: Record<string, React.ComponentType<any>> = {
 
 const getIcon = (iconName: string) => iconMap[iconName] || Target;
 
-// Initialize OpenAI client exactly like ChatWindow does
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
+// Helper function to call OpenAI Edge Functions securely
+const callOpenAICopilotEdgeFunction = async (action: string, params: any) => {
+  const { data, error } = await supabase.functions.invoke('openai-copilot', {
+    body: { action, ...params }
+  });
+
+  if (error) {
+    console.error(`[ArticleAICoPilot] Edge Function error for ${action}:`, error);
+    throw new Error(error.message || `Failed to execute ${action}`);
+  }
+
+  if (!data.success) {
+    console.error(`[ArticleAICoPilot] Edge Function failed for ${action}:`, data.error);
+    throw new Error(data.error || `${action} failed`);
+  }
+
+  return data.data;
+};
 
 const VITE_UNIVERSAL_ASSISTANT_ID = import.meta.env.VITE_UNIVERSAL_ASSISTANT_ID;
 
@@ -541,7 +553,9 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
         console.log('Creating thread with vector store:', selectedProduct.openai_vector_store_id);
         
         try {
-          const threadResponse = await openai.beta.threads.create(threadConfig);
+          const threadResponse = await callOpenAICopilotEdgeFunction('create_thread', {
+            vectorStoreId: selectedProduct.openai_vector_store_id
+          });
           threadIdToUse = threadResponse.id;
           setAssistantThreadId(threadIdToUse);
           console.log('Thread created:', threadIdToUse);
@@ -554,18 +568,16 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
         }
       }
 
-      console.log('Adding message to thread...');
-      await openai.beta.threads.messages.create(threadIdToUse, {
-        role: 'user',
-        content: userInput.trim(),
+      console.log('Sending message and creating run...');
+      console.log('🔍 Debug - Assistant ID:', VITE_UNIVERSAL_ASSISTANT_ID);
+      console.log('🔍 Debug - Thread ID:', threadIdToUse);
+      console.log('🔍 Debug - Message:', userInput.trim());
+      
+      const run = await callOpenAICopilotEdgeFunction('send_message', {
+        threadId: threadIdToUse,
+        message: userInput.trim(),
+        assistantId: VITE_UNIVERSAL_ASSISTANT_ID
       });
-
-      console.log('Creating run...');
-      const runConfig: any = {
-        assistant_id: VITE_UNIVERSAL_ASSISTANT_ID,
-      };
-
-      const run = await openai.beta.threads.runs.create(threadIdToUse, runConfig);
 
       console.log('Waiting for run completion...');
       const maxAttempts = 60;
@@ -579,7 +591,10 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
         }
         
         await new Promise((resolve) => setTimeout(resolve, 1000));
-        const runCheck = await openai.beta.threads.runs.retrieve(threadIdToUse, run.id);
+        const runCheck = await callOpenAICopilotEdgeFunction('get_run_status', {
+          threadId: threadIdToUse,
+          runId: run.id
+        });
         runStatus = runCheck.status;
         attempts++;
         console.log(`Run status: ${runStatus} (attempt ${attempts})`);
@@ -587,7 +602,9 @@ const ArticleAICoPilot: React.FC<ArticleAICoPilotProps> = ({
 
       if (runStatus === 'completed') {
         console.log('Run completed, fetching messages...');
-        const messages = await openai.beta.threads.messages.list(threadIdToUse);
+        const messages = await callOpenAICopilotEdgeFunction('get_messages', {
+          threadId: threadIdToUse
+        });
         
         if (messages.data.length > 0) {
           const assistantMessage = messages.data.find(

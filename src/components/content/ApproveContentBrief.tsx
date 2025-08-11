@@ -71,20 +71,22 @@ export function ApproveContentBrief({
       // Fetch brief data and research_result_id from content_briefs table
       let researchResultId: string | null = null;
       let productName: string | null = null;
+      let briefUserId: string | null = null; // Get the actual brief owner's user_id
       if (briefId) {
         const { data: briefData, error: briefError } = await supabase
           .from('content_briefs')
-          .select('research_result_id, product_name')
+          .select('research_result_id, product_name, user_id')
           .eq('id', briefId)
           .single();
 
         if (briefError) {
           console.error('Error fetching brief data:', briefError);
-          // Decide if you want to proceed without it or show an error
+          throw new Error('Could not fetch content brief data');
         }
         if (briefData) {
           researchResultId = briefData.research_result_id;
           productName = briefData.product_name;
+          briefUserId = briefData.user_id; // Use the user_id from the brief
         }
       }
 
@@ -93,7 +95,8 @@ export function ApproveContentBrief({
         internalLinks,
         articleTitle,
         contentFramework,
-        research_result_id: researchResultId
+        research_result_id: researchResultId,
+        user_id: briefUserId || currentUser.user.id // Use brief owner's user_id, fallback to current user
       });
       
       // Note: We don't send the article generation notification here anymore

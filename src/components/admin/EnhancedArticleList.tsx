@@ -143,6 +143,7 @@ export const EnhancedArticleList: React.FC<EnhancedArticleListProps> = ({
         params.end_date = dateRange.end;
       }
 
+      console.log('🔥 ENHANCED ARTICLE LIST: Calling adminArticlesApi.getArticles', new Date().toISOString());
       const { data, error } = await adminArticlesApi.getArticles(params);
 
       clearTimeout(timeoutId);

@@ -198,23 +198,14 @@ export async function getApprovedProducts(): Promise<any[]> {
   try {
     const { data, error } = await supabase
       .from('approved_products')
-      .select(`
-        *,
-        research_results!inner(
-          user_id,
-          user_profiles!inner(
-            email,
-            company_name
-          )
-        )
-      `)
+      .select('*')
       .order('approved_at', { ascending: false });
 
     if (error) throw error;
     
     // Enrich product data with user information and source IDs
     return (data || []).map(item => {
-      const userProfile = item.research_results?.user_profiles;
+      const userProfile = null; // Simplified - no complex joins
       
       // Enhanced framework loading with fallback and debug logging
       const frameworkFromColumn = item.framework;
@@ -236,10 +227,10 @@ export async function getApprovedProducts(): Promise<any[]> {
           product_id: item.product_id,
           // Include framework from approved_products table (with fallback to JSON)
           framework: finalFramework,
-          // Add user information to the product data
-          userEmail: userProfile?.email,
-          userCompanyName: userProfile?.company_name,
-          userUUID: item.research_results?.user_id,
+          // Add user information to the product data (simplified)
+          userEmail: null, // Would need separate query if needed
+          userCompanyName: null, // Would need separate query if needed  
+          userUUID: null, // Would need separate query if needed
         }
       };
     });

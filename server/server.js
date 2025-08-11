@@ -24,7 +24,7 @@ const supabase = supabaseUrl && supabaseServiceRoleKey
 
 // Initialize OpenAI client for chat functionality
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 // Initialize anon Supabase client for chat queries

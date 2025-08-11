@@ -16,6 +16,7 @@ export interface ContentBrief {
   user_id: string;
   brief_content: string;
   brief_content_text?: string; // Added for the newer text-based storage format
+  article_content?: string; // Generated article HTML content
   product_name?: string;
   internal_links?: string[] | string; // Support both array and text formats
   possible_article_titles?: string[] | string; // Support both array and text formats

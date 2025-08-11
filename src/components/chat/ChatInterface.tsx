@@ -30,7 +30,6 @@ import ChatInput from './ChatInput';
 import StatusIndicator from './StatusIndicator';
 import { Message, Product, ChatStatus } from '../../types/chat';
 import { chatService, ChatConversation } from '../../services/chatService';
-import { BaseModal } from '../ui/BaseModal';
 
 interface ChatInterfaceProps {
   isOpen: boolean;
@@ -73,7 +72,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 }) => {
   // Local state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isMaximized, setIsMaximized] = useState(false);
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
@@ -434,12 +432,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setIsSidebarOpen(!isSidebarOpen);
   };
 
-  // Calculate dynamic dimensions
-  const chatWidth = isMaximized ? 'w-screen' : 'w-full';
-  const chatHeight = isMaximized ? 'h-screen' : 'h-full';
-  const maxWidth = isMaximized ? 'max-w-none' : 'max-w-6xl';
-  const maxHeight = isMaximized ? 'max-h-none' : 'max-h-[90vh]';
-  const borderRadius = isMaximized ? 'rounded-none' : 'rounded-2xl';
+  // Fixed dimensions are now handled by BaseModal with size="chat"
 
   // Real chat history - combining current conversation with saved ones
   const recentConversations = [
@@ -476,14 +469,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   return (
-    <BaseModal
-      isOpen={isOpen}
-      onClose={onClose}
-      title=""
-      size="full"
-      theme="dark"
-    >
-      <div className={`relative z-0 flex ${chatWidth} ${chatHeight} ${maxWidth} ${maxHeight} bg-gray-800 ${borderRadius} shadow-2xl`}>
+      <div className="relative z-0 flex w-full h-full bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
         {/* Sidebar */}
         <AnimatePresence>
           {isSidebarOpen && (
@@ -747,9 +733,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             products={products}
             onProductChange={handleProductChange}
             onToggleSidebar={handleToggleSidebar}
-            onToggleMaximize={() => setIsMaximized(!isMaximized)}
             onClose={onClose}
-            isMaximized={isMaximized}
             isSidebarOpen={isSidebarOpen}
             onStartNewChat={handleStartNewChat}
           />
@@ -974,7 +958,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </motion.div>
         </div>
       </div>
-    </BaseModal>
   );
 };
 

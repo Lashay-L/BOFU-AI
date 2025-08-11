@@ -115,11 +115,30 @@ export function useContentBriefs() {
         return;
       }
 
-      console.log('Content briefs fetched:', data);
+      // Filter out content briefs with empty brief_content (cleared briefs)
+      const activeBriefs = (data || []).filter(brief => {
+        // Check if brief_content exists and has meaningful content
+        if (!brief.brief_content) return false;
+        
+        // If it's an object, check if it has any keys
+        if (typeof brief.brief_content === 'object') {
+          return Object.keys(brief.brief_content).length > 0;
+        }
+        
+        // If it's a string, check if it's not empty or just whitespace
+        if (typeof brief.brief_content === 'string') {
+          return brief.brief_content.trim().length > 0;
+        }
+        
+        return false;
+      });
+
+      console.log('Content briefs fetched:', data?.length || 0);
+      console.log('Active content briefs (with content):', activeBriefs.length);
       
       // Process each brief to generate keyword-based titles
       const briefsWithKeywordTitles = await Promise.all(
-        (data || []).map(async (brief) => {
+        activeBriefs.map(async (brief) => {
           const title = await generateKeywordTitle(brief);
           return {
             ...brief,
@@ -155,12 +174,31 @@ export function useContentBriefs() {
         throw briefsError;
       }
 
-      console.log('📋 Company content loaded:', contentBriefs?.length || 0);
+      // Filter out content briefs with empty brief_content (cleared briefs)
+      const activeBriefs = (contentBriefs || []).filter(brief => {
+        // Check if brief_content exists and has meaningful content
+        if (!brief.brief_content) return false;
+        
+        // If it's an object, check if it has any keys
+        if (typeof brief.brief_content === 'object') {
+          return Object.keys(brief.brief_content).length > 0;
+        }
+        
+        // If it's a string, check if it's not empty or just whitespace
+        if (typeof brief.brief_content === 'string') {
+          return brief.brief_content.trim().length > 0;
+        }
+        
+        return false;
+      });
+
+      console.log('📋 Total content briefs loaded:', contentBriefs?.length || 0);
+      console.log('📋 Active content briefs (with content):', activeBriefs.length);
       console.log('🔍 [CONTENT_BRIEF_DEBUG] Content briefs data:', contentBriefs);
       
       // Process content briefs to generate keyword-based titles and fetch source product data
       const briefsWithEnhancedData = await Promise.all(
-        (contentBriefs || []).map(async (brief) => {
+        activeBriefs.map(async (brief) => {
           const title = await generateKeywordTitle(brief);
           
           // Fetch source product data using dual-ID system

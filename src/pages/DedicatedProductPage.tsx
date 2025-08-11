@@ -73,7 +73,7 @@ const callUploadProductDocumentEdgeFunction = async (
 
   try {
     const { data: result, error: funcError } = await supabase.functions.invoke(
-      'uploadProductDocument', 
+      'upload-product-doc', 
       { body: formData }
     );
 

@@ -4,6 +4,7 @@ import { ArrowLeft, Building2 } from 'lucide-react';
 import { CompanyDetailViewProps } from './types';
 import { ApprovedProductsSection } from './ApprovedProductsSection';
 import { ContentBriefsSection } from './ContentBriefsSection';
+import { AdminArticleTracker } from './AdminArticleTracker';
 
 export function CompanyDetailView({
   companyGroup,
@@ -81,6 +82,14 @@ export function CompanyDetailView({
           </div>
         </div>
       </div>
+
+      {/* Article Tracking Overview */}
+      <AdminArticleTracker
+        contentBriefs={userContentBriefs}
+        companyGroup={companyGroup}
+        isLoading={isLoadingBriefs}
+        onRefreshData={onRefreshData}
+      />
 
       {/* Approved Product Cards Section */}
       <ApprovedProductsSection
