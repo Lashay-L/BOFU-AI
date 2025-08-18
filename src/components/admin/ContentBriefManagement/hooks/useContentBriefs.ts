@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../../../lib/supabase';
 import { ContentBrief } from '../../../../types/contentBrief';
 import { updateBrief } from '../../../../lib/contentBriefs';
-import { clearContentBriefData } from '../../../../lib/contentBriefApi';
+import { clearContentBriefData, deleteContentBriefWithCleanup } from '../../../../lib/contentBriefApi';
 import { toast } from 'react-hot-toast';
 
 export function useContentBriefs() {
@@ -336,39 +336,39 @@ export function useContentBriefs() {
     }
   };
 
-  // Clear content brief data while preserving generated articles
+  // ADMIN: Fully delete content brief with cleanup (including generated articles)
   const handleDeleteBrief = async (briefId: string, briefTitle?: string) => {
     const confirmation = window.confirm(
-      `Are you sure you want to clear the content brief data${briefTitle ? ` for "${briefTitle}"` : ''}? This will remove the brief content but preserve any generated article content, comments, and version history.`
+      `⚠️ ADMIN DELETE: Are you sure you want to PERMANENTLY DELETE the entire content brief${briefTitle ? ` "${briefTitle}"` : ''}? This will remove everything including the content brief, generated article, comments, version history, and all associated data. This action cannot be undone.`
     );
     
     if (!confirmation) return false;
 
     try {
-      const result = await clearContentBriefData(briefId);
+      const result = await deleteContentBriefWithCleanup(briefId);
       
       if (!result.success) {
-        toast.error(result.error || 'Failed to clear content brief data');
+        toast.error(result.error || 'Failed to delete content brief');
         return false;
       }
 
-      // Show success message with cleanup details
-      const clearedImages = result.clearedImages?.length || 0;
-      if (clearedImages > 0) {
-        toast.success(`Content brief data cleared successfully. Cleaned up ${clearedImages} brief-only images. Generated article preserved.`);
+      // Show success message with deletion details
+      const deletedImages = result.deletedImages?.length || 0;
+      if (deletedImages > 0) {
+        toast.success(`Content brief permanently deleted. Cleaned up ${deletedImages} images and all associated data.`);
       } else {
-        toast.success('Content brief data cleared successfully. Generated article preserved.');
+        toast.success('Content brief permanently deleted with all associated data.');
       }
       
-      // Remove the cleared brief from local state since it won't be shown in UI anymore
+      // Remove the deleted brief from local state
       setUserContentBriefs(prev => 
         prev.filter(b => b.id !== briefId)
       );
       
       return true;
     } catch (error) {
-      console.error('Error clearing content brief data:', error);
-      toast.error('Failed to clear content brief data');
+      console.error('Error deleting content brief:', error);
+      toast.error('Failed to delete content brief');
       return false;
     }
   };

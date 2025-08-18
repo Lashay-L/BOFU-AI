@@ -577,9 +577,9 @@ const DedicatedProductPage: React.FC = () => {
       if (sessionError || !session) {
         toast.error('You must be logged in to approve products.');
         // Revert optimistic update
-        setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: prod.isApproved } : null);
+        setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: !newApprovedState } : null);
         if (product && parsedAnalysisData && product.id === parsedAnalysisData.research_result_id) {
-          setProduct((prevProd) => prevProd ? { ...prevProd, generated_analysis_data: { ...(prevProd.generated_analysis_data as ProductAnalysis), isApproved: prod.isApproved } } : null);
+          setProduct((prevProd) => prevProd ? { ...prevProd, generated_analysis_data: { ...(prevProd.generated_analysis_data as ProductAnalysis), isApproved: !newApprovedState } } : null);
         }
         return;
       }
@@ -595,12 +595,53 @@ const DedicatedProductPage: React.FC = () => {
         if (profileError) {
           console.error('Error fetching user profile:', profileError);
           toast.error('Failed to get user profile information');
-          setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: prod.isApproved } : null);
+          setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: !newApprovedState } : null);
           return;
         }
 
-        // For products from the product page, use product_id instead of research_result_id
+        // Check if research result exists, create if it doesn't
+        let researchResultId = currentProductIdFromUrl;
+        
+        const { data: existingResearchResult, error: researchCheckError } = await supabase
+          .from('research_results')
+          .select('id')
+          .eq('id', currentProductIdFromUrl)
+          .single();
+          
+        if (researchCheckError && researchCheckError.code === 'PGRST116') {
+          // Research result doesn't exist, create it
+          console.log('[DedicatedProductPage] Creating research result for approval');
+          const { data: newResearchResult, error: createError } = await supabase
+            .from('research_results')
+            .insert({
+              id: currentProductIdFromUrl, // Use the same ID from URL
+              title: `Product Analysis - ${prod.productDetails?.name || prod.companyName}`,
+              data: [prod],
+              is_draft: false,
+              is_approved: true,
+              user_id: session.user.id
+            })
+            .select('id')
+            .single();
+            
+          if (createError) {
+            console.error('[DedicatedProductPage] Error creating research result:', createError);
+            toast.error('Failed to create research result entry');
+            setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: !newApprovedState } : null);
+            return;
+          }
+          
+          researchResultId = newResearchResult.id;
+        } else if (researchCheckError) {
+          console.error('Error checking research result:', researchCheckError);
+          toast.error('Failed to verify research result');
+          setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: !newApprovedState } : null);
+          return;
+        }
+
+        // For products from the product page, use research_result_id
         const dataToUpsert: any = {
+          research_result_id: researchResultId,
           approved_by: session.user.id,
           product_index: 0, // Always 0 for standalone products
           product_name: prod.productDetails?.name || 'Unnamed Product',
@@ -609,30 +650,20 @@ const DedicatedProductPage: React.FC = () => {
           product_data: { ...prod, isApproved: true, userUUID: session.user.id }, // Store enriched product with approval state
           // approved_at, created_at, updated_at have db defaults or are set on update by Supabase/triggers
         };
-        
-        // Check if the migration has been applied by trying to use product_id
-        // If it fails, fall back to creating a research_result entry
-        try {
-          dataToUpsert.product_id = product.id;
-          // Don't include research_result_id at all if using product_id
-        } catch (e) {
-          // Fallback: migration not applied yet
-          console.warn('[DedicatedProductPage] product_id column might not exist, falling back to research_result approach');
-        }
 
         const { data: existingApproval, error: fetchError } = await supabase
           .from('approved_products')
           .select('id')
-          .eq('product_id', product.id)
+          .eq('research_result_id', researchResultId)
           .eq('approved_by', session.user.id!)
           .single();
 
         if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116: row not found, which is fine for insert
           console.error('Error checking existing approval:', fetchError);
           toast.error(`Error checking approval: ${fetchError.message}`);
-           setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: prod.isApproved } : null);
+           setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: !newApprovedState } : null);
            if (product && parsedAnalysisData && product.id === parsedAnalysisData.research_result_id) {
-             setProduct((prevProd) => prevProd ? { ...prevProd, generated_analysis_data: { ...(prevProd.generated_analysis_data as ProductAnalysis), isApproved: prod.isApproved } } : null);
+             setProduct((prevProd) => prevProd ? { ...prevProd, generated_analysis_data: { ...(prevProd.generated_analysis_data as ProductAnalysis), isApproved: !newApprovedState } } : null);
            }
           return;
         }
@@ -654,9 +685,9 @@ const DedicatedProductPage: React.FC = () => {
           if (updateError) {
             console.error('Error updating product approval:', updateError);
             toast.error(updateError.message || 'Failed to update product approval.');
-            setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: prod.isApproved } : null);
+            setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: !newApprovedState } : null);
             if (product && parsedAnalysisData && product.id === parsedAnalysisData.research_result_id) {
-              setProduct((prevProd) => prevProd ? { ...prevProd, generated_analysis_data: { ...(prevProd.generated_analysis_data as ProductAnalysis), isApproved: prod.isApproved } } : null);
+              setProduct((prevProd) => prevProd ? { ...prevProd, generated_analysis_data: { ...(prevProd.generated_analysis_data as ProductAnalysis), isApproved: !newApprovedState } } : null);
             }
             return;
           }
@@ -669,61 +700,10 @@ const DedicatedProductPage: React.FC = () => {
 
           if (insertError) {
             console.error('Error approving product:', insertError);
-            
-            // Check if error is due to missing product_id column or constraint
-            if (insertError.message.includes('product_id') || insertError.code === '23503') {
-              console.log('[DedicatedProductPage] Migration not applied, falling back to research_result approach');
-              
-              // Create a research_result entry for this standalone product
-              const { data: newResearchResult, error: createError } = await supabase
-                .from('research_results')
-                .insert({
-                  title: `Product Analysis - ${prod.productDetails?.name || prod.productDetails?.name || prod.companyName}`,
-                  data: [prod],
-                  is_draft: false,
-                  is_approved: true,
-                  user_id: session.user.id
-                })
-                .select('id')
-                .single();
-                
-              if (createError) {
-                console.error('[DedicatedProductPage] Error creating research result:', createError);
-                toast.error('Failed to create research result entry');
-                setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: prod.isApproved } : null);
-                return;
-              }
-              
-              // Retry with research_result_id
-              const fallbackData = {
-                research_result_id: newResearchResult.id,
-                approved_by: session.user.id,
-                product_index: 0,
-                product_name: prod.productDetails?.name || 'Unnamed Product',
-                product_description: prod.productDetails?.description || '',
-                company_name: userProfile.company_name || '', // Use user's company, not product's
-                product_data: { ...prod, isApproved: true, userUUID: session.user.id }
-              };
-              
-              const { error: retryError } = await supabase
-                .from('approved_products')
-                .insert([fallbackData]);
-                
-              if (retryError) {
-                console.error('Error in fallback approval:', retryError);
-                toast.error('Failed to approve product');
-                setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: prod.isApproved } : null);
-                return;
-              }
-              
-              toast.success('Product approved successfully!');
-              return;
-            }
-            
             toast.error(insertError.message || 'Failed to approve product.');
-            setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: prod.isApproved } : null);
+            setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: !newApprovedState } : null);
             if (product && parsedAnalysisData && product.id === parsedAnalysisData.research_result_id) {
-              setProduct((prevProd) => prevProd ? { ...prevProd, generated_analysis_data: { ...(prevProd.generated_analysis_data as ProductAnalysis), isApproved: prod.isApproved } } : null);
+              setProduct((prevProd) => prevProd ? { ...prevProd, generated_analysis_data: { ...(prevProd.generated_analysis_data as ProductAnalysis), isApproved: !newApprovedState } } : null);
             }
             return;
           }
@@ -746,18 +726,27 @@ const DedicatedProductPage: React.FC = () => {
           // Don't fail the approval process if notification fails
         }
       } else { // Product is being un-approved
+        // Check if research result exists first
+        const { data: existingResearchResult } = await supabase
+          .from('research_results')
+          .select('id')
+          .eq('id', currentProductIdFromUrl)
+          .single();
+          
+        const searchId = existingResearchResult?.id || currentProductIdFromUrl;
+        
         const { error: deleteError } = await supabase
           .from('approved_products')
           .delete()
-          .eq('product_id', product.id)
+          .eq('research_result_id', searchId)
           .eq('approved_by', session.user.id!);
 
         if (deleteError) {
           console.error('Error unapproving product:', deleteError);
           toast.error(deleteError.message || 'Failed to unapprove product.');
-          setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: prod.isApproved } : null);
+          setParsedAnalysisData((prev) => prev ? { ...prev, isApproved: !newApprovedState } : null);
           if (product && parsedAnalysisData && product.id === parsedAnalysisData.research_result_id) {
-            setProduct((prevProd) => prevProd ? { ...prevProd, generated_analysis_data: { ...(prevProd.generated_analysis_data as ProductAnalysis), isApproved: prod.isApproved } } : null);
+            setProduct((prevProd) => prevProd ? { ...prevProd, generated_analysis_data: { ...(prevProd.generated_analysis_data as ProductAnalysis), isApproved: !newApprovedState } } : null);
           }
           return;
         }

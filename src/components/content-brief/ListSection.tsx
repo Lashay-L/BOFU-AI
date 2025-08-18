@@ -154,23 +154,34 @@ export const ListSection: React.FC<ListSectionProps> = ({
   useEffect(() => {
     if (isPainPointsSection) {
       const getPainPoints = async () => {
-        console.log('Loading pain points from database...');
+        console.log('🔍 ListSection PAIN POINTS - Loading pain points from database...');
+        console.log('🔍 ListSection PAIN POINTS - sourceProductId:', sourceProductId);
+        console.log('🔍 ListSection PAIN POINTS - researchResultId:', researchResultId);
+        console.log('🔍 ListSection PAIN POINTS - sectionKey:', sectionKey);
+        
         try {
           // Use dual-ID system - prioritize sourceProductId, fallback to researchResultId
           if (sourceProductId || researchResultId) {
+            console.log('🔍 ListSection PAIN POINTS - Calling fetchPainPoints with:', { sourceProductId, researchResultId });
             const fetchedPainPoints = await fetchPainPoints(sourceProductId, researchResultId);
+            console.log('🔍 ListSection PAIN POINTS - fetchPainPoints returned:', fetchedPainPoints);
+            
             if (fetchedPainPoints.length > 0) {
               setAvailablePainPoints(fetchedPainPoints);
-              console.log('Pain points data loaded from database using dual-ID system:', fetchedPainPoints.length);
+              console.log('✅ ListSection PAIN POINTS - Real data loaded from database:', fetchedPainPoints.length);
               return;
+            } else {
+              console.log('⚠️ ListSection PAIN POINTS - fetchPainPoints returned empty array');
             }
+          } else {
+            console.log('❌ ListSection PAIN POINTS - No IDs provided (both sourceProductId and researchResultId are null/undefined)');
           }
         } catch (error) {
-          console.error('Error fetching pain points from database:', error);
+          console.error('❌ ListSection PAIN POINTS - Error fetching pain points from database:', error);
         }
         
         // Fallback to placeholder data if database fetch fails or returns no results
-        console.log('Loading pain points fallback data...');
+        console.log('🔄 ListSection PAIN POINTS - Loading hardcoded fallback data...');
         setAvailablePainPoints([
           'High operational costs',
           'Inefficient processes',
@@ -183,7 +194,7 @@ export const ListSection: React.FC<ListSectionProps> = ({
           'Lack of real-time visibility',
           'Integration challenges'
         ]);
-        console.log('Pain points fallback data loaded successfully');
+        console.log('✅ ListSection PAIN POINTS - Hardcoded fallback data loaded successfully');
       };
 
       getPainPoints();
@@ -193,17 +204,26 @@ export const ListSection: React.FC<ListSectionProps> = ({
   useEffect(() => {
     if (isCapabilitiesSection) {
       const getCapabilities = async () => {
-        console.log('Loading capabilities data using dual-ID system...', { sourceProductId, researchResultId });
+        console.log('🔍 ListSection CAPABILITIES - Loading capabilities data using dual-ID system...', { sourceProductId, researchResultId });
+        console.log('🔍 ListSection CAPABILITIES - sourceProductId:', sourceProductId);
+        console.log('🔍 ListSection CAPABILITIES - researchResultId:', researchResultId);
         
         try {
           // Use dual-ID system - prioritize sourceProductId, fallback to researchResultId
           if (sourceProductId || researchResultId) {
+            console.log('🔍 ListSection CAPABILITIES - Calling fetchCapabilities with:', { sourceProductId, researchResultId });
             const fetchedCapabilities = await fetchCapabilities(sourceProductId, researchResultId);
+            console.log('🔍 ListSection CAPABILITIES - fetchCapabilities returned:', fetchedCapabilities);
+            
             if (fetchedCapabilities.length > 0) {
-              console.log('Capabilities fetched from database using dual-ID system:', fetchedCapabilities);
+              console.log('✅ ListSection CAPABILITIES - Real data fetched from database using dual-ID system:', fetchedCapabilities);
               setAvailableCapabilities(fetchedCapabilities);
               return;
+            } else {
+              console.log('⚠️ ListSection CAPABILITIES - fetchCapabilities returned empty array');
             }
+          } else {
+            console.log('❌ ListSection CAPABILITIES - No IDs provided (both sourceProductId and researchResultId are null/undefined)');
           }
           
           // Fallback to default capabilities if no data from database

@@ -538,8 +538,14 @@ export default function EditContentBrief() {
                         handleAutoSave({ brief_content: content, internal_links: links, possible_article_titles: titles, title: newTitle });
                       }}
                       briefId={id || ''}
-                      researchResultId={brief?.research_result_id}
-                      sourceProductId={brief?.source_product_id}
+                      researchResultId={(() => {
+                        console.log('🔍 USER DASHBOARD - Passing researchResultId to ContentBriefEditorSimple:', brief?.research_result_id);
+                        return brief?.research_result_id;
+                      })()}
+                      sourceProductId={(() => {
+                        console.log('🔍 USER DASHBOARD - Passing sourceProductId to ContentBriefEditorSimple:', brief?.source_product_id);
+                        return brief?.source_product_id;
+                      })()}
                     />
                   </div>
                 </div>

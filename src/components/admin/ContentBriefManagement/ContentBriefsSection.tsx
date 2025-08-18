@@ -330,8 +330,14 @@ export function ContentBriefsSection({
                             <ContentBriefEditorSimple 
                               initialContent={contentToPass}
                               briefId={brief.id}
-                              researchResultId={brief.research_result_id}
-                              sourceProductId={brief.source_product_id}
+                              researchResultId={(() => {
+                                console.log('🔍 ADMIN DASHBOARD - Passing researchResultId to ContentBriefEditorSimple:', brief.research_result_id);
+                                return brief.research_result_id;
+                              })()}
+                              sourceProductId={(() => {
+                                console.log('🔍 ADMIN DASHBOARD - Passing sourceProductId to ContentBriefEditorSimple:', brief.source_product_id);
+                                return brief.source_product_id;
+                              })()}
                               onUpdate={async (content: string, links: string[], titles: string[]) => {
                                 try {
                                   console.log('Admin dashboard: Auto-saving content brief changes');
