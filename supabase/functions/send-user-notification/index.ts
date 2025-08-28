@@ -112,7 +112,7 @@ serve(async (req) => {
           type: 'header',
           text: {
             type: 'plain_text',
-            text: '📋 Content Brief Ready for Review',
+            text: `📋 Content Brief Ready: ${briefTitle}`,
             emoji: true
           }
         },
@@ -187,7 +187,7 @@ serve(async (req) => {
           type: 'header',
           text: {
             type: 'plain_text',
-            text: '🚀 Article Generation Complete',
+            text: `🚀 Article Complete: ${briefTitle}`,
             emoji: true
           }
         },

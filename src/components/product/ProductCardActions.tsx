@@ -398,6 +398,14 @@ export function ProductCardActions({
   };
 
   const handleSendToMoonlit = async () => {
+    // Check if competitor analysis Google Doc URL exists
+    const googleDocUrl = product.google_doc || product.competitorAnalysisUrl || '';
+    
+    if (!googleDocUrl || googleDocUrl.trim() === '') {
+      toast.error('Cannot generate content brief: Competitor analysis report is missing. Please generate the competitor analysis first.');
+      return;
+    }
+    
     // Use research result ID if available, otherwise fall back to approved product ID
     // Handle empty strings by treating them as falsy
     const trackingId = (researchResultId && researchResultId.trim()) || (approvedProductId && approvedProductId.trim());
@@ -407,6 +415,7 @@ export function ProductCardActions({
       researchResultId,
       approvedProductId,
       trackingId,
+      googleDocUrl,
       researchResultIdType: typeof researchResultId,
       approvedProductIdType: typeof approvedProductId,
       researchResultIdLength: researchResultId?.length,
